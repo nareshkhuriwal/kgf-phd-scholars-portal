@@ -21,6 +21,7 @@
     "@reduxjs/toolkit": "^2.3.0",
     "dayjs": "^1.11.19",
     "docx": "^9.5.1",
+    "file-saver": "^2.0.5",
     "lucide-react": "^0.553.0",
     "markdown-it": "^14.1.0",
     "pptxgenjs": "^4.0.1",

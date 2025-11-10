@@ -1,11 +1,14 @@
 // src/pages/reports/SavedReports.jsx
 import React from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { loadSavedReports, deleteSavedReport, previewSavedReport, generateSavedReport } from '../../store/reportsSlice';
+import {
+  loadSavedReports, deleteSavedReport, previewSavedReport, generateSavedReport
+} from '../../store/reportsSlice';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, Paper, Button, TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
-  TablePagination, Stack, IconButton, Tooltip, Typography, Chip, Snackbar, Alert
+  TablePagination, Stack, IconButton, Tooltip, Typography, Chip, Snackbar, Alert, Dialog,
+  DialogTitle, DialogContent, DialogActions
 } from '@mui/material';
 import PageHeader from '../../components/PageHeader';
 import SearchBar from '../../components/SearchBar';
@@ -14,16 +17,27 @@ import DownloadIcon from '@mui/icons-material/Download';
 import EditIcon from '@mui/icons-material/Edit';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DeleteIcon from '@mui/icons-material/Delete';
+import ReportPreviewDialog from '../../components/reports/ReportPreviewDialog';
 
 export default function SavedReports(){
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { saved, savedLoading, lastDownloadUrl, generating } = useSelector(s=>s.reports);
+  const {
+    saved, savedLoading, lastDownloadUrl, generating,
+    savedPreview, previewLoading
+  } = useSelector(s=>s.reports);
+
 
   const [query, setQuery] = React.useState('');
   const [page, setPage] = React.useState(0);
   const [rpp, setRpp] = React.useState(10);
   const [snack, setSnack] = React.useState(null);
+  const [previewOpen, setPreviewOpen] = React.useState(false);
+  const [previewData, setPreviewData] = React.useState(null);
+  const [selectedReport, setSelectedReport] = React.useState(null);
+
+  // NEW: delete confirm state
+  const [confirm, setConfirm] = React.useState(null); // { id, name } | null
 
   React.useEffect(()=>{ dispatch(loadSavedReports()); },[dispatch]);
 
@@ -39,10 +53,32 @@ export default function SavedReports(){
     setSnack({severity:'info', msg:'Config copied to clipboard. Paste into builder to reuse.'});
   };
 
-  const onDelete = async (id) => {
-    await dispatch(deleteSavedReport(id));
-    setSnack({severity:'success', msg:'Deleted.'});
+  // OPEN confirm dialog
+  const askDelete = (row) => setConfirm({ id: row.id, name: row.name });
+
+  // CONFIRM delete
+  const confirmDelete = async () => {
+    if (!confirm?.id) return;
+    await dispatch(deleteSavedReport(confirm.id));
+    setSnack({severity:'success', msg:`Deleted "${confirm.name}".`});
+    setConfirm(null);
   };
+
+  const onPreview = async (row) => {
+    console.log('Previewing', row);
+    try {
+      const res = await dispatch(previewSavedReport({ id: row.id , payload: { ...row } })).unwrap();
+      // if your API wraps data, normalize it here:
+      setPreviewData(res?.data ?? res ?? null);
+      setPreviewOpen(true);
+      setSelectedReport(row);
+    } catch (err) {
+      // optional: toast/log
+      console.error('Preview failed', err);
+    }
+  };
+
+
 
   return (
     <Box sx={{ display:'flex', flexDirection:'column', height:'100%' }}>
@@ -87,16 +123,20 @@ export default function SavedReports(){
                   <TableCell>
                     <Stack direction="row" spacing={1}>
                       <Tooltip title="Preview"><span>
-                        <IconButton size="small" onClick={()=>dispatch(previewSavedReport(r.id))}><PreviewIcon fontSize="inherit" /></IconButton>
+                        <IconButton size="small" onClick={()=>onPreview(r)}><PreviewIcon fontSize="inherit" /></IconButton>
                       </span></Tooltip>
                       <Tooltip title="Download"><span>
-                        <IconButton size="small" disabled={generating} onClick={()=>dispatch(generateSavedReport({ id:r.id, format: r.format || 'pdf' }))}>
+                        <IconButton size="small" disabled={generating} onClick={()=>dispatch(generateSavedReport({ id:r.id }))}>
                           <DownloadIcon fontSize="inherit" />
                         </IconButton>
                       </span></Tooltip>
-                      <Tooltip title="Edit"><IconButton size="small" onClick={()=>navigate(`/reports/build?id=${r.id}`)}><EditIcon fontSize="inherit" /></IconButton></Tooltip>
+                      <Tooltip title="Edit"><IconButton size="small" onClick={()=>navigate(`/reports/builder/${r.id}`)}><EditIcon fontSize="inherit" /></IconButton></Tooltip>
                       <Tooltip title="Duplicate"><IconButton size="small" onClick={()=>onDuplicate(r)}><ContentCopyIcon fontSize="inherit" /></IconButton></Tooltip>
-                      <Tooltip title="Delete"><IconButton size="small" onClick={()=>onDelete(r.id)}><DeleteIcon fontSize="inherit" /></IconButton></Tooltip>
+                      <Tooltip title="Delete">
+                        <IconButton size="small" onClick={()=>askDelete(r)}>
+                          <DeleteIcon fontSize="inherit" />
+                        </IconButton>
+                      </Tooltip>
                     </Stack>
                   </TableCell>
                 </TableRow>
@@ -124,8 +164,30 @@ export default function SavedReports(){
         </Alert>
       )}
       <Snackbar open={!!snack} autoHideDuration={3000} onClose={()=>setSnack(null)}>
-        {snack && <Alert severity={snack.severity}>{snack.msg}</Alert>}
+        {snack && <Alert severity="success">{snack.msg}</Alert>}
       </Snackbar>
+
+      {/* Preview modal */}
+      <ReportPreviewDialog
+        open={previewOpen}
+        loading={previewLoading}
+        onClose={()=>setPreviewOpen(false)}
+        data={{ ...previewData, selectedReport }}
+      />
+
+      {/* DELETE CONFIRMATION */}
+      <Dialog open={!!confirm} onClose={()=>setConfirm(null)}>
+        <DialogTitle>Delete report?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            Are you sure you want to delete <strong>{confirm?.name ?? 'this report'}</strong>? This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={()=>setConfirm(null)}>Cancel</Button>
+          <Button color="error" variant="contained" onClick={confirmDelete}>Delete</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

@@ -33,7 +33,7 @@ export const fetchReportPreview = createAsyncThunk(
     // payload: { template, filters, selections }
     return await apiFetch('/reports/preview', {
       method: 'POST',
-      body: JSON.stringify(payload),
+      body: payload,
       headers: { 'Content-Type': 'application/json' }
     });
   }
@@ -46,7 +46,7 @@ export const generateReport = createAsyncThunk(
     // payload: { template, format, filename, filters, selections }
     return await apiFetch('/reports/generate', {
       method: 'POST',
-      body: JSON.stringify(payload),
+      body: payload,
       headers: { 'Content-Type': 'application/json' }
     });
   }
@@ -59,7 +59,7 @@ export const bulkExport = createAsyncThunk(
     // payload: { type:'all-users'|'all-papers'|'by-collection', format:'xlsx'|'csv'|'pdf', filters:{...} }
     return await apiFetch('/reports/bulk-export', {
       method: 'POST',
-      body: JSON.stringify(payload),
+      body: payload,
       headers: { 'Content-Type': 'application/json' }
     });
   }
@@ -83,7 +83,7 @@ export const createSavedReport = createAsyncThunk('reports/createSavedReport', a
   // payload: { name, template, format, filename, filters, selections }
   return await apiFetch('/reports/saved', {
     method: 'POST',
-    body: JSON.stringify(payload),
+    body: payload,
     headers: { 'Content-Type': 'application/json' }
   });
 });
@@ -92,7 +92,7 @@ export const createSavedReport = createAsyncThunk('reports/createSavedReport', a
 export const updateSavedReport = createAsyncThunk('reports/updateSavedReport', async ({ id, ...payload }) => {
   return await apiFetch(`/reports/saved/${id}`, {
     method: 'PUT',
-    body: JSON.stringify(payload),
+    body: payload,
     headers: { 'Content-Type': 'application/json' }
   });
 });
@@ -104,15 +104,19 @@ export const deleteSavedReport = createAsyncThunk('reports/deleteSavedReport', a
 });
 
 // Preview a saved config (server builds outline from stored payload)
-export const previewSavedReport = createAsyncThunk('reports/previewSavedReport', async (id) => {
-  return await apiFetch(`/reports/saved/${id}/preview`, { method: 'POST' });
+export const previewSavedReport = createAsyncThunk('reports/previewSavedReport', async ({ id, payload }) => {
+  return await apiFetch(`/reports/saved/${id}/preview`, {
+    method: 'POST',
+    body: { name: payload.name, format: payload.format, template: payload.template, filters: payload.filters, selections: payload.selections },
+    headers: { 'Content-Type': 'application/json' }
+  });
 });
 
 // Generate file from saved config
-export const generateSavedReport = createAsyncThunk('reports/generateSavedReport', async ({ id, format }) => {
+export const generateSavedReport = createAsyncThunk('reports/generateSavedReport', async ({ id, payload }) => {
   return await apiFetch(`/reports/saved/${id}/generate`, {
     method: 'POST',
-    body: JSON.stringify({ format }),
+    body: { name: payload.name, format: payload.format, template: payload.template, filters: payload.filters, selections: payload.selections },
     headers: { 'Content-Type': 'application/json' }
   });
 });

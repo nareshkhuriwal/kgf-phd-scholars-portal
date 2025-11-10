@@ -1,165 +1,333 @@
-// src/pages/ROL.jsx
-import React from 'react'
-import { useDispatch, useSelector } from 'react-redux'
-import { loadROL } from '../store/papersSlice'
+// src/components/reports/ReportPreviewDialog.jsx
+import React from 'react';
 import {
-  Paper as MUIPaper, Box, Typography, Button, TextField, InputAdornment,
-  TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
-  TablePagination, Tooltip
-} from '@mui/material'
-import SearchIcon from '@mui/icons-material/Search'
-import * as XLSX from 'xlsx'
+  Dialog, Box, Typography, IconButton, Button, Chip,
+  LinearProgress, Alert, Divider, TextField, InputAdornment,
+  TableContainer, Table, TableHead, TableRow, TableCell, TableBody, TablePagination,
+  Tooltip
+} from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import DownloadIcon from '@mui/icons-material/Download';
+import SearchIcon from '@mui/icons-material/Search';
+import * as XLSX from 'xlsx';
 
-const Ellipsed = ({ value, clamp = 1 }) => (
-  <Tooltip title={value && String(value).length > 80 ? String(value) : ''} arrow>
-    <Box sx={{
-      display: '-webkit-box',
-      WebkitLineClamp: clamp,
-      WebkitBoxOrient: 'vertical',
-      overflow: 'hidden',
-      textOverflow: 'ellipsis',
-      whiteSpace: clamp === 1 ? 'nowrap' : 'normal',
-    }}>
-      {value ?? '—'}
-    </Box>
-  </Tooltip>
-)
+/**
+ * The dialog supports two preview modes:
+ *  1) File mode: { format, url, html, mime }  -> embeds PDF/Office/Image/HTML
+ *  2) Dataset mode: { name, columns:[{key,label}], rows:[{...}] } -> renders table + Excel export
+ */
+export default function ReportPreviewDialog({ open, loading, onClose, data }) {
 
-export default function ROL() {
-  const dispatch = useDispatch()
-  const { rol, loading } = useSelector(s => s.papers || { rol: [], loading: false })
+  console.log("ReportPreviewDialog data:", data);
+  
+  const {
+    name = 'Preview',
+    format,
+    url,
+    downloadUrl,
+    mime,
+    html,
+    columns,
+    rows,
+    template,
+  } = data?.data || {};
 
-  React.useEffect(() => { dispatch(loadROL()) }, [dispatch])
+  const fmt = String(format || '').toLowerCase();
+  const hasDataset = Array.isArray(columns) && Array.isArray(rows) && columns.length > 0;
 
-  // Normalize array
-  const data = Array.isArray(rol) ? rol : []
+  console.log("Dataset", { data, hasDataset });
 
-  // Search + pagination
-  const [query, setQuery] = React.useState('')
-  const [page, setPage] = React.useState(0)
-  const [rowsPerPage, setRowsPerPage] = React.useState(10)
+  // File-mode helpers
+  const officeViewer = (fileUrl) =>
+    `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(fileUrl)}`;
 
-  const filtered = React.useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (!q) return data
-    return data.filter(r =>
-      [
-        r?.id, r?.title, r?.authors, r?.year, r?.doi, r?.category, r?.keyIssue
-      ].filter(Boolean).join(' ').toLowerCase().includes(q)
-    )
-  }, [data, query])
+  const canOfficeEmbed = ['docx', 'pptx', 'xlsx'].includes(fmt);
+  const isPdf = fmt === 'pdf';
+  const isHtml = fmt === 'html';
+  const isText = ['txt', 'md'].includes(fmt);
+  const isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(fmt);
+  const effectiveDownload = downloadUrl || url || null;
 
-  const start = page * rowsPerPage
-  const rows = filtered.slice(start, start + rowsPerPage)
+  // Dataset-mode: search + pagination
+  const [q, setQ] = React.useState('');
+  const [page, setPage] = React.useState(0);
+  const [rpp, setRpp] = React.useState(10);
 
-  const downloadExcel = () => {
-    const ws = XLSX.utils.json_to_sheet(filtered)
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'ROL')
-    XLSX.writeFile(wb, 'ROL.xlsx')
-  }
+  React.useEffect(() => {
+    if (open) {
+      setQ('');
+      setPage(0);
+    }
+  }, [open]);
+
+  const filteredRows = React.useMemo(() => {
+    if (!hasDataset || !q.trim()) return rows || [];
+    const query = q.toLowerCase();
+    return (rows || []).filter((r) =>
+      columns.some((c) => String(r?.[c.key] ?? '').toLowerCase().includes(query))
+    );
+  }, [rows, columns, q, hasDataset]);
+
+  const start = page * rpp;
+  const pageRows = hasDataset ? filteredRows.slice(start, start + rpp) : [];
+
+  // Dataset-mode: Excel export (columns order respected)
+  const handleDownloadExcel = () => {
+    if (!hasDataset) return;
+    const headerLabels = columns.map((c) => c.label || c.key);
+    const aoa = [headerLabels];
+    for (const r of filteredRows) {
+      aoa.push(columns.map((c) => r?.[c.key] ?? ''));
+    }
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, (template || 'Report').toUpperCase());
+    XLSX.writeFile(wb, `${name || 'report'}.xlsx`);
+  };
+
+  // Small cell with ellipsis
+  const Cell = ({ value, clamp = 1 }) => (
+    <Tooltip title={value && String(value).length > 120 ? String(value) : ''} arrow>
+      <Box sx={{
+        display: '-webkit-box',
+        WebkitLineClamp: clamp,
+        WebkitBoxOrient: 'vertical',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: clamp === 1 ? 'nowrap' : 'normal',
+      }}>
+        {value ?? '—'}
+      </Box>
+    </Tooltip>
+  );
 
   return (
-    <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      fullWidth
+      maxWidth="xl"
+      keepMounted
+      PaperProps={{
+        sx: {
+          width: '80vw',
+          height: '80vh',
+          maxWidth: '1200px',
+          borderRadius: 2,
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+        },
+      }}
+    >
       {/* Header */}
-      <MUIPaper
+      <Box
         sx={{
-          mb: 1,
-          p: 2,
+          px: 2, py: 1.25,
           display: 'flex',
           alignItems: 'center',
-          gap: 2,
-          border: '1px solid #eee',
-          borderRadius: 2,
+          gap: 1.5,
           bgcolor: 'background.paper',
-          flexShrink: 0
+          borderBottom: '1px solid',
+          borderColor: 'divider',
         }}
       >
-        <Typography variant="h6" sx={{ flexGrow: 1, lineHeight: 1 }}>
-          ROL (Review of Literature)
-          <Typography component="span" sx={{ color: 'text.secondary', ml: 1 }}>
-            ( {filtered.length} items )
-          </Typography>
+        <Typography
+          variant="h6"
+          sx={{ fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+          title={name}
+        >
+          {name}
+          {template && (
+            <Typography component="span" sx={{ ml: 1, color: 'text.secondary', fontSize: 14 }}>
+              • {String(template).toUpperCase()}
+            </Typography>
+          )}
         </Typography>
 
-        <TextField
-          size="small"
-          placeholder="Search title, authors, year, DOI, key issue…"
-          value={query}
-          onChange={(e) => { setQuery(e.target.value); setPage(0) }}
-          sx={{ width: 420, maxWidth: '45%' }}
-          InputProps={{ startAdornment: (<InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment>) }}
-        />
+        {!!format && !hasDataset && <Chip size="small" label={format.toUpperCase()} sx={{ fontWeight: 600 }} />}
 
-        <Button variant="contained" onClick={downloadExcel} disabled={filtered.length === 0}>
-          Download ROL Excel
-        </Button>
-      </MUIPaper>
+        {/* Dataset mode: Excel download */}
+        {hasDataset && (
+          <Button
+            size="small"
+            variant="contained"
+            startIcon={<DownloadIcon />}
+            onClick={handleDownloadExcel}
+            disabled={loading || (filteredRows?.length ?? 0) === 0}
+          >
+            Download Excel
+          </Button>
+        )}
 
-      {/* Table area – only this scrolls */}
-      <MUIPaper sx={{ border: '1px solid #eee', borderRadius: 2, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-        {loading ? (
-          <Typography sx={{ p: 2 }}>Loading…</Typography>
-        ) : (
+        {/* File mode actions */}
+        {!hasDataset && url && (
+          <IconButton title="Open in new tab" onClick={() => window.open(url, '_blank')}>
+            <OpenInNewIcon />
+          </IconButton>
+        )}
+        {!hasDataset && effectiveDownload && (
+          <Button
+            size="small"
+            variant="contained"
+            startIcon={<DownloadIcon />}
+            onClick={() => window.open(effectiveDownload, '_blank')}
+          >
+            Download
+          </Button>
+        )}
+
+        <IconButton onClick={onClose} title="Close">
+          <CloseIcon />
+        </IconButton>
+      </Box>
+
+      {loading && <LinearProgress />}
+
+      {/* BODY */}
+      <Box sx={{ flex: 1, minHeight: 0, bgcolor: '#f7f7f9', display: 'flex', flexDirection: 'column' }}>
+        {/* DATASET MODE */}
+        {(!loading && hasDataset) && (
           <>
-            <TableContainer
-              sx={{
-                flex: 1,
-                minHeight: 200,
-                maxHeight: 'calc(100vh - 210px)', // same as other pages
-                overflow: 'auto'
-              }}
-            >
-              <Table stickyHeader size="small" aria-label="ROL table">
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 600, backgroundColor: '#f7f7f9', width: 80 }}>#</TableCell>
-                    <TableCell sx={{ fontWeight: 600, backgroundColor: '#f7f7f9', minWidth: 260 }}>Title</TableCell>
-                    <TableCell sx={{ fontWeight: 600, backgroundColor: '#f7f7f9', minWidth: 180 }}>Authors</TableCell>
-                    <TableCell sx={{ fontWeight: 600, backgroundColor: '#f7f7f9', width: 90 }}>Year</TableCell>
-                    <TableCell sx={{ fontWeight: 600, backgroundColor: '#f7f7f9', minWidth: 160 }}>DOI</TableCell>
-                    <TableCell sx={{ fontWeight: 600, backgroundColor: '#f7f7f9', minWidth: 140 }}>Category</TableCell>
-                    <TableCell sx={{ fontWeight: 600, backgroundColor: '#f7f7f9', minWidth: 240 }}>Key Issue</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {rows.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={7} align="center" sx={{ py: 3 }}>
-                        No data
-                      </TableCell>
-                    </TableRow>
-                  ) : rows.map((r, i) => (
-                    <TableRow hover key={String(r.id ?? start + i + 1)}>
-                      <TableCell>{start + i + 1}</TableCell>
-                      <TableCell><Ellipsed value={r.title} clamp={2} /></TableCell>
-                      <TableCell><Ellipsed value={r.authors} /></TableCell>
-                      <TableCell>{r.year ?? '—'}</TableCell>
-                      <TableCell><Ellipsed value={r.doi} /></TableCell>
-                      <TableCell><Ellipsed value={r.category} /></TableCell>
-                      <TableCell><Ellipsed value={r.keyIssue} clamp={2} /></TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <TablePagination
-                component="div"
-                count={filtered.length}
-                page={page}
-                onPageChange={(_e, newPage) => setPage(newPage)}
-                rowsPerPage={rowsPerPage}
-                onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0) }}
-                showFirstButton
-                showLastButton
-                rowsPerPageOptions={[10, 25, 50, 100]}
+            {/* Toolbar */}
+            <Box sx={{ p: 1.5, display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Typography variant="subtitle2" sx={{ color: 'text.secondary', flex: 1 }}>
+                {filteredRows.length.toLocaleString()} row(s)
+              </Typography>
+              <TextField
+                size="small"
+                placeholder="Search…"
+                value={q}
+                onChange={(e) => { setQ(e.target.value); setPage(0); }}
+                sx={{ width: 360, maxWidth: '45%' }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" />
+                    </InputAdornment>
+                  ),
+                }}
               />
+            </Box>
+
+            <Box sx={{ px: 1.5, pb: 1.5, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+              <TableContainer
+                sx={{
+                  flex: 1,
+                  minHeight: 200,
+                  maxHeight: 'calc(80vh - 150px)',
+                  overflow: 'auto',
+                  border: '1px solid #eee',
+                  borderRadius: 1.5,
+                  backgroundColor: 'background.paper',
+                }}
+              >
+                <Table stickyHeader size="small">
+                  <TableHead>
+                    <TableRow>
+                      {columns.map((c) => (
+                        <TableCell key={c.key} sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>
+                          {c.label || c.key}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {pageRows.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={columns.length} align="center" sx={{ py: 3 }}>
+                          No data
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      pageRows.map((r, idx) => (
+                        <TableRow hover key={idx}>
+                          {columns.map((c) => (
+                            <TableCell key={c.key}>
+                              <Cell value={r?.[c.key]} clamp={2} />
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <TablePagination
+                  component="div"
+                  count={filteredRows.length}
+                  page={page}
+                  onPageChange={(_e, p) => setPage(p)}
+                  rowsPerPage={rpp}
+                  onRowsPerPageChange={(e) => { setRpp(parseInt(e.target.value, 10)); setPage(0); }}
+                  rowsPerPageOptions={[10, 25, 50, 100]}
+                  showFirstButton
+                  showLastButton
+                />
+              </Box>
             </Box>
           </>
         )}
-      </MUIPaper>
-    </Box>
-  )
+
+        {/* FILE MODE */}
+        {(!loading && !hasDataset) && (
+          <>
+            {isHtml && html && (
+              <Box
+                sx={{
+                  p: 2,
+                  height: '100%',
+                  overflow: 'auto',
+                  bgcolor: '#fff',
+                  '& img': { maxWidth: '100%' },
+                }}
+                dangerouslySetInnerHTML={{ __html: html }}
+              />
+            )}
+
+            {isPdf && url && (
+              <Box sx={{ height: '100%' }}>
+                <embed
+                  src={`${url}#toolbar=1&navpanes=0`}
+                  type={mime || 'application/pdf'}
+                  style={{ width: '100%', height: '100%', border: 0 }}
+                />
+              </Box>
+            )}
+
+            {canOfficeEmbed && url && (
+              <iframe
+                title="office-preview"
+                src={officeViewer(url)}
+                style={{ width: '100%', height: '100%', border: 0, background: '#fff' }}
+              />
+            )}
+
+            {isImage && url && (
+              <Box sx={{ height: '100%', display: 'grid', placeItems: 'center', p: 2 }}>
+                <img src={url} alt={name} style={{ maxWidth: '100%', maxHeight: '100%' }} />
+              </Box>
+            )}
+
+            {isText && url && (
+              <iframe
+                title="text-preview"
+                src={url}
+                style={{ width: '100%', height: '100%', border: 0, background: '#fff' }}
+              />
+            )}
+
+            {!loading && !url && !html && (
+              <Box sx={{ p: 3 }}>
+                <Alert severity="info">No previewable content returned. Try downloading the file.</Alert>
+              </Box>
+            )}
+          </>
+        )}
+      </Box>
+    </Dialog>
+  );
 }

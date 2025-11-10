@@ -5,10 +5,11 @@ import {
   loadChapters, loadUsers, fetchReportPreview, generateReport,
   createSavedReport, updateSavedReport, fetchSavedReport
 } from '../../store/reportsSlice';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box, Stack, Paper, Typography, TextField, MenuItem, Button,
-  Chip, Divider, LinearProgress, FormControlLabel, Checkbox, Snackbar, Alert, IconButton, Tooltip
+  Chip, Divider, LinearProgress, FormControlLabel, Checkbox,
+  Snackbar, Alert, IconButton, Tooltip
 } from '@mui/material';
 import Autocomplete from '@mui/material/Autocomplete';
 import ClearAllIcon from '@mui/icons-material/ClearAll';
@@ -22,7 +23,7 @@ const REPORT_TEMPLATES = [
   { value: 'presentation', label: 'Presentation' }
 ];
 const FORMATS = [
-  { value: 'pdf', label: 'PDF' },
+  { value: 'pdf',  label: 'PDF' },
   { value: 'docx', label: 'Word (.docx)' },
   { value: 'xlsx', label: 'Excel (.xlsx)' },
   { value: 'pptx', label: 'PowerPoint (.pptx)' }
@@ -33,46 +34,82 @@ const EDITOR_ORDER = [
   'Key advantages', 'Limitations', 'Citations', 'Remarks'
 ];
 
+// Utility: make a full include map from partial include (ensures every key exists)
+const normalizeInclude = (maybeInclude) => {
+  const base = Object.fromEntries(EDITOR_ORDER.map(k => [k, false]));
+  if (!maybeInclude || typeof maybeInclude !== 'object') return base;
+  for (const k of EDITOR_ORDER) {
+    base[k] = !!maybeInclude[k];
+  }
+  return base;
+};
+
+// Utility: coerce server saved report into UI shape (defensive)
+const coerceSaved = (r) => {
+  const filters = {
+    areas:   Array.isArray(r?.filters?.areas)   ? r.filters.areas   : [],
+    years:   Array.isArray(r?.filters?.years)   ? r.filters.years   : [],
+    venues:  Array.isArray(r?.filters?.venues)  ? r.filters.venues  : [],
+    userIds: Array.isArray(r?.filters?.userIds) ? r.filters.userIds : [],
+  };
+  const selections = {
+    include:      normalizeInclude(r?.selections?.include),
+    includeOrder: Array.isArray(r?.selections?.includeOrder) ? r.selections.includeOrder : [...EDITOR_ORDER],
+    chapters:     Array.isArray(r?.selections?.chapters) ? r.selections.chapters : [],
+  };
+  return {
+    name:      r?.name ?? '',
+    template:  r?.template ?? 'rol',
+    format:    r?.format ?? 'pdf',
+    filename:  r?.filename ?? 'report',
+    filters,
+    selections,
+  };
+};
+
 export default function ReportBuilder() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const [params] = useSearchParams();
-  const editingId = params.get('id');
+  const { id: pathId } = useParams();               // <-- read :id from path
+  const editingId = pathId ? String(pathId) : null;  // string id or null
 
   const {
     preview, loadingPreview, generating, lastDownloadUrl, error,
     chapters, users, currentSaved, saving
   } = useSelector(s => s.reports);
 
-  React.useEffect(() => { dispatch(loadChapters()); dispatch(loadUsers()); }, [dispatch]);
-  React.useEffect(() => { if (editingId) dispatch(fetchSavedReport(editingId)); }, [dispatch, editingId]);
+  // Load static data
+  React.useEffect(() => {
+    dispatch(loadChapters());
+    dispatch(loadUsers());
+  }, [dispatch]);
 
+  // Fetch existing saved report if editing
+  React.useEffect(() => {
+    if (editingId) dispatch(fetchSavedReport(editingId));
+  }, [dispatch, editingId]);
+
+  // Local form state
   const [name, setName] = React.useState('');
   const [template, setTemplate] = React.useState('rol');
   const [format, setFormat] = React.useState('pdf');
   const [filename, setFilename] = React.useState('report');
-
-  // single-line filters: areas, years, venues (CSV) + Users (multi)
   const [filters, setFilters] = React.useState({ areas: [], years: [], venues: [], userIds: [] });
-
-  // include sections
-  const [include, setInclude] = React.useState(Object.fromEntries(EDITOR_ORDER.map(k => [k, true])));
-
-  // chapters multi
+  const [include, setInclude] = React.useState(normalizeInclude());
   const [chapterIds, setChapterIds] = React.useState([]);
-
   const [snack, setSnack] = React.useState(null);
 
-  // hydrate when editing
+  // Hydrate form when currentSaved arrives/changes
   React.useEffect(() => {
-    if (!currentSaved || !editingId) return;
-    setName(currentSaved.name || '');
-    setTemplate(currentSaved.template || 'rol');
-    setFormat(currentSaved.format || 'pdf');
-    setFilename(currentSaved.filename || 'report');
-    setFilters(currentSaved.filters || { areas: [], years: [], venues: [], userIds: [] });
-    setInclude(currentSaved.selections?.include || Object.fromEntries(EDITOR_ORDER.map(k => [k, true])));
-    setChapterIds(currentSaved.selections?.chapters || []);
+    if (!editingId || !currentSaved) return;
+    const s = coerceSaved(currentSaved);
+    setName(s.name);
+    setTemplate(s.template);
+    setFormat(s.format);
+    setFilename(s.filename);
+    setFilters(s.filters);
+    setInclude(s.selections.include);
+    setChapterIds(s.selections.chapters);
   }, [currentSaved, editingId]);
 
   const payloadBase = {
@@ -82,30 +119,35 @@ export default function ReportBuilder() {
   };
 
   const onSave = async () => {
-
-    console.log('Saving with payload:', payloadBase);
-
     const action = editingId
       ? await dispatch(updateSavedReport({ id: editingId, ...payloadBase }))
       : await dispatch(createSavedReport(payloadBase));
+
     if (action.type.endsWith('/fulfilled')) {
       setSnack({ severity: 'success', msg: 'Saved' });
-      if (!editingId) navigate(`/reports/build?id=${action.payload?.data?.id ?? action.payload?.id}`);
+      // If newly created, navigate to edit route (path param)
+      if (!editingId) {
+        const newId = action.payload?.data?.id ?? action.payload?.id;
+        if (newId) navigate(`/reports/builder/${newId}`);
+      }
     } else {
       setSnack({ severity: 'error', msg: 'Failed to save' });
     }
   };
 
   const onSaveAndGenerate = async () => {
-        console.log('Saving with payload:', payloadBase);
-
-    const a = editingId
+    const saved = editingId
       ? await dispatch(updateSavedReport({ id: editingId, ...payloadBase }))
       : await dispatch(createSavedReport(payloadBase));
-    if (a.type.endsWith('/fulfilled')) {
-      const g = await dispatch(generateReport(payloadBase)); // server uses payload
+
+    if (saved.type.endsWith('/fulfilled')) {
+      const g = await dispatch(generateReport(payloadBase));
       if (g.type.endsWith('/fulfilled')) setSnack({ severity: 'success', msg: 'Report ready.' });
       else setSnack({ severity: 'error', msg: 'Generate failed' });
+      if (!editingId) {
+        const newId = saved.payload?.data?.id ?? saved.payload?.id;
+        if (newId) navigate(`/reports/builder/${newId}`);
+      }
     } else {
       setSnack({ severity: 'error', msg: 'Save failed' });
     }
@@ -116,16 +158,17 @@ export default function ReportBuilder() {
   // helpers
   const parseCsv = (val) => val.split(',').map(s => s.trim()).filter(Boolean);
   const selectAllSections = () => setInclude(Object.fromEntries(EDITOR_ORDER.map(k => [k, true])));
-  const clearAllSections = () => setInclude(Object.fromEntries(EDITOR_ORDER.map(k => [k, false])));
+  const clearAllSections  = () => setInclude(Object.fromEntries(EDITOR_ORDER.map(k => [k, false])));
   const clearFilters = () => setFilters({ areas: [], years: [], venues: [], userIds: [] });
 
   return (
     <Stack spacing={2}>
       <Paper variant="outlined" sx={{ p: 2 }}>
+        <Typography variant="subtitle1">
+          {editingId ? `Edit Report #${editingId}` : 'Build Report'}
+        </Typography>
 
-        <Typography variant="subtitle1">{editingId ? 'Edit Report' : 'Build Report'}</Typography>
-
-        {/* Single-line toolbar (horizontal scroll if overflow) */}
+        {/* Toolbar */}
         <Box
           sx={{
             mt: 1, display: 'flex', gap: 1.5, alignItems: 'center',
@@ -134,25 +177,30 @@ export default function ReportBuilder() {
           }}
         >
           <TextField label="Report Name" value={name} onChange={e => setName(e.target.value)} size="small" sx={{ minWidth: 300 }} />
-          <TextField select label="Template" value={template} onChange={e => setTemplate(e.target.value)} size="small" sx={{ minWidth: 300 }}>
+
+          <TextField
+            select label="Template" value={template}
+            onChange={e => setTemplate(e.target.value)} size="small" sx={{ minWidth: 220 }}
+          >
             {REPORT_TEMPLATES.map(o => (<MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>))}
           </TextField>
-          <TextField select label="Format" value={format} onChange={e => setFormat(e.target.value)} size="small" sx={{ minWidth: 300 }}>
+
+          <TextField
+            select label="Format" value={format}
+            onChange={e => setFormat(e.target.value)} size="small" sx={{ minWidth: 220 }}
+          >
             {FORMATS.map(o => (<MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>))}
           </TextField>
+
           <TextField label="File name" value={filename} onChange={e=>setFilename(e.target.value)} size="small" sx={{ minWidth: 180 }} />
-
-
-
-
         </Box>
       </Paper>
 
       <Paper variant="outlined" sx={{ p: 2 }}>
         <Typography variant="subtitle1">Filters Applied</Typography>
         <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', mt: 1 }}>
-          {filters.areas.length > 0 && <Chip label={`Areas: ${filters.areas.join(', ')}`} />}
-          {filters.years.length > 0 && <Chip label={`Years: ${filters.years.join(', ')}`} />}
+          {filters.areas.length  > 0 && <Chip label={`Areas: ${filters.areas.join(', ')}`} />}
+          {filters.years.length  > 0 && <Chip label={`Years: ${filters.years.join(', ')}`} />}
           {filters.venues.length > 0 && <Chip label={`Venues: ${filters.venues.join(', ')}`} />}
           {filters.userIds.length > 0 && (
             <Chip
@@ -162,12 +210,11 @@ export default function ReportBuilder() {
               }).join(', ')}`}
             />
           )}
-          {Object.values(filters).every(arr => arr.length === 0) && <Typography variant="body2" color="text.secondary">No filters applied.</Typography>}
+          {Object.values(filters).every(arr => arr.length === 0) &&
+            <Typography variant="body2" color="text.secondary">No filters applied.</Typography>}
         </Stack>
+
         <Box sx={{ mt: 2, display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
-
-
-          {/* Users multi (chips) */}
           <Autocomplete
             multiple
             options={(users || []).map(u => ({ id: String(u.id), label: u.name || u.email || `User ${u.id}` }))}
@@ -182,19 +229,19 @@ export default function ReportBuilder() {
 
           <TextField
             label="Areas (CSV)" placeholder="QEM, VQE"
-            size="small" sx={{ minWidth: 300 }}
+            size="small" sx={{ minWidth: 220 }}
             value={filters.areas.join(', ')}
             onChange={e => setFilters(f => ({ ...f, areas: parseCsv(e.target.value) }))}
           />
           <TextField
             label="Years (CSV)" placeholder="2024, 2025"
-            size="small" sx={{ minWidth: 300 }}
+            size="small" sx={{ minWidth: 220 }}
             value={filters.years.join(', ')}
             onChange={e => setFilters(f => ({ ...f, years: parseCsv(e.target.value) }))}
           />
           <TextField
             label="Venues (CSV)" placeholder="Nature, PRX"
-            size="small" sx={{ minWidth: 300 }}
+            size="small" sx={{ minWidth: 220 }}
             value={filters.venues.join(', ')}
             onChange={e => setFilters(f => ({ ...f, venues: parseCsv(e.target.value) }))}
           />
@@ -204,23 +251,20 @@ export default function ReportBuilder() {
               <IconButton size="small" onClick={clearFilters}><ClearAllIcon fontSize="inherit" /></IconButton>
             </span>
           </Tooltip>
-
         </Box>
-
-
-
       </Paper>
 
       <Paper variant="outlined" sx={{ p: 2 }}>
         <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-          <Typography variant="subtitle1">Include Sections ({Object.values(include).filter(Boolean).length}/{EDITOR_ORDER.length})</Typography>
+          <Typography variant="subtitle1">
+            Include Sections ({Object.values(include).filter(Boolean).length}/{EDITOR_ORDER.length})
+          </Typography>
           <Stack direction="row" spacing={1}>
             <Button size="small" startIcon={<SelectAllIcon />} onClick={selectAllSections}>Select all</Button>
             <Button size="small" startIcon={<CloseIcon />} onClick={clearAllSections}>None</Button>
           </Stack>
         </Stack>
 
-        {/* Sections checkboxes (wrap allowed) */}
         <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap' }}>
           {EDITOR_ORDER.map(k => (
             <FormControlLabel
@@ -237,7 +281,6 @@ export default function ReportBuilder() {
           ))}
         </Stack>
 
-        {/* Chapters multi (chips) */}
         <Box sx={{ mt: 2 }}>
           <Autocomplete
             multiple
@@ -255,7 +298,9 @@ export default function ReportBuilder() {
       <Stack direction="row" spacing={2}>
         <Button variant="outlined" onClick={onPreview}>Preview</Button>
         <Button variant="outlined" onClick={onSave} disabled={saving || !name}>Save</Button>
-        <Button variant="contained" onClick={onSaveAndGenerate} disabled={saving || generating || !name}>Save & Generate</Button>
+        <Button variant="contained" onClick={onSaveAndGenerate} disabled={saving || generating || !name}>
+          Save & Generate
+        </Button>
         <Button onClick={() => navigate('/reports')}>Back to Saved</Button>
       </Stack>
 

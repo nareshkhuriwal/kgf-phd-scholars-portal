@@ -68,6 +68,7 @@ export default function Router() {
 
         <Route path="reports" element={<ReportsPage />} />
         <Route path="reports/builder" element={<CreateReports />} />
+        <Route path="reports/builder/:id" element={<CreateReports />} />
   
   
       </Route>
