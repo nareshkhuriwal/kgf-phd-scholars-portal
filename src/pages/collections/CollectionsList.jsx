@@ -1,0 +1,108 @@
+import React from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { loadCollections, deleteCollection, createCollection } from '../../store/collectionsSlice';
+import {
+  Paper, Box, Grid, Button, Typography, Stack, IconButton, Dialog,
+  DialogTitle, DialogContent, DialogActions, TextField, CircularProgress
+} from '@mui/material';
+import PageHeader from '../../components/PageHeader';
+import DeleteIcon from '@mui/icons-material/Delete';
+import { useNavigate } from 'react-router-dom';
+
+export default function CollectionsList() {
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const { list, loading } = useSelector(s => s.collections);
+
+  // modal state
+  const [open, setOpen] = React.useState(false);
+  const [name, setName] = React.useState('');
+  const [desc, setDesc] = React.useState('');
+  const [saving, setSaving] = React.useState(false);
+
+  React.useEffect(()=>{ dispatch(loadCollections()); },[dispatch]);
+
+  const resetForm = () => { setName(''); setDesc(''); };
+  const onClose = () => { if (!saving) { setOpen(false); resetForm(); } };
+
+  const onCreate = async () => {
+    if (!name.trim()) return;
+    setSaving(true);
+    try {
+      await dispatch(createCollection({ name: name.trim(), description: desc.trim() || null })).unwrap();
+      resetForm();
+      setOpen(false);
+      // reload/refresh list
+      dispatch(loadCollections());
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+      <PageHeader
+        title="Collections"
+        subtitle="Curate focused sets of papers to review and report"
+        actions={<Button variant="contained" onClick={()=>setOpen(true)}>New Collection</Button>}
+      />
+
+      <Grid container spacing={1.5}>
+        {(list || []).map(c => (
+          <Grid key={c.id} item xs={12} md={6} lg={4}>
+            <Paper sx={{ p: 2, border: '1px solid #eee', borderRadius: 2 }}>
+              <Typography variant="subtitle1" sx={{ mb: .5, fontWeight: 600 }}>{c.name}</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                {(c.paper_count ?? c.count ?? 0)} papers • Updated {c.updated_at_readable ?? c.updated_at}
+              </Typography>
+              <Stack direction="row" spacing={1}>
+                <Button size="small" variant="outlined" onClick={()=>navigate(`/collections/${c.id}`)}>Open</Button>
+                <Button size="small" variant="outlined" onClick={()=>navigate(`/collections/${c.id}/manage`)}>Manage</Button>
+                <IconButton size="small" color="error" onClick={()=>dispatch(deleteCollection(c.id))}>
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Stack>
+            </Paper>
+          </Grid>
+        ))}
+        {!loading && (!list || list.length===0) && (
+          <Grid item xs={12}>
+            <Paper sx={{ p:2, border:'1px solid #eee', borderRadius:2 }}>No collections yet.</Paper>
+          </Grid>
+        )}
+      </Grid>
+
+      {/* Create Collection Modal */}
+      <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+        <DialogTitle>New Collection</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2} sx={{ mt: 0.5 }}>
+            <TextField
+              label="Collection name"
+              value={name}
+              onChange={(e)=>setName(e.target.value)}
+              autoFocus
+              required
+              inputProps={{ maxLength: 120 }}
+              helperText={`${name.length}/120`}
+              fullWidth
+            />
+            <TextField
+              label="Description (optional)"
+              value={desc}
+              onChange={(e)=>setDesc(e.target.value)}
+              fullWidth
+              multiline
+              minRows={3}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={onClose} disabled={saving}>Cancel</Button>
+          <Button variant="contained" onClick={onCreate} disabled={saving || !name.trim()}>
+            {saving ? <CircularProgress size={18} sx={{ mr: 1 }} /> : null}
+            Create
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
+  );
+}

@@ -1,0 +1,39 @@
+{
+  "name": "phd-lit-review-admin",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "echo \"Add ESLint if needed\""
+  },
+  "dependencies": {
+    "@ckeditor/ckeditor5-build-classic": "^41.4.2",
+    "@ckeditor/ckeditor5-react": "^11.0.0",
+    "@emotion/react": "^11.13.3",
+    "@emotion/styled": "^11.13.0",
+    "@hello-pangea/dnd": "^18.0.1",
+    "@mui/icons-material": "^6.1.6",
+    "@mui/material": "^6.1.6",
+    "@mui/x-date-pickers": "^8.17.0",
+    "@reduxjs/toolkit": "^2.3.0",
+    "dayjs": "^1.11.19",
+    "docx": "^9.5.1",
+    "lucide-react": "^0.553.0",
+    "markdown-it": "^14.1.0",
+    "pptxgenjs": "^4.0.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-hook-form": "^7.53.0",
+    "react-redux": "^9.2.0",
+    "react-router-dom": "^6.28.0",
+    "recharts": "^3.3.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^5.4.8"
+  }
+}
