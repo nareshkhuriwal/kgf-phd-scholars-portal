@@ -11,7 +11,7 @@ export const updateProfile = createAsyncThunk('profile/updateProfile', async (pa
   try {
     const res = await apiFetch('/profile/me', {
       method: 'PUT',
-      body: JSON.stringify(payload),
+      body: payload,
     });
     return res.user || res;
   } catch (e) { return rejectWithValue(e.message || 'Update failed'); }
