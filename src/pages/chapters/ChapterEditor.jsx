@@ -151,13 +151,13 @@ export default function ChapterEditor() {
               >
                 Save
               </Button>
-              <Tooltip title="Delete chapter">
+              {/* <Tooltip title="Delete chapter">
                 <span>
                   <IconButton color="error" onClick={handleDelete} disabled={!isLoaded}>
                     <DeleteIcon />
                   </IconButton>
                 </span>
-              </Tooltip>
+              </Tooltip> */}
             </Stack>
           </Stack>
         </Box>

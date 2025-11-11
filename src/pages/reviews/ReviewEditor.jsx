@@ -1,35 +1,28 @@
-// =============================
-// src/pages/reviews/ReviewEditor.jsx (full-height work pane; page-scroll comments)
-// =============================
 import React from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Box,
-  Paper,
-  Grid,
-  Typography,
-  Button,
-  Stack,
-  Chip,
-  Alert,
-  Tabs,
-  Tab,
-  Divider
+  Box, Paper, Grid, Typography, Button, Stack, Chip, Alert,
+  Tabs, Tab, Divider
 } from '@mui/material';
 import PageHeader from '../../components/PageHeader';
 import ReviewToolbar from '../../components/reviews/ReviewToolbar';
 import ReviewSidebar from '../../components/reviews/ReviewSidebar';
+import PdfPane from '../../components/reviews/PdfPane';
+import CommentsPanel from '../../components/comments/CommentsPanel';
+
 import { CKEditor } from '@ckeditor/ckeditor5-react';
 import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
+
 import {
   loadReview,
   saveReviewSection,   // save only the active tab
   setReviewStatus      // mark complete / pending
 } from '../../store/reviewsSlice';
-import CommentsPanel from '../../components/comments/CommentsPanel';
 
-// ---- Config ----
+import { debounce } from '../../utils/debounce';
+
+// ---- Tabs / mapping ----
 const EDITOR_ORDER = [
   'Litracture Review',
   'Key Issue',
@@ -65,7 +58,7 @@ const pickFirst = (obj, keys) => {
 
 // ---- Height dials ----
 const WORKPANE_VH = 65;   // fixed work area height (viewport-based)
-const WORKPANE_MIN = 600; // absolute minimum height (your request)
+const WORKPANE_MIN = 600; // absolute minimum height
 
 export default function ReviewEditor() {
   const { paperId } = useParams();
@@ -74,19 +67,24 @@ export default function ReviewEditor() {
   const { current, error } = useSelector((s) => s.reviews || {});
 
   const [tab, setTab] = React.useState(0);
+
   const [sections, setSections] = React.useState(() => {
     const init = {}; EDITOR_ORDER.forEach((k) => (init[k] = ''));
     return init;
   });
+
   const [editorKeys] = React.useState(() => {
-    const o = {}; EDITOR_ORDER.forEach((k) => (o[k] = `ck-${k.replace(/\W+/g, '_')}`)); return o;
+    const o = {}; EDITOR_ORDER.forEach((k) => (o[k] = `ck-${k.replace(/\W+/g, '_')}`));
+    return o;
   });
 
   const [saving, setSaving] = React.useState(false);
   const [savedOnce, setSavedOnce] = React.useState(false);
 
+  // Load paper/review once
   React.useEffect(() => { dispatch(loadReview(paperId)); }, [dispatch, paperId]);
 
+  // Hydrate editor data when review loads/changes
   React.useEffect(() => {
     if (!current) return;
     const obj = {};
@@ -101,8 +99,21 @@ export default function ReviewEditor() {
     setSections(obj);
   }, [current]);
 
-  const onChangeSection = (label, value) =>
-    setSections((prev) => ({ ...prev, [label]: value }));
+  // Debounced change handler – prevents parent re-render on every keystroke
+  const debouncedSetSectionsRef = React.useRef(
+    debounce((label, value) => {
+      setSections(prev => (prev[label] === value ? prev : { ...prev, [label]: value }));
+    }, 250) // tweak delay as needed
+  );
+
+  React.useEffect(() => {
+    const d = debouncedSetSectionsRef.current;
+    return () => d && d.cancel && d.cancel();
+  }, []);
+
+  const onEditorChange = React.useCallback((label, editor) => {
+    debouncedSetSectionsRef.current(label, editor.getData());
+  }, []);
 
   // Save only CURRENT tab
   const onSaveCurrentTab = async () => {
@@ -126,31 +137,16 @@ export default function ReviewEditor() {
     } finally { setSaving(false); }
   };
 
-  const PdfPane = () => (
-    <Paper sx={{ height: '100%', border: '1px solid #eee', borderRadius: 2, p: 1, display: 'flex', flexDirection: 'column' }}>
-      <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>PDF Preview</Typography>
-      {!current?.pdf_url ? (
-        <Typography variant="body2" color="text.secondary">
-          No PDF attached. Upload a PDF in Library → Paper Files and refresh.
-        </Typography>
-      ) : (
-        <Box sx={{ flex: 1, minHeight: 0 }}>
-          <embed
-            src={`${current.pdf_url}#toolbar=1&navpanes=0`}
-            type="application/pdf"
-            style={{ width: '100%', height: '100%', border: 0, borderRadius: 8 }}
-          />
-        </Box>
-      )}
-    </Paper>
-  );
-
   return (
-    // Important: use minHeight so the page can grow with comments (browser scroll)
+    // Use minHeight so the page can grow with comments below
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <PageHeader
         title={current?.title || 'Review Editor'}
-        subtitle={current?.authors ? `${current.authors} • ${current.year || ''}` : 'Compose your literature review'}
+        subtitle={
+          current?.authors
+            ? `${current.authors} • ${current.year || ''}`
+            : 'Compose your literature review'
+        }
         actions={
           <Stack direction="row" spacing={1}>
             {savedOnce && <Chip label="Saved" size="small" color="success" variant="outlined" />}
@@ -158,14 +154,16 @@ export default function ReviewEditor() {
             <Button variant="contained" disabled={saving} onClick={onSaveCurrentTab}>
               {saving ? 'Saving…' : `Save: ${EDITOR_ORDER[tab]}`}
             </Button>
-            <Button variant="outlined" color="success" onClick={onMarkComplete}>Mark Complete</Button>
+            <Button variant="outlined" color="success" onClick={onMarkComplete}>
+              Mark Complete
+            </Button>
           </Stack>
         }
       />
 
       {error && <Alert severity="error" sx={{ mx: 1.5, mb: 1 }}>{String(error)}</Alert>}
 
-      {/* WORK PANE: fixed height; never collapses when comments grow */}
+      {/* WORK PANE */}
       <Box
         sx={{
           flex: '0 0 auto',
@@ -175,15 +173,18 @@ export default function ReviewEditor() {
         }}
       >
         <Grid container spacing={1.5} sx={{ p: 1.5, height: '100%', overflow: 'hidden' }}>
-          {/* PDF (left) */}
+          {/* LEFT: Memoized PDF preview – won’t re-render while typing */}
           <Grid item xs={12} lg={5} sx={{ height: '100%', minHeight: 300 }}>
-            <PdfPane />
+            <PdfPane pdfUrl={current?.pdf_url || ''} />
           </Grid>
 
-          {/* Editors (center) */}
+          {/* CENTER: Editors */}
           <Grid item xs={12} lg={5} sx={{ height: '100%', minHeight: 300, display: 'flex', flexDirection: 'column' }}>
-            <Paper sx={{ flex: 1, minHeight: 0, border: '1px solid #eee', borderRadius: 2, display: 'flex', flexDirection: 'column' }}>
+            <Paper
+              sx={{ flex: 1, minHeight: 0, border: '1px solid #eee', borderRadius: 2, display: 'flex', flexDirection: 'column' }}
+            >
               <ReviewToolbar onSave={onSaveCurrentTab} saving={saving} />
+
               <Tabs
                 value={tab}
                 onChange={(_, v) => setTab(v)}
@@ -196,7 +197,9 @@ export default function ReviewEditor() {
                   <Tab key={label} label={label} sx={{ minHeight: 40 }} />
                 ))}
               </Tabs>
+
               <Divider />
+
               <Box sx={{ flex: 1, minHeight: 0, p: 1.5 }}>
                 {EDITOR_ORDER.map((label, i) => (
                   <Box key={editorKeys[label]} role="tabpanel" hidden={tab !== i} sx={{ height: '100%' }}>
@@ -216,10 +219,10 @@ export default function ReviewEditor() {
                     >
                       {tab === i && (
                         <CKEditor
-                          key={editorKeys[label]}
+                          key={editorKeys[label]}           // stable but distinct per tab
                           editor={ClassicEditor}
                           data={sections[label] || ''}
-                          onChange={(_, ed) => onChangeSection(label, ed.getData())}
+                          onChange={(_, ed) => onEditorChange(label, ed)}  // debounced
                         />
                       )}
                     </Box>
@@ -229,14 +232,14 @@ export default function ReviewEditor() {
             </Paper>
           </Grid>
 
-          {/* Sidebar (right) – meta */}
+          {/* RIGHT: Metadata sidebar */}
           <Grid item xs={12} lg={2} sx={{ height: '100%', minHeight: 300 }}>
             <ReviewSidebar paper={current} />
           </Grid>
         </Grid>
       </Box>
 
-      {/* COMMENTS: below work pane; no inner scrollbar — the page scrolls */}
+      {/* COMMENTS below work pane (page scrolls) */}
       <Box sx={{ mt: 2, px: 1.5, pb: 4 }}>
         <CommentsPanel paperId={paperId} />
       </Box>

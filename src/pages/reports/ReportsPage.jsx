@@ -125,11 +125,11 @@ export default function SavedReports(){
                       <Tooltip title="Preview"><span>
                         <IconButton size="small" onClick={()=>onPreview(r)}><PreviewIcon fontSize="inherit" /></IconButton>
                       </span></Tooltip>
-                      <Tooltip title="Download"><span>
+                      {/* <Tooltip title="Download"><span>
                         <IconButton size="small" disabled={generating} onClick={()=>dispatch(generateSavedReport({ id:r.id }))}>
                           <DownloadIcon fontSize="inherit" />
                         </IconButton>
-                      </span></Tooltip>
+                      </span></Tooltip> */}
                       <Tooltip title="Edit"><IconButton size="small" onClick={()=>navigate(`/reports/builder/${r.id}`)}><EditIcon fontSize="inherit" /></IconButton></Tooltip>
                       <Tooltip title="Duplicate"><IconButton size="small" onClick={()=>onDuplicate(r)}><ContentCopyIcon fontSize="inherit" /></IconButton></Tooltip>
                       <Tooltip title="Delete">

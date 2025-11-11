@@ -38,6 +38,27 @@ export const meThunk = createAsyncThunk(
   }
 )
 
+export const registerThunk = createAsyncThunk(
+  'auth/register',
+  async (payload, { rejectWithValue }) => {
+    try {
+      // expected backend: POST /auth/register => { token, user }
+      const res = await apiFetch('/auth/register', {
+        method: 'POST',
+        body: payload,
+        noAuth: true,
+      });
+      const token = res?.token ?? null
+      const user  = res?.user  ?? res?.data ?? null
+      writeAuth({ token, user })
+      return { token, user }
+    } catch (e) {
+      return rejectWithValue(e?.message || 'Registration failed');
+    }
+  }
+);
+
+
 export const logoutThunk = createAsyncThunk(
   'auth/logout',
   async () => {
@@ -100,6 +121,16 @@ const authSlice = createSlice({
       .addCase(meThunk.rejected, (s, a) => {
         s.loading = false
         s.error = a.payload || 'Unable to fetch profile'
+      })
+
+      .addCase(registerThunk.pending, (s) => { s.loading = true; s.error = null; })
+      .addCase(registerThunk.fulfilled, (s, a) => {
+        s.loading = false;
+        s.user = a.payload?.user || null;
+        s.token = a.payload?.token || null;
+      })
+      .addCase(registerThunk.rejected, (s, a) => {
+        s.loading = false; s.error = a.payload || 'Registration failed';
       })
 
       // LOGOUT

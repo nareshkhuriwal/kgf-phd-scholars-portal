@@ -8,7 +8,8 @@ import importReducer from './importSlice';
 import commentsReducer from './commentsSlice';
 import dashboardReducer from './dashboardSlice';
 import chaptersReducer from './chaptersSlice';
-
+import settingsReducer from './settingsSlice';
+import profileReducer from './profileSlice';
 
 const store = configureStore({
   reducer: {
@@ -21,8 +22,8 @@ const store = configureStore({
     comments: commentsReducer,
     dashboard: dashboardReducer,
     chapters: chaptersReducer,
-
-
+    profile: profileReducer,
+    settings: settingsReducer
   },
 })
 

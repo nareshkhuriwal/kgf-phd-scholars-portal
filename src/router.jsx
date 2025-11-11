@@ -29,6 +29,7 @@ import CollectionBoard from './pages/collections/CollectionBoard';
 import CollectionManage from './pages/collections/CollectionManage';
 import ReportsPage from './pages/reports/ReportsPage';
 import CreateReports from './pages/reports/CreateReports';
+import Register from './pages/Register';
 
 import { ChaptersPage, ChapterEditor } from './pages/chapters'; // new import
 
@@ -36,6 +37,8 @@ export default function Router() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+
       <Route
         path="/"
         element={<PrivateRoute><AppLayout /></PrivateRoute>}

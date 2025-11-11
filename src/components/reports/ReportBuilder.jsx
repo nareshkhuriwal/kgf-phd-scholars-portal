@@ -192,7 +192,7 @@ export default function ReportBuilder() {
             {FORMATS.map(o => (<MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>))}
           </TextField>
 
-          <TextField label="File name" value={filename} onChange={e=>setFilename(e.target.value)} size="small" sx={{ minWidth: 180 }} />
+          {/* <TextField label="File name" value={filename} onChange={e=>setFilename(e.target.value)} size="small" sx={{ minWidth: 180 }} /> */}
         </Box>
       </Paper>
 
@@ -296,7 +296,7 @@ export default function ReportBuilder() {
       </Paper>
 
       <Stack direction="row" spacing={2}>
-        <Button variant="outlined" onClick={onPreview}>Preview</Button>
+        {/* <Button variant="outlined" onClick={onPreview}>Preview</Button> */}
         <Button variant="outlined" onClick={onSave} disabled={saving || !name}>Save</Button>
         <Button variant="contained" onClick={onSaveAndGenerate} disabled={saving || generating || !name}>
           Save & Generate
@@ -306,7 +306,7 @@ export default function ReportBuilder() {
 
       {loadingPreview && <LinearProgress />}
 
-      {preview && (
+      {/* {preview && (
         <Paper variant="outlined" sx={{ p: 2 }}>
           <Typography variant="h6">Preview</Typography>
           <Typography variant="body2" sx={{ mt: 1 }}>Outline</Typography>
@@ -323,7 +323,7 @@ export default function ReportBuilder() {
             </>
           )}
         </Paper>
-      )}
+      )} */}
 
       {lastDownloadUrl && (
         <Alert severity="success" action={<Button size="small" href={lastDownloadUrl}>Download</Button>}>
