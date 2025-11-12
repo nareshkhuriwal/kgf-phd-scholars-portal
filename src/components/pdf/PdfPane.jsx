@@ -1,58 +1,85 @@
+// src/components/pdf/PdfPane.jsx
 import React from 'react';
+import { useDispatch } from 'react-redux';
 import PdfPage from './PdfPage';
+import HighlightToolbar from './HighlightToolbar';
 import './pdf.css';
 import { toRelative } from '../../utils/url';
+import { saveHighlights } from '../../store/highlightsSlice';
 
 import * as pdfjsLib from 'pdfjs-dist';
-// IMPORTANT: get a URL string to the worker for Vite
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
-
-// Tell PDF.js where the worker lives
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
-export default function PdfPane({ fileUrl, initialScale = 1.2, onHighlightsChange }) {
+const ZOOM_STEP = 1.15;
+
+function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange }) {
+  const dispatch = useDispatch();
+
+  // sync url
+  const [activeUrl, setActiveUrl] = React.useState('');
+  React.useEffect(() => { setActiveUrl(fileUrl ? toRelative(fileUrl) : ''); }, [fileUrl]);
+
+  // viewer state
   const [doc, setDoc] = React.useState(null);
+  const [pages, setPages] = React.useState([]);
   const [viewports, setViewports] = React.useState([]);
-  const [pages, setPages] = React.useState([]); // array of {canvasRef, viewport}
-  const [highlights, setHighlights] = React.useState({}); // { [pageIndex]: [{id,x,y,w,h}] }
+  const [pageCount, setPageCount] = React.useState(0);
+  const [naturalSizes, setNaturalSizes] = React.useState([]);
+
+  // highlight style + enable
+  const [enabled, setEnabled]   = React.useState(true);
+  const [mode, setMode]         = React.useState('rect'); // brush reserved
+  const [colorHex, setColorHex] = React.useState('#FFEB3B');
+  const [alpha, setAlpha]       = React.useState(0.35);
+
+  // stored in PDF points (scale=1)
+  const [hlPoints, setHlPoints] = React.useState({});
+
+  // zoom
+  const [currentScale, setCurrentScale] = React.useState(initialScale);
   const scaleRef = React.useRef(initialScale);
-  const [activeUrl, setActiveUrl] = React.useState(() => toRelative(fileUrl));
+  const paneRef = React.useRef(null);
 
-
-
+  // reset when URL changes
   React.useEffect(() => {
+    setDoc(null); setPages([]); setViewports([]); setNaturalSizes([]); setPageCount(0); setHlPoints({});
+  }, [activeUrl]);
 
-    console.log("=====", activeUrl)
+  // load
+  React.useEffect(() => {
     let cancelled = false;
+    if (!activeUrl) return;
     (async () => {
       const loadingTask = pdfjsLib.getDocument(activeUrl);
       const pdf = await loadingTask.promise;
       if (cancelled) return;
+      setDoc(pdf); setPageCount(pdf.numPages);
 
-      setDoc(pdf);
-      const vps = [];
-      const pgs = [];
-
+      const _pages = [], _natural = [];
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
-        // build viewport at current scale
-        const vp = page.getViewport({ scale: scaleRef.current });
-        vps.push(vp);
-        pgs.push({ index: i, page, canvasRef: React.createRef() });
+        const vp1 = page.getViewport({ scale: 1 });
+        _natural.push({ w: vp1.width, h: vp1.height });
+        _pages.push({ index: i, page, canvasRef: React.createRef() });
       }
-      setViewports(vps);
-      setPages(pgs);
+      setPages(_pages); setNaturalSizes(_natural);
     })();
-
     return () => { cancelled = true; };
   }, [activeUrl]);
 
-  // Render pages to canvas
+  // viewports @ scale
+  React.useEffect(() => {
+    if (!pages.length) return;
+    setViewports(pages.map(p => p.page.getViewport({ scale: currentScale })));
+  }, [pages, currentScale]);
+
+  // render canvases
   React.useEffect(() => {
     (async () => {
-      if (!doc || pages.length === 0) return;
-      for (const [i, p] of pages.entries()) {
-        const vp = viewports[i];
+      if (!doc || !pages.length || !viewports.length) return;
+      for (let i = 0; i < pages.length; i++) {
+        const p = pages[i], vp = viewports[i];
         if (!vp || !p.canvasRef.current) continue;
         const ctx = p.canvasRef.current.getContext('2d');
         p.canvasRef.current.width = vp.width;
@@ -62,54 +89,125 @@ export default function PdfPane({ fileUrl, initialScale = 1.2, onHighlightsChang
     })();
   }, [doc, pages, viewports]);
 
-  const addHighlight = (pageIndex, rect) => {
-    setHighlights(prev => {
+  // add rect (px -> points)
+  const addHighlight = (pageIndex, rectPx) => {
+    const s = currentScale;
+    const toPts = v => v / s;
+    const rectPts = { id: `${pageIndex}-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
+      x: toPts(rectPx.x), y: toPts(rectPx.y), w: toPts(rectPx.w), h: toPts(rectPx.h) };
+    setHlPoints(prev => {
       const arr = prev[pageIndex] ? [...prev[pageIndex]] : [];
-      const id = `${pageIndex}-${Date.now()}-${arr.length}`;
-      arr.push({ id, ...rect });
+      arr.push(rectPts);
       const next = { ...prev, [pageIndex]: arr };
       onHighlightsChange?.(next);
       return next;
     });
   };
 
-  // example public method to get highlights in PDF points (unscaled)
-  const getHighlightsInPdfPoints = React.useCallback(() => {
-    const out = [];
-    Object.entries(highlights).forEach(([k, rects]) => {
-      const idx = Number(k);
-      const vp = viewports[idx - 1];
-      if (!vp) return;
-      const s = scaleRef.current;
-      rects.forEach(r => {
-        out.push({
-          pageIndex: idx,
-          x: r.x / s,
-          y: r.y / s,
-          w: r.w / s,
-          h: r.h / s,
-        });
-      });
+  // draw rects (points -> px)
+  const highlightsForPagePx = (pageIndex) => {
+    const s = currentScale;
+    return (hlPoints[pageIndex] || []).map(r => ({ id: r.id, x: r.x*s, y: r.y*s, w: r.w*s, h: r.h*s }));
+  };
+
+  // undo / clear
+  const canUndo = React.useMemo(() => Object.values(hlPoints).some(arr => (arr||[]).length>0), [hlPoints]);
+  const onUndo = () => {
+    setHlPoints(prev => {
+      const pagesWithData = Object.keys(prev).map(Number).sort((a,b)=>b-a); // last page first
+      for (const p of pagesWithData) {
+        const arr = prev[p] || [];
+        if (arr.length) {
+          const next = { ...prev, [p]: arr.slice(0, -1) };
+          if (!next[p].length) delete next[p];
+          return next;
+        }
+      }
+      return prev;
     });
-    return out;
-  }, [highlights, viewports]);
+  };
+  const onClear = () => setHlPoints({});
 
-  // expose via ref if needed
-  // useImperativeHandle(ref, () => ({ getHighlightsInPdfPoints }));
+  // zoom helpers
+  const onZoomChange = (delta) => {
+    const next = delta > 0 ? currentScale * ZOOM_STEP : currentScale / ZOOM_STEP;
+    scaleRef.current = next;
+    setCurrentScale(next);
+  };
+  const onFitWidth = () => {
+    const container = paneRef.current, n0 = naturalSizes[0];
+    if (!container || !n0) return;
+    const inner = container.clientWidth - 16;
+    const s = Math.max(0.5, Math.min(3, inner / n0.w));
+    scaleRef.current = s; setCurrentScale(s);
+  };
+  const onReset = () => { scaleRef.current = initialScale; setCurrentScale(initialScale); };
 
-  console.log("pages: ", pages)
+  React.useEffect(() => {
+    const onResize = () => {
+      const container = paneRef.current, vp0 = viewports[0];
+      if (!container || !vp0) return;
+      if (vp0.width > container.clientWidth) onFitWidth();
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [viewports.length, naturalSizes.length]);
+
+  // save (group by page, normalized)
+  const handleSave = async () => {
+    if (!paperId) return;
+    const highlights = Object.entries(hlPoints).map(([pageStr, rects]) => {
+      const page = Number(pageStr), nat = naturalSizes[page - 1];
+      const norm = r => ({ x:+(r.x/nat.w).toFixed(6), y:+(r.y/nat.h).toFixed(6), w:+(r.w/nat.w).toFixed(6), h:+(r.h/nat.h).toFixed(6) });
+      return { page, rects: rects.map(norm) };
+    });
+    if (!highlights.length) return;
+
+    await dispatch(saveHighlights({
+      paperId, replace: true, sourceUrl: activeUrl, mode: 'rect',
+      highlights, style: { color: colorHex, alpha }
+    }));
+  };
+
   return (
-    <div className="pdf-pane">
-      {pages.map((p, i) => (
-        <PdfPage
-          key={p.index}
-          pageIndex={p.index}
-          canvasRef={p.canvasRef}
-          viewport={viewports[i]}
-          pageHighlights={highlights[p.index] || []}
-          onAddHighlight={addHighlight}
+    <div className="pdf-wrapper">
+      {/* MUI toolbar */}
+      <div style={{ padding: 8, border: '1px solid var(--mui-palette-divider,#e5e7eb)', borderRadius: 10, background: 'var(--mui-palette-background-paper,#fff)', marginBottom: 12 }}>
+        <HighlightToolbar
+          enabled={enabled} setEnabled={setEnabled}
+          mode={mode} setMode={setMode}
+          canUndo={canUndo} onUndo={onUndo}
+          canClear={canUndo} onClear={onClear}
+          onSave={handleSave}
+          color={colorHex} setColor={setColorHex}
+          alpha={alpha} setAlpha={setAlpha}
+          onZoomChange={onZoomChange} zoom={currentScale}
+          onFitWidth={onFitWidth} onReset={onReset}
+          saving={false}
         />
-      ))}
+      </div>
+
+      <div className="pdf-pane" ref={paneRef}>
+        {pages.map((p, i) => (
+          <PdfPage
+            key={p.index}
+            pageIndex={p.index}
+            canvasRef={p.canvasRef}
+            viewport={viewports[i]}
+            pageHighlights={highlightsForPagePx(p.index)}
+            onAddHighlight={addHighlight}
+            enabled={enabled && mode === 'rect'}
+            colorHex={colorHex}
+            alpha={alpha}
+          />
+        ))}
+      </div>
     </div>
   );
 }
+
+const PdfPane = React.memo(
+  PdfPaneInner,
+  (prev, next) => prev.fileUrl === next.fileUrl && prev.paperId === next.paperId
+);
+export default PdfPane;

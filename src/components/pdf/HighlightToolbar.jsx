@@ -5,8 +5,8 @@ import {
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 
-import HighlightAltIcon from '@mui/icons-material/HighlightAlt'; // rectangle
-import BrushIcon from '@mui/icons-material/Brush';               // brush
+import HighlightAltIcon from '@mui/icons-material/HighlightAlt';
+import BrushIcon from '@mui/icons-material/Brush';
 import UndoIcon from '@mui/icons-material/Undo';
 import RedoIcon from '@mui/icons-material/Redo';
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
@@ -16,21 +16,12 @@ import ColorLensIcon from '@mui/icons-material/ColorLens';
 import OpacityIcon from '@mui/icons-material/Opacity';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
+// ⬇️ NEW icons
+import FitScreenIcon from '@mui/icons-material/FitScreen';
+import RestartAltIcon from '@mui/icons-material/RestartAlt';
 
 const SWATCHES = ['#FFEB3B','#FFF59D','#A5D6A7','#90CAF9','#F48FB1','#FFCC80'];
 
-/**
- * Props:
- * - enabled, setEnabled
- * - mode: 'rect' | 'brush', setMode
- * - canUndo, onUndo
- * - canClear, onClear
- * - onSave, onSaveReplace?, onRedo?
- * - color, setColor
- * - alpha, setAlpha
- * - brushSize, setBrushSize
- * - onZoomChange, zoom, saving
- */
 export default function HighlightToolbar({
   enabled, setEnabled,
   mode = 'rect', setMode,
@@ -42,6 +33,7 @@ export default function HighlightToolbar({
   alpha, setAlpha,
   brushSize = 12, setBrushSize,
   onZoomChange, zoom,
+  onFitWidth, onReset,
   saving
 }) {
   const theme = useTheme();
@@ -59,30 +51,29 @@ export default function HighlightToolbar({
     <Stack direction="row" spacing={1} alignItems="center" useFlexGap
       sx={{ flexWrap: 'wrap', rowGap: 1, columnGap: 1, minHeight: 48 }}>
 
-      {/* Enable/disable highlighting */}
+      {/* enable / mode */}
       <Tooltip title={enabled ? 'Highlighting: ON' : 'Enable Highlighting'}>
         <IconButton
           size="small"
           color={enabled ? 'primary' : 'default'}
-          onClick={() => setEnabled && setEnabled(!enabled)}
+          onClick={() => setEnabled?.(!enabled)}
           sx={{ border: 1, borderColor: enabled ? 'primary.main' : 'divider' }}
         >
           {mode === 'brush' ? <BrushIcon fontSize="small" /> : <HighlightAltIcon fontSize="small" />}
         </IconButton>
       </Tooltip>
 
-      {/* Mode toggle (Rect ↔ Brush) */}
       <Tooltip title={mode === 'brush' ? 'Switch to Rectangle mode' : 'Switch to Brush mode'}>
-        <IconButton
-          size="small"
-          onClick={() => setMode && setMode(mode === 'brush' ? 'rect' : 'brush')}
-        >
-          {mode === 'brush' ? <HighlightAltIcon fontSize="small" /> : <BrushIcon fontSize="small" />}
-        </IconButton>
+        <span>
+          <IconButton size="small" onClick={() => setMode?.(mode === 'brush' ? 'rect' : 'brush')}>
+            {mode === 'brush' ? <HighlightAltIcon fontSize="small" /> : <BrushIcon fontSize="small" />}
+          </IconButton>
+        </span>
       </Tooltip>
 
       <Divider flexItem orientation="vertical" sx={{ display: { xs: 'none', md: 'block' } }} />
 
+      {/* undo/clear */}
       <Tooltip title="Undo">
         <span><IconButton size="small" disabled={!canUndo} onClick={onUndo}><UndoIcon fontSize="small" /></IconButton></span>
       </Tooltip>
@@ -96,27 +87,33 @@ export default function HighlightToolbar({
       {!mdDown && (
         <>
           <Divider flexItem orientation="vertical" />
+          {/* color/opacity */}
           <Tooltip title="Highlight Color">
             <IconButton size="small" onClick={(e) => setColorEl(e.currentTarget)}><ColorLensIcon fontSize="small" /></IconButton>
           </Tooltip>
           <Tooltip title="Opacity">
             <IconButton size="small" onClick={(e) => setAlphaEl(e.currentTarget)}><OpacityIcon fontSize="small" /></IconButton>
           </Tooltip>
-          {mode === 'brush' && (
-            <Tooltip title={`Brush Size: ${brushSize}px`}>
-              <IconButton size="small" onClick={(e) => setBrushEl(e.currentTarget)}><BrushIcon fontSize="small" /></IconButton>
-            </Tooltip>
-          )}
+
+          {/* zoom */}
           <Tooltip title="Zoom Out">
-            <span><IconButton size="small" onClick={() => onZoomChange && onZoomChange(-0.1)} disabled={!onZoomChange}><ZoomOutIcon fontSize="small" /></IconButton></span>
+            <span><IconButton size="small" onClick={() => onZoomChange?.(-0.1)} disabled={!onZoomChange}><ZoomOutIcon fontSize="small" /></IconButton></span>
           </Tooltip>
           <Tooltip title="Zoom In">
-            <span><IconButton size="small" onClick={() => onZoomChange && onZoomChange(+0.1)} disabled={!onZoomChange}><ZoomInIcon fontSize="small" /></IconButton></span>
+            <span><IconButton size="small" onClick={() => onZoomChange?.(+0.1)} disabled={!onZoomChange}><ZoomInIcon fontSize="small" /></IconButton></span>
+          </Tooltip>
+
+          {/* ⬇️ replaced buttons with icons */}
+          <Tooltip title="Fit width">
+            <span><IconButton size="small" onClick={onFitWidth} disabled={!onFitWidth}><FitScreenIcon fontSize="small" /></IconButton></span>
+          </Tooltip>
+          <Tooltip title="Reset zoom">
+            <span><IconButton size="small" onClick={onReset} disabled={!onReset}><RestartAltIcon fontSize="small" /></IconButton></span>
           </Tooltip>
         </>
       )}
 
-      {/* Right actions */}
+      {/* right actions */}
       <Stack direction="row" spacing={1} sx={{ ml: 'auto' }}>
         <Button
           variant={smDown ? 'outlined' : 'contained'}
@@ -132,7 +129,7 @@ export default function HighlightToolbar({
         </IconButton>
       </Stack>
 
-      {/* More menu (puts controls here on small screens) */}
+      {/* menu (mobile extras) */}
       <Menu open={!!menuEl} anchorEl={menuEl} onClose={() => setMenuEl(null)}>
         {mdDown && (
           <>
@@ -142,26 +139,27 @@ export default function HighlightToolbar({
             <MenuItem onClick={(e) => { setAlphaEl(e.currentTarget); setMenuEl(null); }}>
               <OpacityIcon fontSize="small" style={{ marginRight: 8 }} /> Opacity…
             </MenuItem>
-            {mode === 'brush' && (
-              <MenuItem onClick={(e) => { setBrushEl(e.currentTarget); setMenuEl(null); }}>
-                <BrushIcon fontSize="small" style={{ marginRight: 8 }} /> Brush size…
-              </MenuItem>
-            )}
-            <MenuItem onClick={() => { onZoomChange && onZoomChange(+0.1); }}>
+            <MenuItem onClick={() => { onZoomChange?.(+0.1); }}>
               <ZoomInIcon fontSize="small" style={{ marginRight: 8 }} /> Zoom In
             </MenuItem>
-            <MenuItem onClick={() => { onZoomChange && onZoomChange(-0.1); }}>
+            <MenuItem onClick={() => { onZoomChange?.(-0.1); }}>
               <ZoomOutIcon fontSize="small" style={{ marginRight: 8 }} /> Zoom Out
+            </MenuItem>
+            <MenuItem onClick={() => { onFitWidth?.(); }}>
+              <FitScreenIcon fontSize="small" style={{ marginRight: 8 }} /> Fit width
+            </MenuItem>
+            <MenuItem onClick={() => { onReset?.(); }}>
+              <RestartAltIcon fontSize="small" style={{ marginRight: 8 }} /> Reset zoom
             </MenuItem>
             <Divider />
           </>
         )}
-        <MenuItem onClick={() => { setMenuEl(null); onSaveReplace && onSaveReplace(); }}>
+        <MenuItem onClick={() => { setMenuEl(null); onSave?.(); }}>
           Save & Overwrite
         </MenuItem>
       </Menu>
 
-      {/* Color popover */}
+      {/* color popover */}
       <Popover open={!!colorEl} anchorEl={colorEl} onClose={() => setColorEl(null)}
                anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}>
         <Box sx={{ p: 1, display: 'flex', gap: 1 }}>
@@ -173,7 +171,7 @@ export default function HighlightToolbar({
         </Box>
       </Popover>
 
-      {/* Opacity popover */}
+      {/* opacity popover */}
       <Popover open={!!alphaEl} anchorEl={alphaEl} onClose={() => setAlphaEl(null)}
                anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}>
         <Box sx={{ p: 2, width: 220 }}>
@@ -183,7 +181,7 @@ export default function HighlightToolbar({
         </Box>
       </Popover>
 
-      {/* Brush size popover */}
+      {/* brush size (reserved) */}
       <Popover open={!!brushEl} anchorEl={brushEl} onClose={() => setBrushEl(null)}
                anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}>
         <Box sx={{ p: 2, width: 220 }}>
