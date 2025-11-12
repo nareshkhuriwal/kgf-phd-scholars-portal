@@ -85,9 +85,9 @@ export default function ReviewEditor() {
   const [savedOnce, setSavedOnce] = React.useState(false);
 
   const pid = React.useMemo(
-  () => (paperId ?? current?.id ?? current?.paper_id) ?? null,
-  [paperId, current]
-);
+    () => (paperId ?? current?.id ?? current?.paper_id) ?? null,
+    [paperId, current]
+  );
 
 
   // Load paper/review once
@@ -190,7 +190,7 @@ export default function ReviewEditor() {
             /> */}
             <PdfHighlighter
               pdfUrl={current?.pdf_url || current?.file_url || ''}
-              uploadUrl={`${import.meta.env.VITE_API_BASE}/pdfs/upload`} // adjust to your route
+              uploadUrl={`/pdfs/upload`} // adjust to your route
               tokenFetchInit={{ credentials: 'include' }}                 // or headers: { Authorization: ... }
               onSaved={(res) => {
                 // optional: refresh the paper/review or show toast with res.url

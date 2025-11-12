@@ -77,20 +77,15 @@ export const uploadHighlightedPdf = createAsyncThunk(
       if (keepName)  fd.append('keep_name', '1');
       if (label)     fd.append('label', label);
 
-      const res = await apiFetch(`/pdfs/upload`, {
-        method: 'POST',
-        body: fd,
-        ...(fetchInit || {}), // e.g., { credentials: 'include' }
-      });
+      // IMPORTANT: apiFetch returns parsed JSON (or throws on !ok)
+      const data = await apiFetch(uploadUrl, { method: 'POST', body: fd });
 
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(json?.message || `Upload failed with ${res.status}`);
-
-      const url  = json?.url  ?? json?.file_url ?? null;
-      const path = json?.path ?? null;
+      const url  = data?.url  ?? data?.file_url ?? null;
+      const path = data?.path ?? data?.file_path ?? null;
       if (!url) throw new Error('Server did not return url');
 
-      return { url, path, raw: json };
+      return { url, path, raw: data };
+
     } catch (err) {
       return rejectWithValue(err?.message || 'Upload failed');
     }

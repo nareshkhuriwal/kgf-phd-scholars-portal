@@ -15,6 +15,7 @@ function PdfPaneInner({ pdfUrl, paperId }) {
 
   const dispatch = useDispatch();
   const { saving, fileUrl, error } = useSelector((s) => s.highlights);
+  console.log("pdfUrl: ", pdfUrl)
 
   const [numPages, setNumPages] = React.useState(0);
   const [enabled, setEnabled] = React.useState(true);
@@ -26,11 +27,10 @@ function PdfPaneInner({ pdfUrl, paperId }) {
 
   // NEW: keep an active URL the viewer uses (original → highlighted after save)
   const [activeUrl, setActiveUrl] = React.useState(() => toRelative(pdfUrl));
-  // React.useEffect(() => { setActiveUrl(toRelative(pdfUrl)); }, [pdfUrl]);
-  React.useEffect(() => { setActiveUrl(pdfUrl); }, [pdfUrl]);
+  React.useEffect(() => { setActiveUrl(toRelative(pdfUrl)); }, [pdfUrl]);
+  // React.useEffect(() => { setActiveUrl(pdfUrl); }, [pdfUrl]);
 
   React.useEffect(() => { setNumPages(0); }, [activeUrl]); // clean re-init on switch
-
 
   // keep a ref per page container to position overlay
   const pageRefs = React.useRef({}); // { [page]: element }
@@ -41,8 +41,8 @@ function PdfPaneInner({ pdfUrl, paperId }) {
   React.useEffect(() => {
     if (fileUrl) {
       // Switch pane to show highlighted, keep your toast
-      // setActiveUrl(toRelative(fileUrl));
-      setActiveUrl(fileUrl);
+      setActiveUrl(toRelative(fileUrl));
+      // setActiveUrl(fileUrl);
 
       setEnabled(false);
       setHl({});
@@ -93,7 +93,7 @@ function PdfPaneInner({ pdfUrl, paperId }) {
     dispatch(saveHighlights({
       paperId,
       highlights,
-      replace: false,
+      replace: true,
       sourceUrl: activeUrl,
       style: { color: colorHex, alpha }   // <- if you store these in PdfPane state
     }));

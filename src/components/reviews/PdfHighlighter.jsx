@@ -1,14 +1,56 @@
 // src/components/reviews/PdfHighlighter.jsx
 import React, { useRef } from 'react';
-import { Document, Page } from 'react-pdf';
+import { Document, Page, pdfjs } from 'react-pdf';
 import { Box } from '@mui/material';
 import { PDFDocument, rgb } from 'pdf-lib';
 import { useDispatch, useSelector } from 'react-redux';
-
-import HighlightToolbar from './../pdf/HighlightToolbar'; // <-- use the pro toolbar you shared
+import HighlightToolbar from './../pdf/HighlightToolbar';
 import { usePdfHighlights, toPdfRect } from '../../hooks/usePdfHighlights';
 import { toRelative } from '../../utils/url';
 import { uploadHighlightedPdf } from '../../store/highlightsSlice';
+
+// --- Robust worker boot for Vite + ESM + React-PDF v7 (pdfjs-dist v4) ---
+let workerBooted = false;
+
+try {
+  // 1) Prefer a real module Worker (fastest, most reliable)
+  const workerUrl = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url);
+  const worker = new Worker(workerUrl, { type: 'module' });
+  pdfjs.GlobalWorkerOptions.workerPort = worker;
+  workerBooted = true;
+} catch (e) {
+  console.warn('[pdfjs] module worker failed, will try workerSrc URL fallback:', e);
+}
+
+if (!workerBooted) {
+  try {
+    // 2) URL fallback – some envs still need workerSrc
+    pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+      'pdfjs-dist/build/pdf.worker.min.mjs',
+      import.meta.url
+    ).toString();
+    workerBooted = true; // allow pdf.js to spin its own worker
+  } catch (e) {
+    console.warn('[pdfjs] workerSrc fallback failed:', e);
+  }
+}
+
+if (!workerBooted) {
+  // 3) Last resort – render without a worker (stable but slower)
+  console.warn('[pdfjs] disabling worker – performance will be lower.');
+  pdfjs.disableWorker = true;
+}
+
+
+class PdfErrorBoundary extends React.Component {
+  constructor(p){ super(p); this.state = { hasError: false }; }
+  static getDerivedStateFromError(){ return { hasError: true }; }
+  componentDidCatch(e, info){ console.error('PDF render error:', e, info); }
+  render(){
+    if (this.state.hasError) return <div style={{padding:12,color:'crimson'}}>Failed to render PDF.</div>;
+    return this.props.children;
+  }
+}
 
 // --- helpers ---
 const canonicalize = (u) => {
@@ -20,7 +62,9 @@ const canonicalize = (u) => {
     return (u || '').replace(/(?<!:)\/{2,}/g, '/');
   }
 };
-const withBust = (u) => (u ? `${u}${u.includes('?') ? '&' : '?'}v=${Date.now()}` : u);
+// const withBust = (u) => (u ? `${u}${u.includes('?') ? '&' : '?'}v=${Date.now()}` : u);
+const withBust = (u) => (u ? u.split('#')[0].split('?')[0] : u);
+
 const hexToRgb01 = (hex) => {
   const h = (hex || '').replace('#', '');
   const f = h.length === 3 ? h.split('').map(c => c + c).join('') : h;
@@ -32,47 +76,54 @@ const hexToRgb01 = (hex) => {
 
 export default function PdfHighlighter({
   pdfUrl,
-  onSaved,            // (json) => void
-  uploadUrl,          // API endpoint to POST FormData {file}
+  onSaved,
+  uploadUrl,
   canUpload = true,
-  tokenFetchInit,     // optional fetch init (headers/credentials)
+  tokenFetchInit,
 }) {
   const containerRef = useRef(null);
   const dispatch = useDispatch();
   const { uploading } = useSelector((s) => s.highlights || {});
 
-  // drawing state from hook
   const {
     rects, drag, startDrag, moveDrag, endDrag,
     pageSizes, setPageRenderSize, clearLast, clearAll
   } = usePdfHighlights();
 
-  // viewer state
   const [activeUrl, setActiveUrl] = React.useState(() => canonicalize(toRelative(pdfUrl)));
   const [enabled, setEnabled] = React.useState(true);
   const [color, setColor] = React.useState('#FFEB3B');
   const [alpha, setAlpha] = React.useState(0.35);
   const [zoom, setZoom] = React.useState(1);
+  const [numPages, setNumPages] = React.useState(0);      // 2) real page count
 
-  // keep in sync if parent changes pdfUrl
   React.useEffect(() => {
-    if (pdfUrl) setActiveUrl(canonicalize(toRelative(pdfUrl)));
+    if (pdfUrl) {
+      setActiveUrl(canonicalize(toRelative(pdfUrl)));
+      setNumPages(0); // force re-measure on URL change
+    }
   }, [pdfUrl]);
 
+  // inside component
+  const memoFile = React.useMemo(
+    () => (activeUrl ? { url: activeUrl, withCredentials: false } : null),
+    [activeUrl]
+  );
+
+  // keep options stable. Start with range disabled for stability; re-enable later if you want.
+  const memoOptions = React.useMemo(() => ({ disableRange: true }), []);
+
+
   const onZoomChange = (delta) => {
-    setZoom((z) => {
-      const next = Math.min(3, Math.max(0.5, parseFloat((z + delta).toFixed(2))));
-      return next;
-    });
+    setZoom((z) => Math.min(3, Math.max(0.5, parseFloat((z + delta).toFixed(2)))));
   };
 
   async function saveToServer(overwriteSame = false) {
-    // fetch, draw, upload
     const canonical = canonicalize(activeUrl);
-    const bytes = await fetch(canonical, tokenFetchInit).then((r) => r.arrayBuffer());
+    const bytes = await fetch(canonical, { credentials: 'omit' }).then(r => r.arrayBuffer());
+
     const doc = await PDFDocument.load(bytes);
     const pages = doc.getPages();
-
     const [r01, g01, b01] = hexToRgb01(color);
 
     for (const r of rects) {
@@ -101,11 +152,12 @@ export default function PdfHighlighter({
 
     if (!canUpload) return;
 
+    console.log("uploadUrl: ", uploadUrl)
     const action = await dispatch(
       uploadHighlightedPdf({
         blob,
         uploadUrl,
-        destUrl: overwriteSame ? canonical : undefined, // overwrite same file if true
+        destUrl: overwriteSame ? canonical : undefined,
         overwrite: overwriteSame,
         fetchInit: tokenFetchInit,
       })
@@ -113,8 +165,7 @@ export default function PdfHighlighter({
 
     if (uploadHighlightedPdf.fulfilled.match(action)) {
       const nextUrl = action.payload?.url || action.payload?.raw?.url;
-      // re-open the fresh file (with cache bust)
-      if (nextUrl) setActiveUrl(withBust(canonicalize(nextUrl)));
+      if (nextUrl) setActiveUrl(withBust(canonicalize(toRelative(nextUrl))));
       onSaved && onSaved(action.payload?.raw || { url: nextUrl, path: action.payload?.path });
     } else {
       console.error('Upload failed:', action.payload);
@@ -124,22 +175,15 @@ export default function PdfHighlighter({
   const canUndo = rects.length > 0;
   const canClear = rects.length > 0 && !uploading;
 
+
+  console.log("activeUrl last stage 1: ", activeUrl)
+
   return (
-    <Box
-      ref={containerRef}
+    <Box ref={containerRef}
       sx={{ height: '100%', border: '1px solid #eee', borderRadius: 2, overflow: 'auto', display: 'flex', flexDirection: 'column' }}
     >
-      {/* Professional Toolbar */}
-<Box
-  sx={{
-    p: 1,
-    borderBottom: '1px solid #eee',
-    position: 'sticky',
-    top: 0,
-    bgcolor: 'background.paper',
-    zIndex: 2,              // above pages
-  }}
->        <HighlightToolbar
+      <Box sx={{ p: 1, borderBottom: '1px solid #eee', position: 'sticky', top: 0, bgcolor: 'background.paper', zIndex: 2 }}>
+        <HighlightToolbar
           enabled={enabled}
           setEnabled={setEnabled}
           canUndo={canUndo}
@@ -148,32 +192,64 @@ export default function PdfHighlighter({
           onClear={clearAll}
           onSave={() => saveToServer(false)}
           onSaveReplace={() => saveToServer(true)}
-          // optional features
           color={color} setColor={setColor}
           alpha={alpha} setAlpha={setAlpha}
           onZoomChange={onZoomChange}
         />
       </Box>
 
-      {/* PDF */}
-<Box sx={{ flex: 1, overflow: 'auto', p: 1 /* small padding keeps first page clear */ }}>
-        <Document file={activeUrl} loading={<Box sx={{ p: 2 }}>Loading PDF…</Box>}>
-          {Array.from({ length: 50 }).map((_, idx) => (
-            <PageWrapper
-              key={idx}
-              pageIndex={idx}
-              rects={rects}
-              drag={enabled ? drag : null}
-              startDrag={enabled ? startDrag : () => {}}
-              moveDrag={enabled ? moveDrag : () => {}}
-              endDrag={enabled ? endDrag : () => {}}
-              setPageRenderSize={setPageRenderSize}
-              zoom={zoom}
-              color={color}
-              alpha={alpha}
-            />
-          ))}
-        </Document>
+      <Box sx={{ flex: 1, overflow: 'auto', p: 1 }}>
+        {memoFile && (
+          <PdfErrorBoundary>
+
+          {/* <Document
+  key={activeUrl}
+  file={{ url: activeUrl, withCredentials: false }}
+  onLoadSuccess={({ numPages }) => setNumPages(numPages)}
+  onLoadError={(err) => console.error('react-pdf load error:', err)}
+  options={{
+    disableRange: true,           // <= set true for stability; turn off later if desired
+    cMapUrl: 'cmaps/',            // optional if you ship cmaps
+    cMapPacked: true,
+  }}
+> */}
+
+  {/* <Document
+  key={activeUrl}
+  file={{ url: activeUrl, withCredentials: false }}
+  onLoadSuccess={({ numPages }) => setNumPages(numPages)}
+  onLoadError={(err) => console.error('react-pdf load error:', err)}
+  options={{ disableRange: true }}   // <- stability first
+> */}
+
+  <Document
+    key={activeUrl}             // ensures fresh mount on URL change
+    file={memoFile}             // memoized -> no noisy warnings
+    options={memoOptions}       // memoized -> no noisy warnings
+    loading={<Box sx={{ p: 2 }}>Loading PDF…</Box>}
+    error={<Box sx={{ p: 2, color: 'error.main' }}>Failed to load PDF.</Box>}
+    onLoadSuccess={({ numPages }) => setNumPages(numPages)}
+    onLoadError={(err) => console.error('react-pdf load error:', err)}
+  >
+
+            {Array.from({ length: numPages }, (_, idx) => (
+              <PageWrapper
+                key={idx}
+                pageIndex={idx}
+                rects={rects}
+                drag={enabled ? drag : null}
+                startDrag={enabled ? startDrag : () => {}}
+                moveDrag={enabled ? moveDrag : () => {}}
+                endDrag={endDrag}
+                setPageRenderSize={setPageRenderSize}
+                zoom={zoom}
+                color={color}
+                alpha={alpha}
+              />
+            ))}
+          </Document>
+          </PdfErrorBoundary>
+        )}
       </Box>
     </Box>
   );
@@ -182,9 +258,12 @@ export default function PdfHighlighter({
 function PageWrapper({
   pageIndex, rects, drag, startDrag, moveDrag, endDrag, setPageRenderSize, zoom, color, alpha
 }) {
+  const wrapperRef = useRef(null);
+
   return (
     <div
       id={`p${pageIndex}`}
+      ref={wrapperRef}
       style={{ position: 'relative', margin: '12px auto', width: 'fit-content' }}
       onMouseUp={endDrag}
       onMouseLeave={endDrag}
@@ -196,12 +275,12 @@ function PageWrapper({
         renderTextLayer={false}
         renderAnnotationLayer={false}
         onRenderSuccess={() => {
-          const canvas = document.querySelector(`#p${pageIndex} canvas`);
+          // 3) use the local ref (no global querySelector)
+          const canvas = wrapperRef.current?.querySelector('canvas');
           if (canvas) setPageRenderSize(pageIndex, canvas);
         }}
         onMouseDown={(e) => startDrag(pageIndex, e, e.currentTarget)}
       />
-      {/* overlay */}
       <svg style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
         {rects.filter(r => r.pageIndex === pageIndex).map((r, i) => (
           <rect key={i} x={r.x} y={r.y} width={r.w} height={r.h} fill={color} opacity={alpha} />
