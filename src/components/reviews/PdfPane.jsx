@@ -26,7 +26,9 @@ function PdfPaneInner({ pdfUrl, paperId }) {
 
   // NEW: keep an active URL the viewer uses (original → highlighted after save)
   const [activeUrl, setActiveUrl] = React.useState(() => toRelative(pdfUrl));
-  React.useEffect(() => { setActiveUrl(toRelative(pdfUrl)); }, [pdfUrl]);
+  // React.useEffect(() => { setActiveUrl(toRelative(pdfUrl)); }, [pdfUrl]);
+  React.useEffect(() => { setActiveUrl(pdfUrl); }, [pdfUrl]);
+
   React.useEffect(() => { setNumPages(0); }, [activeUrl]); // clean re-init on switch
 
 
@@ -39,7 +41,9 @@ function PdfPaneInner({ pdfUrl, paperId }) {
   React.useEffect(() => {
     if (fileUrl) {
       // Switch pane to show highlighted, keep your toast
-      setActiveUrl(toRelative(fileUrl));
+      // setActiveUrl(toRelative(fileUrl));
+      setActiveUrl(fileUrl);
+
       setEnabled(false);
       setHl({});
       setToast({ severity: 'success', msg: 'Saved. Showing highlighted PDF…' });

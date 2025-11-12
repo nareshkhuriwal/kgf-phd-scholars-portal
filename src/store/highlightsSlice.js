@@ -1,14 +1,11 @@
+// src/store/highlightsSlice.js
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { apiFetch } from '../services/api';
 
 /**
- * Optional: if you’re on Laravel Sanctum and your apiFetch
- * does NOT already ensure the CSRF cookie, uncomment this.
+ * ORIGINAL: Server-side apply (JSON -> /papers/:id/highlights/apply)
+ * Keeps your existing behavior intact.
  */
-// async function ensureCsrf() {
-//   try { await apiFetch('/sanctum/csrf-cookie', { method: 'GET' }); } catch (_) {}
-// }
-
 export const saveHighlights = createAsyncThunk(
   'highlights/save',
   /**
@@ -20,26 +17,18 @@ export const saveHighlights = createAsyncThunk(
       if (!paperId) throw new Error('paperId is required');
       if (!highlights?.length) throw new Error('No highlights to save');
 
-      // If needed for Sanctum, uncomment:
-      // await ensureCsrf();
-
-      // apiFetch should already set base URL, JSON headers, credentials, etc.
-      // If your apiFetch expects body as plain object, just pass it:
       const res = await apiFetch(`/papers/${paperId}/highlights/apply`, {
         method: 'POST',
         body: { replace, highlights },
       });
 
-      // Support either { file_url } or { data: { file_url } }
       const fileUrl =
         res?.file_url ??
         res?.data?.file_url ??
         res?.url ??
         res?.data?.url;
 
-      if (!fileUrl) {
-        throw new Error('Server did not return file_url');
-      }
+      if (!fileUrl) throw new Error('Server did not return file_url');
 
       return { fileUrl };
     } catch (err) {
@@ -48,21 +37,97 @@ export const saveHighlights = createAsyncThunk(
   }
 );
 
+/**
+ * NEW: Client-side burned PDF upload (multipart -> /pdfs/upload or /papers/:id/highlights/upload)
+ * Use this when you generate a PDF with pdf-lib and want to overwrite same file (dest_url).
+ *
+ * args:
+ *  - blob: Blob (required)
+ *  - uploadUrl: string (required)
+ *  - destUrl?: string (to overwrite same URL)
+ *  - destPath?: string (alternative to destUrl)
+ *  - overwrite?: boolean (default true if dest provided)
+ *  - keepName?: boolean
+ *  - label?: string
+ *  - fetchInit?: RequestInit (e.g., { credentials: 'include' })
+ */
+export const uploadHighlightedPdf = createAsyncThunk(
+  'highlights/upload',
+  async (args, { rejectWithValue }) => {
+    try {
+      const {
+        blob,
+        uploadUrl,
+        destUrl,
+        destPath,
+        overwrite = (Boolean(destUrl) || Boolean(destPath)),
+        keepName = false,
+        label,
+        fetchInit
+      } = args || {};
+
+      if (!blob) throw new Error('blob is required');
+      if (!uploadUrl) throw new Error('uploadUrl is required');
+
+      const fd = new FormData();
+      fd.append('file', blob, 'highlighted.pdf');
+      if (destUrl)   fd.append('dest_url', destUrl);
+      if (destPath)  fd.append('dest_path', destPath);
+      if (overwrite) fd.append('overwrite', '1');
+      if (keepName)  fd.append('keep_name', '1');
+      if (label)     fd.append('label', label);
+
+      const res = await apiFetch(`/pdfs/upload`, {
+        method: 'POST',
+        body: fd,
+        ...(fetchInit || {}), // e.g., { credentials: 'include' }
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.message || `Upload failed with ${res.status}`);
+
+      const url  = json?.url  ?? json?.file_url ?? null;
+      const path = json?.path ?? null;
+      if (!url) throw new Error('Server did not return url');
+
+      return { url, path, raw: json };
+    } catch (err) {
+      return rejectWithValue(err?.message || 'Upload failed');
+    }
+  }
+);
+
 const highlightsSlice = createSlice({
   name: 'highlights',
   initialState: {
+    // ORIGINAL flow state
     saving: false,
     fileUrl: null,
     error: null,
+
+    // NEW upload flow state
+    uploading: false,
+    uploadedUrl: null,
+    uploadedPath: null,
+    uploadError: null,
+    lastResponse: null,
   },
   reducers: {
     clearHighlightsState(state) {
+      // original keys
       state.saving = false;
       state.fileUrl = null;
       state.error = null;
+      // upload keys
+      state.uploading = false;
+      state.uploadedUrl = null;
+      state.uploadedPath = null;
+      state.uploadError = null;
+      state.lastResponse = null;
     },
   },
   extraReducers: (builder) => {
+    // ---- ORIGINAL saveHighlights ----
     builder
       .addCase(saveHighlights.pending, (state) => {
         state.saving = true;
@@ -77,8 +142,44 @@ const highlightsSlice = createSlice({
         state.saving = false;
         state.error = action.payload || 'Save highlights failed';
       });
+
+    // ---- NEW uploadHighlightedPdf ----
+    builder
+      .addCase(uploadHighlightedPdf.pending, (state) => {
+        state.uploading = true;
+        state.uploadError = null;
+        state.uploadedUrl = null;
+        state.uploadedPath = null;
+        state.lastResponse = null;
+      })
+      .addCase(uploadHighlightedPdf.fulfilled, (state, action) => {
+        state.uploading = false;
+        state.uploadedUrl = action.payload.url;
+        state.uploadedPath = action.payload.path;
+        state.lastResponse = action.payload.raw;
+      })
+      .addCase(uploadHighlightedPdf.rejected, (state, action) => {
+        state.uploading = false;
+        state.uploadError = action.payload || 'Upload failed';
+      });
   },
 });
 
 export const { clearHighlightsState } = highlightsSlice.actions;
+
+// Selectors (optional)
+export const selectHighlightSave = (s) => ({
+  saving: s.highlights?.saving ?? false,
+  fileUrl: s.highlights?.fileUrl ?? null,
+  error: s.highlights?.error ?? null,
+});
+
+export const selectHighlightUpload = (s) => ({
+  uploading: s.highlights?.uploading ?? false,
+  uploadedUrl: s.highlights?.uploadedUrl ?? null,
+  uploadedPath: s.highlights?.uploadedPath ?? null,
+  uploadError: s.highlights?.uploadError ?? null,
+  lastResponse: s.highlights?.lastResponse ?? null,
+});
+
 export default highlightsSlice.reducer;

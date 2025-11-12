@@ -1,8 +1,10 @@
+// src/components/reviews/HighlightToolbar.jsx
 import React from 'react';
 import {
   Stack, IconButton, Tooltip, Divider, Menu, MenuItem,
-  Button, Popover, Box, Slider
+  Button, Popover, Box, Slider, useMediaQuery
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import HighlightIcon from '@mui/icons-material/HighlightAlt';
 import UndoIcon from '@mui/icons-material/Undo';
 import RedoIcon from '@mui/icons-material/Redo';
@@ -14,78 +16,126 @@ import OpacityIcon from '@mui/icons-material/Opacity';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 
-const SWATCHES = ['#FFEB3B', '#FFF59D', '#A5D6A7', '#90CAF9', '#F48FB1', '#FFCC80'];
+const SWATCHES = ['#FFEB3B','#FFF59D','#A5D6A7','#90CAF9','#F48FB1','#FFCC80'];
 
 export default function HighlightToolbar({
   enabled, setEnabled,
   canUndo, onUndo,
   canClear, onClear,
-  onSave,            // required (existing)
-  onSaveReplace,     // optional: save & overwrite original
-  onRedo,            // optional
-  color, setColor,   // optional: current color (hex) and setter
-  alpha, setAlpha,   // optional: 0..1 opacity and setter
-  onZoomChange       // optional: (delta) => {}
+  onSave, onSaveReplace,
+  onRedo,
+  color, setColor,
+  alpha, setAlpha,
+  onZoomChange
 }) {
-  // Default ON once (if parent forgot to default ON)
-  React.useEffect(() => {
-    if (setEnabled && !enabled) setEnabled(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const theme = useTheme();
+  const smDown = useMediaQuery(theme.breakpoints.down('sm'));   // phones
+  const mdDown = useMediaQuery(theme.breakpoints.down('md'));   // tablets
 
   const [menuEl, setMenuEl] = React.useState(null);
   const [colorEl, setColorEl] = React.useState(null);
   const [alphaEl, setAlphaEl] = React.useState(null);
 
-  const handleSave = () => onSave && onSave();
-  const handleSaveReplace = () => (onSaveReplace ? onSaveReplace() : onSave && onSave());
-
   const curColor = color || '#FFEB3B';
   const curAlpha = typeof alpha === 'number' ? alpha : 0.35;
 
   return (
-    <Stack direction="row" spacing={1} alignItems="center">
-      {/* Highlight ON/OFF */}
+    <Stack
+      direction="row"
+      spacing={1}
+      alignItems="center"
+      useFlexGap
+      sx={{
+        flexWrap: 'wrap',            // <-- allows second row when tight
+        rowGap: 1,
+        columnGap: 1,
+        minHeight: 48,
+      }}
+    >
       <Tooltip title={enabled ? 'Highlight: ON' : 'Enable Highlight'}>
         <IconButton
+          size="small"
           color={enabled ? 'primary' : 'default'}
           onClick={() => setEnabled && setEnabled(!enabled)}
-          sx={{ border: '1px solid', borderColor: enabled ? 'primary.main' : 'divider' }}
+          sx={{ border: 1, borderColor: enabled ? 'primary.main' : 'divider' }}
         >
-          <HighlightIcon />
+          <HighlightIcon fontSize="small" />
         </IconButton>
       </Tooltip>
 
+      <Divider flexItem orientation="vertical" sx={{ display: { xs: 'none', md: 'block' } }} />
 
-      <Divider flexItem orientation="vertical" />
-
-      {/* Undo / Redo */}
       <Tooltip title="Undo">
-        <span>
-          <IconButton disabled={!canUndo} onClick={onUndo}><UndoIcon /></IconButton>
-        </span>
+        <span><IconButton size="small" disabled={!canUndo} onClick={onUndo}><UndoIcon fontSize="small" /></IconButton></span>
       </Tooltip>
       <Tooltip title="Redo">
-        <span>
-          <IconButton disabled={!onRedo} onClick={onRedo}><RedoIcon /></IconButton>
-        </span>
+        <span><IconButton size="small" disabled={!onRedo} onClick={onRedo}><RedoIcon fontSize="small" /></IconButton></span>
       </Tooltip>
 
-      {/* Clear */}
-      <Tooltip title="Clear (current session)">
-        <span>
-          <IconButton disabled={!canClear} onClick={onClear}><DeleteSweepIcon /></IconButton>
-        </span>
+      <Tooltip title="Clear (session)">
+        <span><IconButton size="small" disabled={!canClear} onClick={onClear}><DeleteSweepIcon fontSize="small" /></IconButton></span>
       </Tooltip>
 
-      <Divider flexItem orientation="vertical" />
+      {/* Compact group: color/opacity/zoom move into More on small screens */}
+      {!mdDown && (
+        <>
+          <Divider flexItem orientation="vertical" />
+          <Tooltip title="Highlight Color">
+            <IconButton size="small" onClick={(e) => setColorEl(e.currentTarget)}><ColorLensIcon fontSize="small" /></IconButton>
+          </Tooltip>
+          <Tooltip title="Opacity">
+            <IconButton size="small" onClick={(e) => setAlphaEl(e.currentTarget)}><OpacityIcon fontSize="small" /></IconButton>
+          </Tooltip>
+          <Tooltip title="Zoom Out">
+            <span><IconButton size="small" onClick={() => onZoomChange && onZoomChange(-0.1)} disabled={!onZoomChange}><ZoomOutIcon fontSize="small" /></IconButton></span>
+          </Tooltip>
+          <Tooltip title="Zoom In">
+            <span><IconButton size="small" onClick={() => onZoomChange && onZoomChange(+0.1)} disabled={!onZoomChange}><ZoomInIcon fontSize="small" /></IconButton></span>
+          </Tooltip>
+        </>
+      )}
 
-      {/* Color */}
-      <Tooltip title="Highlight Color">
-        <IconButton onClick={(e) => setColorEl(e.currentTarget)}>
-          <ColorLensIcon />
+      {/* Right-aligned actions */}
+      <Stack direction="row" spacing={1} sx={{ ml: 'auto' }}>
+        <Button
+          variant={smDown ? 'outlined' : 'contained'}
+          size="small"
+          startIcon={!smDown && <SaveIcon />}
+          onClick={onSave}
+          disabled={!canClear}
+        >
+          {smDown ? <SaveIcon fontSize="small" /> : 'Save'}
+        </Button>
+        <IconButton size="small" onClick={(e) => setMenuEl(e.currentTarget)}>
+          <MoreVertIcon fontSize="small" />
         </IconButton>
-      </Tooltip>
+      </Stack>
+
+      {/* More menu (also shows color/opacity/zoom on small screens) */}
+      <Menu open={!!menuEl} anchorEl={menuEl} onClose={() => setMenuEl(null)}>
+        {mdDown && (
+          <>
+            <MenuItem onClick={(e) => { setColorEl(e.currentTarget); setMenuEl(null); }}>
+              <ColorLensIcon fontSize="small" style={{ marginRight: 8 }} /> Color…
+            </MenuItem>
+            <MenuItem onClick={(e) => { setAlphaEl(e.currentTarget); setMenuEl(null); }}>
+              <OpacityIcon fontSize="small" style={{ marginRight: 8 }} /> Opacity…
+            </MenuItem>
+            <MenuItem onClick={() => { onZoomChange && onZoomChange(+0.1); }}>
+              <ZoomInIcon fontSize="small" style={{ marginRight: 8 }} /> Zoom In
+            </MenuItem>
+            <MenuItem onClick={() => { onZoomChange && onZoomChange(-0.1); }}>
+              <ZoomOutIcon fontSize="small" style={{ marginRight: 8 }} /> Zoom Out
+            </MenuItem>
+            <Divider />
+          </>
+        )}
+        <MenuItem onClick={() => { setMenuEl(null); onSaveReplace && onSaveReplace(); }}>
+          Save & Overwrite
+        </MenuItem>
+      </Menu>
+
+      {/* Color popover */}
       <Popover
         open={!!colorEl}
         anchorEl={colorEl}
@@ -99,9 +149,7 @@ export default function HighlightToolbar({
               onClick={() => { setColor && setColor(c); setColorEl(null); }}
               sx={{
                 width: 24, height: 24, borderRadius: '50%',
-                bgcolor: c, border: '1px solid rgba(0,0,0,0.2)',
-                cursor: setColor ? 'pointer' : 'not-allowed',
-                opacity: setColor ? 1 : 0.5
+                bgcolor: c, border: '1px solid rgba(0,0,0,0.2)', cursor: 'pointer'
               }}
               title={c}
             />
@@ -109,12 +157,7 @@ export default function HighlightToolbar({
         </Box>
       </Popover>
 
-      {/* Opacity */}
-      <Tooltip title="Opacity">
-        <IconButton onClick={(e) => setAlphaEl(e.currentTarget)}>
-          <OpacityIcon />
-        </IconButton>
-      </Tooltip>
+      {/* Opacity popover */}
       <Popover
         open={!!alphaEl}
         anchorEl={alphaEl}
@@ -126,57 +169,9 @@ export default function HighlightToolbar({
             value={Math.round(curAlpha * 100)}
             onChange={(_, v) => setAlpha && setAlpha((Array.isArray(v) ? v[0] : v) / 100)}
             valueLabelDisplay="auto"
-            disabled={!setAlpha}
           />
         </Box>
       </Popover>
-
-      <Divider flexItem orientation="vertical" />
-
-      {/* Zoom (optional) */}
-      <Tooltip title="Zoom Out">
-        <span>
-          <IconButton onClick={() => onZoomChange && onZoomChange(-0.1)} disabled={!onZoomChange}>
-            <ZoomOutIcon />
-          </IconButton>
-        </span>
-      </Tooltip>
-      <Tooltip title="Zoom In">
-        <span>
-          <IconButton onClick={() => onZoomChange && onZoomChange(+0.1)} disabled={!onZoomChange}>
-            <ZoomInIcon />
-          </IconButton>
-        </span>
-      </Tooltip>
-      {typeof zoom === 'number' && (
-        <Box sx={{ mx: 1, fontSize: 12, minWidth: 48, textAlign: 'center' }}>
-          {Math.round(zoom * 100)}%
-        </Box>
-      )}
-
-
-      <Stack direction="row" sx={{ ml: 'auto' }} spacing={1}>
-        <Button
-          variant="contained"
-          startIcon={<SaveIcon />}
-          onClick={handleSave}
-          disabled={!canClear}
-        >
-          Save
-        </Button>
-        <Button
-          variant="outlined"
-          startIcon={<MoreVertIcon />}
-          onClick={(e) => setMenuEl(e.currentTarget)}
-        >
-          More
-        </Button>
-        <Menu open={!!menuEl} anchorEl={menuEl} onClose={() => setMenuEl(null)}>
-          <MenuItem onClick={() => { setMenuEl(null); handleSaveReplace(); }}>
-            Save & Overwrite
-          </MenuItem>
-        </Menu>
-      </Stack>
     </Stack>
   );
 }

@@ -10,6 +10,8 @@ import ReviewToolbar from '../../components/reviews/ReviewToolbar';
 import ReviewSidebar from '../../components/reviews/ReviewSidebar';
 import PdfPane from '../../components/reviews/PdfPane';
 import CommentsPanel from '../../components/comments/CommentsPanel';
+import PdfHighlighter from '../../components/reviews/PdfHighlighter';
+
 
 import { CKEditor } from '@ckeditor/ckeditor5-react';
 import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
@@ -66,6 +68,7 @@ export default function ReviewEditor() {
   const navigate = useNavigate();
   const { current, error } = useSelector((s) => s.reviews || {});
 
+  console.log("current: ", current)
   const [tab, setTab] = React.useState(0);
 
   const [sections, setSections] = React.useState(() => {
@@ -181,10 +184,20 @@ export default function ReviewEditor() {
         <Grid container spacing={1.5} sx={{ p: 1.5, height: '100%', overflow: 'hidden' }}>
           {/* LEFT: Memoized PDF preview – won’t re-render while typing */}
           <Grid item xs={12} lg={5} sx={{ height: '100%', minHeight: 300 }}>
-            <PdfPane
+            {/* <PdfPane
               pdfUrl={current?.pdf_url || current?.file_url || ''}  // whichever your API returns
               paperId={pid}                                         // << pass it
+            /> */}
+            <PdfHighlighter
+              pdfUrl={current?.pdf_url || current?.file_url || ''}
+              uploadUrl={`${import.meta.env.VITE_API_BASE}/pdfs/upload`} // adjust to your route
+              tokenFetchInit={{ credentials: 'include' }}                 // or headers: { Authorization: ... }
+              onSaved={(res) => {
+                // optional: refresh the paper/review or show toast with res.url
+                // dispatch(loadReview(paperId));
+              }}
             />
+
           </Grid>
 
           {/* CENTER: Editors */}

@@ -9,3 +9,9 @@ export function toRelative(u) {
     return u; // not a valid absolute URL; just return as-is
   }
 }
+
+const canonical = (u) => {
+  const url = new URL(u);
+  url.pathname = url.pathname.replace(/\/{2,}/g, '/');
+  return url.toString();
+};
