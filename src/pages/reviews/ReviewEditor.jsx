@@ -81,6 +81,12 @@ export default function ReviewEditor() {
   const [saving, setSaving] = React.useState(false);
   const [savedOnce, setSavedOnce] = React.useState(false);
 
+  const pid = React.useMemo(
+  () => (paperId ?? current?.id ?? current?.paper_id) ?? null,
+  [paperId, current]
+);
+
+
   // Load paper/review once
   React.useEffect(() => { dispatch(loadReview(paperId)); }, [dispatch, paperId]);
 
@@ -175,7 +181,10 @@ export default function ReviewEditor() {
         <Grid container spacing={1.5} sx={{ p: 1.5, height: '100%', overflow: 'hidden' }}>
           {/* LEFT: Memoized PDF preview – won’t re-render while typing */}
           <Grid item xs={12} lg={5} sx={{ height: '100%', minHeight: 300 }}>
-            <PdfPane pdfUrl={current?.pdf_url || ''} />
+            <PdfPane
+              pdfUrl={current?.pdf_url || current?.file_url || ''}  // whichever your API returns
+              paperId={pid}                                         // << pass it
+            />
           </Grid>
 
           {/* CENTER: Editors */}

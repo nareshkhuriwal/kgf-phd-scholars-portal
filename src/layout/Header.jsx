@@ -79,7 +79,7 @@ export default function Header({ onToggleSidebar }) {
               <img src={logoUrl} alt="KGF" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
             </Box>
             <Typography variant="h6" sx={{ mr: 1, fontWeight: 700 }}>
-              KGF Scholars Portal
+              KGF Scholars
             </Typography>
           </Box>
 

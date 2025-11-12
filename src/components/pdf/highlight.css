@@ -1,0 +1,29 @@
+/* highlight.css */
+.hl-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  cursor: crosshair;
+  pointer-events: auto;
+}
+.hl-box {
+  position: absolute;
+  background: rgba(255, 235, 59, 0.35);
+  pointer-events: none;
+  border-radius: 2px;
+}
+.hl-drag { outline: 1px dashed rgba(0,0,0,0.35); }
+
+/* IMPORTANT: react-pdf classnames */
+.pdf-page.hl-enabled canvas,
+.pdf-page.hl-enabled .react-pdf__Page__textContent,
+.pdf-page.hl-enabled .react-pdf__Page__annotations {
+  pointer-events: none;
+}
+
+
+/* wrapper style (you already have position:relative inline) */
+.pdf-page { position: relative; }
+
+/* optional: ensure canvas is block so overlay aligns perfectly */
+.react-pdf__Page canvas { display:block; }

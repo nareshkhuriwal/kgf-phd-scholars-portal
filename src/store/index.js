@@ -10,6 +10,8 @@ import dashboardReducer from './dashboardSlice';
 import chaptersReducer from './chaptersSlice';
 import settingsReducer from './settingsSlice';
 import profileReducer from './profileSlice';
+import highlightsReducer from './highlightsSlice';
+
 
 const store = configureStore({
   reducer: {
@@ -23,7 +25,8 @@ const store = configureStore({
     dashboard: dashboardReducer,
     chapters: chaptersReducer,
     profile: profileReducer,
-    settings: settingsReducer
+    settings: settingsReducer,
+    highlights: highlightsReducer,  // to be implemented
   },
 })
 

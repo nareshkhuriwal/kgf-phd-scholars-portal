@@ -17,13 +17,13 @@ export default function Login() {
   const { loading, error, token } = useSelector(s => s.auth || {});
 
   React.useEffect(() => {
-    if (token) navigate('/', { replace: true });
+    if (token) navigate('/dashboard', { replace: true });
   }, [token, navigate]);
 
   const onSubmit = async ({ email, password }) => {
     try {
       await dispatch(loginThunk({ email, password })).unwrap();
-      navigate('/', { replace: true });
+      navigate('/dashboard', { replace: true });
     } catch {}
   };
 
