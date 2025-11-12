@@ -1,17 +1,21 @@
-// src/components/pdf/HighlightOverlay.jsx
 import React from 'react';
 import './highlight.css';
 
 /**
  * Props:
  * - pageNumber (1-based)
- * - pageRef: ref to the page container (must have bounding box)
- * - scale: current zoom scale used by PDF.js (for visual only; we normalize anyway)
- * - highlights: array of rects for this page [{x,y,w,h}] normalized 0..1
- * - onAddRect(page, rect) -> void
+ * - highlights: [{x,y,w,h}] normalized 0..1
+ * - onAddRect(page, rect)
+ * - color: hex
+ * - alpha: 0..1
  */
-
-export default function HighlightOverlay({ pageNumber, highlights, onAddRect }) {
+export default function HighlightOverlay({
+  pageNumber,
+  highlights,
+  onAddRect,
+  color = '#FFEB3B',
+  alpha = 0.35,
+}) {
   const rootRef = React.useRef(null);
   const [drag, setDrag] = React.useState(null);
   const [isDragging, setIsDragging] = React.useState(false);
@@ -27,15 +31,18 @@ export default function HighlightOverlay({ pageNumber, highlights, onAddRect }) 
   };
 
   const onDown = (e) => {
+    if (e.button !== 0) return;
     const { x, y } = getXY(e);
     setDrag({ startX: x, startY: y, x, y });
     setIsDragging(true);
   };
+
   const onMove = (e) => {
     if (!isDragging) return;
     const { x, y } = getXY(e);
     setDrag((d) => ({ ...d, x, y }));
   };
+
   const onUp = () => {
     if (!isDragging || !drag) return;
     setIsDragging(false);
@@ -47,6 +54,18 @@ export default function HighlightOverlay({ pageNumber, highlights, onAddRect }) 
     if (r.w > 0.002 && r.h > 0.002) onAddRect(pageNumber, r);
     setDrag(null);
   };
+
+  const rgba = (hex, a) => {
+    const h = hex.replace('#', '');
+    const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
+    const n = parseInt(full, 16);
+    const R = (n >> 16) & 255;
+    const G = (n >> 8) & 255;
+    const B = n & 255;
+    return `rgba(${R}, ${G}, ${B}, ${a})`;
+  };
+
+  const fill = rgba(color, alpha);
 
   return (
     <div
@@ -71,12 +90,13 @@ export default function HighlightOverlay({ pageNumber, highlights, onAddRect }) 
             top: `${r.y * 100}%`,
             width: `${r.w * 100}%`,
             height: `${r.h * 100}%`,
-            background: 'rgba(255,235,59,0.35)',
+            background: fill,
             borderRadius: 2,
             pointerEvents: 'none',
           }}
         />
       ))}
+
       {isDragging && drag && (
         <div
           style={{
@@ -85,7 +105,7 @@ export default function HighlightOverlay({ pageNumber, highlights, onAddRect }) 
             top: `${Math.min(drag.startY, drag.y) * 100}%`,
             width: `${Math.abs(drag.x - drag.startX) * 100}%`,
             height: `${Math.abs(drag.y - drag.startY) * 100}%`,
-            background: 'rgba(255,235,59,0.35)',
+            background: fill,
             outline: '1px dashed rgba(0,0,0,0.35)',
             borderRadius: 2,
             pointerEvents: 'none',

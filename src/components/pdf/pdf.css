@@ -1,0 +1,25 @@
+.pdf-pane {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pdf-page {
+  background: #fff;
+  box-shadow: 0 2px 12px rgba(0,0,0,.08);
+}
+
+.hl-layer .hl-rect {
+  background: rgba(255, 235, 59, 0.35);     /* soft yellow */
+  outline: 2px solid rgba(255, 193, 7, 0.8); /* amber outline */
+  border-radius: 4px;
+  transition: transform 120ms ease, opacity 120ms ease;
+  will-change: transform, opacity;
+}
+
+.hl-draft {
+  background: rgba(33, 150, 243, 0.12);
+  outline: 2px dashed rgba(33, 150, 243, 0.7);
+  border-radius: 4px;
+}

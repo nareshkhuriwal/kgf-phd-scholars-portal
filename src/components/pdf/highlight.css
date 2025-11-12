@@ -27,3 +27,4 @@
 
 /* optional: ensure canvas is block so overlay aligns perfectly */
 .react-pdf__Page canvas { display:block; }
+

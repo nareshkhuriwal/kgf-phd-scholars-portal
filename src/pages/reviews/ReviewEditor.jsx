@@ -8,7 +8,7 @@ import {
 import PageHeader from '../../components/PageHeader';
 import ReviewToolbar from '../../components/reviews/ReviewToolbar';
 import ReviewSidebar from '../../components/reviews/ReviewSidebar';
-import PdfPane from '../../components/reviews/PdfPane';
+import PdfPane from '../../components/pdf/PdfPane';
 import CommentsPanel from '../../components/comments/CommentsPanel';
 import PdfHighlighter from '../../components/reviews/PdfHighlighter';
 
@@ -184,11 +184,11 @@ export default function ReviewEditor() {
         <Grid container spacing={1.5} sx={{ p: 1.5, height: '100%', overflow: 'hidden' }}>
           {/* LEFT: Memoized PDF preview – won’t re-render while typing */}
           <Grid item xs={12} lg={5} sx={{ height: '100%', minHeight: 300 }}>
-            {/* <PdfPane
-              pdfUrl={current?.pdf_url || current?.file_url || ''}  // whichever your API returns
+            <PdfPane
+              fileUrl={current?.pdf_url || current?.file_url || ''}  // whichever your API returns
               paperId={pid}                                         // << pass it
-            /> */}
-            <PdfHighlighter
+            />
+            {/* <PdfHighlighter
               pdfUrl={current?.pdf_url || current?.file_url || ''}
               uploadUrl={`/pdfs/upload`} // adjust to your route
               tokenFetchInit={{ credentials: 'include' }}                 // or headers: { Authorization: ... }
@@ -196,7 +196,7 @@ export default function ReviewEditor() {
                 // optional: refresh the paper/review or show toast with res.url
                 // dispatch(loadReview(paperId));
               }}
-            />
+            /> */}
 
           </Grid>
 
