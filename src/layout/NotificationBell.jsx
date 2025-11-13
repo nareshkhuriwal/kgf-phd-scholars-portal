@@ -8,7 +8,7 @@ import {
   markAllInviteNotificationsRead,
   selectInviteNotifications,
   selectUnreadInviteCount,
-} from '../store/inviteNotificationsSlice';
+} from './../store/inviteNotificationsSlice'; // <-- update path if needed
 
 import {
   IconButton,
@@ -78,8 +78,14 @@ export default function NotificationBell() {
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
         PaperProps={{ sx: { width: 360, maxHeight: 420 } }}
       >
-        <Box p={2} pb={1} display="flex" alignItems="center" justifyContent="space-between">
-          <Typography variant="subtitle1"> Notification</Typography>
+        <Box
+          p={2}
+          pb={1}
+          display="flex"
+          alignItems="center"
+          justifyContent="space-between"
+        >
+          <Typography variant="subtitle1">Notification</Typography>
           {items.length > 0 && (
             <Button size="small" onClick={handleMarkAllRead}>
               Mark all as read
@@ -96,7 +102,7 @@ export default function NotificationBell() {
             </Box>
           )}
 
-          {!loading && items.length === 0 && (
+         {!loading && items.length === 0 && (
             <Box p={2}>
               <Typography variant="body2" color="text.secondary">
                 You're all caught up
@@ -108,7 +114,15 @@ export default function NotificationBell() {
             items.map((n) => {
               const isPending = n.status === 'pending';
               const isAccepted = n.status === 'accepted';
-              const isDeclined = n.status === 'declined';
+              const isDeclined = n.status === 'declined' || n.status === 'revoked';
+
+              // Build a nice message based on your API fields
+              const text =
+                n.message ||
+                // for researcher-side bell:
+                `You have been invited by ${n.supervisor_name || 'your supervisor'}`;
+              // OR for supervisor-side bell:
+              // `Invitation sent to ${n.researcher_email}`;
 
               return (
                 <Box key={n.id} px={2} py={1.5}>
@@ -117,14 +131,12 @@ export default function NotificationBell() {
                       variant="body2"
                       fontWeight={n.is_read ? 400 : 600}
                     >
-                      {/* Customize message as needed */}
-                      {n.message ||
-                        `Invitation from ${n.inviter_name || 'Researcher'}`}
+                      {text}
                     </Typography>
 
-                    {n.created_at && (
+                    {n.display_at && (
                       <Typography variant="caption" color="text.secondary">
-                        {new Date(n.created_at).toLocaleString()}
+                        {new Date(n.display_at).toLocaleString()}
                       </Typography>
                     )}
 
@@ -159,11 +171,15 @@ export default function NotificationBell() {
                             bgcolor: isAccepted
                               ? 'success.light'
                               : isDeclined
-                              ? 'error.light'
-                              : 'grey.200',
+                                ? 'error.light'
+                                : 'grey.200',
                           }}
                         >
-                          {isAccepted ? 'Accepted' : isDeclined ? 'Declined' : n.status}
+                          {isAccepted
+                            ? 'Accepted'
+                            : isDeclined
+                              ? 'Declined'
+                              : n.status}
                         </Typography>
                       )}
 
@@ -184,6 +200,7 @@ export default function NotificationBell() {
                 </Box>
               );
             })}
+
         </Box>
       </Popover>
     </>

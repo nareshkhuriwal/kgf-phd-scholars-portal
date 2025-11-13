@@ -11,14 +11,26 @@ export const loadInviteNotifications = createAsyncThunk(
   'inviteNotifications/load',
   async (_, { rejectWithValue }) => {
     try {
-      const res = await apiFetch('/me/invite-notifications');
-      // Expecting: { data: [ { id, message, status, is_read, created_at, ... } ] }
-      return res.data || [];
+      const res = await apiFetch('/researchers/my-invites');
+      // or '/researchers/invites' if you’re showing this to supervisor instead
+
+      const rawItems = res.data || [];
+
+      const items = rawItems.map((inv) => ({
+        ...inv,
+        // Prefer sent_at for display; fallback to created_at
+        display_at: inv.sent_at || inv.created_at || null,
+        // local-only read flag (not from API)
+        is_read: false,
+      }));
+
+      return items;
     } catch (err) {
       return rejectWithValue(err.message || 'Failed to load notifications');
     }
   }
 );
+
 
 // Accept / Decline invite
 export const respondToInvite = createAsyncThunk(
@@ -26,9 +38,12 @@ export const respondToInvite = createAsyncThunk(
   async ({ id, action }, { rejectWithValue }) => {
     try {
       // action: 'accept' | 'decline'
-      await apiFetch(`/me/invite-notifications/${id}/${action}`, {
+      const endpointAction = action === 'accept' ? 'accept' : 'reject';
+
+      await apiFetch(`/researchers/invites/${id}/${endpointAction}`, {
         method: 'POST',
       });
+
       return { id, action };
     } catch (err) {
       return rejectWithValue(err.message || 'Failed to respond to invite');
@@ -36,33 +51,21 @@ export const respondToInvite = createAsyncThunk(
   }
 );
 
-// Mark single notification as read
+// Mark single notification as read (client-side only)
 export const markInviteNotificationRead = createAsyncThunk(
   'inviteNotifications/markRead',
-  async (id, { rejectWithValue }) => {
-    try {
-      await apiFetch(`/me/invite-notifications/${id}/read`, {
-        method: 'POST',
-      });
-      return id;
-    } catch (err) {
-      return rejectWithValue(err.message || 'Failed to mark as read');
-    }
+  async (id) => {
+    // no API call – just return the id
+    return id;
   }
 );
 
-// Optionally: mark all as read
+// Optionally: mark all as read (client-side only)
 export const markAllInviteNotificationsRead = createAsyncThunk(
   'inviteNotifications/markAllRead',
-  async (_, { rejectWithValue }) => {
-    try {
-      await apiFetch('/me/invite-notifications/mark-all-read', {
-        method: 'POST',
-      });
-      return;
-    } catch (err) {
-      return rejectWithValue(err.message || 'Failed to mark all as read');
-    }
+  async () => {
+    // no API call – just resolve
+    return;
   }
 );
 
@@ -73,7 +76,7 @@ export const markAllInviteNotificationsRead = createAsyncThunk(
 const inviteNotificationsSlice = createSlice({
   name: 'inviteNotifications',
   initialState: {
-    items: [],        // array of notifications
+    items: [], // array of invites
     loading: false,
     error: null,
   },

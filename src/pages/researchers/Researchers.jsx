@@ -47,8 +47,7 @@ export default function Researchers() {
   const [inviteOpen, setInviteOpen] = React.useState(false);
   const [form, setForm] = React.useState({
     researcher_email: '',
-    researcher_name: '',
-    message: '',
+    message: 'You have been invited to join the KGF Scholars research platform.',
   });
   const [snack, setSnack] = React.useState({
     open: false,
@@ -186,7 +185,7 @@ export default function Researchers() {
                         <IconButton
                           color="error"
                           onClick={() => onRevoke(r.id)}
-                          disabled={r.status !== 'Pending'}
+                          disabled={r.status !== 'pending'}
                           size="small"
                         >
                           <DeleteIcon />
