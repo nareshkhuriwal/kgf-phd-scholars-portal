@@ -79,7 +79,7 @@ export default function NotificationBell() {
         PaperProps={{ sx: { width: 360, maxHeight: 420 } }}
       >
         <Box p={2} pb={1} display="flex" alignItems="center" justifyContent="space-between">
-          <Typography variant="subtitle1">Invitations</Typography>
+          <Typography variant="subtitle1"> Notification</Typography>
           {items.length > 0 && (
             <Button size="small" onClick={handleMarkAllRead}>
               Mark all as read
@@ -99,7 +99,7 @@ export default function NotificationBell() {
           {!loading && items.length === 0 && (
             <Box p={2}>
               <Typography variant="body2" color="text.secondary">
-                No invitation notifications.
+                You're all caught up
               </Typography>
             </Box>
           )}
