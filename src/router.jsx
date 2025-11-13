@@ -30,6 +30,7 @@ import CollectionManage from './pages/collections/CollectionManage';
 import ReportsPage from './pages/reports/ReportsPage';
 import CreateReports from './pages/reports/CreateReports';
 import Register from './pages/Register';
+import Researchers from './pages/researchers/Researchers';
 
 import { ChaptersPage, ChapterEditor } from './pages/chapters'; // new import
 
@@ -72,8 +73,8 @@ export default function Router() {
         <Route path="reports" element={<ReportsPage />} />
         <Route path="reports/builder" element={<CreateReports />} />
         <Route path="reports/builder/:id" element={<CreateReports />} />
-  
-  
+        <Route path="researchers" element={<Researchers />} />
+
       </Route>
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

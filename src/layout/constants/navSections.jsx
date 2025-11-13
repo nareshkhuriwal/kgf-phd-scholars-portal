@@ -13,7 +13,7 @@ import ArticleIcon from '@mui/icons-material/Article';
 import SummarizeIcon from '@mui/icons-material/Summarize';
 import LayersIcon from '@mui/icons-material/Layers';
 import DescriptionIcon from '@mui/icons-material/Description';
-
+import GroupAddIcon from '@mui/icons-material/GroupAdd';
 export const SECTIONS = [
   {
     key: 'dashboard',
@@ -73,6 +73,15 @@ export const SECTIONS = [
       { to: '/reports', label: 'All Reports', Icon: DescriptionIcon },
       // { to: '/reports/chapters', label: 'Chapter Builder', Icon: LayersIcon },
       // { to: '/reports/rol', label: 'ROL (Excel)', Icon: SummarizeIcon },
+    ],
+  },
+  {
+    key: 'researchers',
+    label: 'Researchers',
+    base: '/researchers',
+    Icon: GroupAddIcon,
+     items: [
+      { to: '/researchers', label: 'All Researchers', Icon: DescriptionIcon },
     ],
   },
 ];

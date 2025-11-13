@@ -11,7 +11,7 @@ import chaptersReducer from './chaptersSlice';
 import settingsReducer from './settingsSlice';
 import profileReducer from './profileSlice';
 import highlightsReducer from './highlightsSlice';
-
+import researchersReducer from './researchersSlice';
 
 const store = configureStore({
   reducer: {
@@ -27,6 +27,7 @@ const store = configureStore({
     profile: profileReducer,
     settings: settingsReducer,
     highlights: highlightsReducer,  // to be implemented
+    researchers: researchersReducer,
   },
 })
 

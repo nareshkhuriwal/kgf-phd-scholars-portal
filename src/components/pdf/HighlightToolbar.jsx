@@ -118,13 +118,10 @@ export default function HighlightToolbar({
         <Button
           variant={smDown ? 'outlined' : 'contained'}
           size="small"
-          startIcon={!smDown && <SaveIcon />}
           onClick={onSave}
           disabled={!canClear || saving}
         >
-          {smDown
-            ? <SaveIcon fontSize="small" />
-            : (saving ? 'Saving…' : 'Save')}
+          <SaveIcon fontSize="small" />
         </Button>
         <IconButton size="small" onClick={(e) => setMenuEl(e.currentTarget)}>
           <MoreVertIcon fontSize="small" />

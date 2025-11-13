@@ -18,8 +18,8 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
 
   // sync url
   const [activeUrl, setActiveUrl] = React.useState('');
-  // React.useEffect(() => { setActiveUrl(fileUrl ? toRelative(fileUrl) : ''); }, [fileUrl]);
-  React.useEffect(() => { setActiveUrl(fileUrl ? fileUrl : ''); }, [fileUrl]);
+  React.useEffect(() => { setActiveUrl(fileUrl ? toRelative(fileUrl) : ''); }, [fileUrl]);
+  // React.useEffect(() => { setActiveUrl(fileUrl ? fileUrl : ''); }, [fileUrl]);
 
   // viewer state
   const [doc, setDoc] = React.useState(null);
