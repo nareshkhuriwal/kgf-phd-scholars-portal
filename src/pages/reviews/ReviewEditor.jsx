@@ -159,7 +159,7 @@ export default function ReviewEditor() {
         actions={
           <Stack direction="row" spacing={1}>
             {savedOnce && <Chip label="Saved" size="small" color="success" variant="outlined" />}
-            <Button variant="outlined" onClick={() => navigate('/reviews')}>Back to Queue</Button>
+            <Button variant="outlined" onClick={() => navigate('/reviews/queue')}>Back to Queue</Button>
             <Button variant="contained" disabled={saving} onClick={onSaveCurrentTab}>
               {saving ? 'Saving…' : `Save: ${EDITOR_ORDER[tab]}`}
             </Button>

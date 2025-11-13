@@ -23,8 +23,8 @@ export default defineConfig({
     proxy: {
       // proxy static files served by Laravel (e.g., /storage/…)
       '/storage': {
-        target: 'http://localhost:8000',
-        // target: 'https://phdapi.khuriwalgroup.com',
+        // target: 'http://localhost:8000',
+        target: 'https://phdapi.khuriwalgroup.com',
         changeOrigin: true,
         configure: (proxy) => {
           proxy.on('proxyRes', (proxyRes) => {
@@ -37,8 +37,8 @@ export default defineConfig({
       },
 
       '/uploads': {
-        target: 'http://localhost:8000',
-        // target: 'https://phdapi.khuriwalgroup.com',
+        // target: 'http://localhost:8000',
+        target: 'https://phdapi.khuriwalgroup.com',
         changeOrigin: true,
         configure: (proxy) => {
           proxy.on('proxyRes', (proxyRes) => {
@@ -51,8 +51,8 @@ export default defineConfig({
 
       // proxy your API too (optional but recommended)
       '/api': {
-        target: 'http://localhost:8000',
-        // target: 'https://phdapi.khuriwalgroup.com',
+        // target: 'http://localhost:8000',
+        target: 'https://phdapi.khuriwalgroup.com',
         changeOrigin: true,
         configure: (proxy) => {
           proxy.on('proxyRes', (proxyRes) => {

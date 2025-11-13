@@ -1,8 +1,10 @@
 // src/pages/reviews/ReviewQueue.jsx
 import React from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { Box, Paper, Stack, Button, Table, TableHead, TableRow, TableCell, TableBody,
-  TableContainer, TablePagination, Chip, Typography } from '@mui/material';
+import {
+  Box, Paper, Stack, Button, Table, TableHead, TableRow, TableCell, TableBody,
+  TableContainer, TablePagination, Chip, Typography
+} from '@mui/material';
 import PageHeader from '../../components/PageHeader';
 import SearchBar from '../../components/SearchBar';
 import EmptyState from '../../components/EmptyState';
@@ -10,6 +12,12 @@ import ConfirmDialog from '../../components/ConfirmDialog';
 import { useNavigate } from 'react-router-dom';
 import { loadReviewQueue, removeFromQueue } from '../../store/reviewsSlice';
 import ReviewCard from '../../components/reviews/ReviewCard';
+
+import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+
 
 export default function ReviewQueue() {
   const dispatch = useDispatch();
@@ -40,7 +48,7 @@ export default function ReviewQueue() {
         title="Reviews — Queue"
         subtitle="Papers you’ve queued up to review"
         actions={<Stack direction="row" spacing={1}>
-          <Button variant="outlined" onClick={()=>dispatch(loadReviewQueue())}>Refresh</Button>
+          <Button variant="outlined" onClick={() => dispatch(loadReviewQueue())}>Refresh</Button>
         </Stack>}
       />
 
@@ -80,21 +88,64 @@ export default function ReviewQueue() {
                     <TableCell>{r.year || '-'}</TableCell>
                     <TableCell>{r.doi || '-'}</TableCell>
                     <TableCell>
-                      {(r.review_status || 'pending') === 'done'
-                        ? <Chip label="Reviewed" color="success" size="small" />
-                        : <Chip label="Pending" color="warning" size="small" />
-                      }
+                      {(() => {
+                        const status = r.review_status || 'draft';
+
+                        let label = 'Draft';
+                        let color = 'default'; // MUI Chip color
+
+                        switch (status) {
+                          case 'in_progress':
+                            label = 'In Progress';
+                            color = 'warning';
+                            break;
+                          case 'done':
+                            label = 'Reviewed';
+                            color = 'success';
+                            break;
+                          case 'archived':
+                            label = 'Archived';
+                            color = 'default';
+                            break;
+                          case 'draft':
+                          default:
+                            label = 'Draft';
+                            color = 'default';
+                            break;
+                        }
+
+                        return <Chip label={label} color={color} size="small" />;
+                      })()}
                     </TableCell>
+
                     <TableCell>
                       <Stack direction="row" spacing={1}>
-                        <Button size="small" variant="contained" onClick={() => navigate(`/reviews/${r.id}`)}>
-                          Open
-                        </Button>
-                        <Button size="small" color="error" variant="outlined" onClick={() => setConfirm(r)}>
-                          Remove
-                        </Button>
+                        <Tooltip title="Open review">
+                          <span>
+                            <IconButton
+                              size="small"
+                              color="primary"
+                              onClick={() => navigate(`/reviews/${r.id}`)}
+                            >
+                              <VisibilityIcon fontSize="inherit" />
+                            </IconButton>
+                          </span>
+                        </Tooltip>
+
+                        <Tooltip title="Remove from queue">
+                          <span>
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => setConfirm(r)}
+                            >
+                              <DeleteOutlineIcon fontSize="inherit" />
+                            </IconButton>
+                          </span>
+                        </Tooltip>
                       </Stack>
                     </TableCell>
+
                   </TableRow>
                 ))}
               </TableBody>

@@ -122,7 +122,9 @@ export default function HighlightToolbar({
           onClick={onSave}
           disabled={!canClear || saving}
         >
-          {smDown ? <SaveIcon fontSize="small" /> : 'Save'}
+          {smDown
+            ? <SaveIcon fontSize="small" />
+            : (saving ? 'Saving…' : 'Save')}
         </Button>
         <IconButton size="small" onClick={(e) => setMenuEl(e.currentTarget)}>
           <MoreVertIcon fontSize="small" />

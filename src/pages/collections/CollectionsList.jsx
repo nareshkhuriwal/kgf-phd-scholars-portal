@@ -9,6 +9,12 @@ import PageHeader from '../../components/PageHeader';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { useNavigate } from 'react-router-dom';
 
+import Tooltip from '@mui/material/Tooltip';
+import FolderOpenIcon from '@mui/icons-material/FolderOpen';
+import TuneIcon from '@mui/icons-material/Tune';          // for Manage
+
+
+
 export default function CollectionsList() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -20,7 +26,7 @@ export default function CollectionsList() {
   const [desc, setDesc] = React.useState('');
   const [saving, setSaving] = React.useState(false);
 
-  React.useEffect(()=>{ dispatch(loadCollections()); },[dispatch]);
+  React.useEffect(() => { dispatch(loadCollections()); }, [dispatch]);
 
   const resetForm = () => { setName(''); setDesc(''); };
   const onClose = () => { if (!saving) { setOpen(false); resetForm(); } };
@@ -42,7 +48,7 @@ export default function CollectionsList() {
       <PageHeader
         title="Collections"
         subtitle="Curate focused sets of papers to review and report"
-        actions={<Button variant="contained" onClick={()=>setOpen(true)}>New Collection</Button>}
+        actions={<Button variant="contained" onClick={() => setOpen(true)}>New Collection</Button>}
       />
 
       <Grid container spacing={1.5}>
@@ -54,18 +60,47 @@ export default function CollectionsList() {
                 {(c.paper_count ?? c.count ?? 0)} papers • Updated {c.updated_at_readable ?? c.updated_at}
               </Typography>
               <Stack direction="row" spacing={1}>
-                <Button size="small" variant="outlined" onClick={()=>navigate(`/collections/${c.id}`)}>Open</Button>
-                <Button size="small" variant="outlined" onClick={()=>navigate(`/collections/${c.id}/manage`)}>Manage</Button>
-                <IconButton size="small" color="error" onClick={()=>dispatch(deleteCollection(c.id))}>
-                  <DeleteIcon fontSize="small" />
-                </IconButton>
+                <Tooltip title="Open collection">
+                  <span>
+                    <IconButton
+                      size="small"
+                      onClick={() => navigate(`/collections/${c.id}`)}
+                    >
+                      <FolderOpenIcon fontSize="inherit" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+
+                <Tooltip title="Manage collection">
+                  <span>
+                    <IconButton
+                      size="small"
+                      onClick={() => navigate(`/collections/${c.id}/manage`)}
+                    >
+                      <TuneIcon fontSize="inherit" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+
+                <Tooltip title="Delete collection">
+                  <span>
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={() => dispatch(deleteCollection(c.id))}
+                    >
+                      <DeleteIcon fontSize="inherit" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
               </Stack>
+
             </Paper>
           </Grid>
         ))}
-        {!loading && (!list || list.length===0) && (
+        {!loading && (!list || list.length === 0) && (
           <Grid item xs={12}>
-            <Paper sx={{ p:2, border:'1px solid #eee', borderRadius:2 }}>No collections yet.</Paper>
+            <Paper sx={{ p: 2, border: '1px solid #eee', borderRadius: 2 }}>No collections yet.</Paper>
           </Grid>
         )}
       </Grid>
@@ -78,7 +113,7 @@ export default function CollectionsList() {
             <TextField
               label="Collection name"
               value={name}
-              onChange={(e)=>setName(e.target.value)}
+              onChange={(e) => setName(e.target.value)}
               autoFocus
               required
               inputProps={{ maxLength: 120 }}
@@ -88,7 +123,7 @@ export default function CollectionsList() {
             <TextField
               label="Description (optional)"
               value={desc}
-              onChange={(e)=>setDesc(e.target.value)}
+              onChange={(e) => setDesc(e.target.value)}
               fullWidth
               multiline
               minRows={3}

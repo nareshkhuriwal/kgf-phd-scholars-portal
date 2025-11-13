@@ -6,7 +6,7 @@ import HighlightToolbar from './HighlightToolbar';
 import './pdf.css';
 import { toRelative } from '../../utils/url';
 import { saveHighlights } from '../../store/highlightsSlice';
-
+import { Snackbar, Alert } from '@mui/material';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
@@ -18,7 +18,8 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
 
   // sync url
   const [activeUrl, setActiveUrl] = React.useState('');
-  React.useEffect(() => { setActiveUrl(fileUrl ? toRelative(fileUrl) : ''); }, [fileUrl]);
+  // React.useEffect(() => { setActiveUrl(fileUrl ? toRelative(fileUrl) : ''); }, [fileUrl]);
+  React.useEffect(() => { setActiveUrl(fileUrl ? fileUrl : ''); }, [fileUrl]);
 
   // viewer state
   const [doc, setDoc] = React.useState(null);
@@ -28,10 +29,12 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
   const [naturalSizes, setNaturalSizes] = React.useState([]);
 
   // highlight style + enable
-  const [enabled, setEnabled]   = React.useState(true);
-  const [mode, setMode]         = React.useState('rect'); // brush reserved
+  const [enabled, setEnabled] = React.useState(true);
+  const [mode, setMode] = React.useState('rect'); // brush reserved
   const [colorHex, setColorHex] = React.useState('#FFEB3B');
-  const [alpha, setAlpha]       = React.useState(0.35);
+  const [alpha, setAlpha] = React.useState(0.35);
+  const [saving, setSaving] = React.useState(false);
+  const [toast, setToast] = React.useState(null); // {severity,msg}
 
   // stored in PDF points (scale=1)
   const [hlPoints, setHlPoints] = React.useState({});
@@ -93,8 +96,10 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
   const addHighlight = (pageIndex, rectPx) => {
     const s = currentScale;
     const toPts = v => v / s;
-    const rectPts = { id: `${pageIndex}-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
-      x: toPts(rectPx.x), y: toPts(rectPx.y), w: toPts(rectPx.w), h: toPts(rectPx.h) };
+    const rectPts = {
+      id: `${pageIndex}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      x: toPts(rectPx.x), y: toPts(rectPx.y), w: toPts(rectPx.w), h: toPts(rectPx.h)
+    };
     setHlPoints(prev => {
       const arr = prev[pageIndex] ? [...prev[pageIndex]] : [];
       arr.push(rectPts);
@@ -107,14 +112,14 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
   // draw rects (points -> px)
   const highlightsForPagePx = (pageIndex) => {
     const s = currentScale;
-    return (hlPoints[pageIndex] || []).map(r => ({ id: r.id, x: r.x*s, y: r.y*s, w: r.w*s, h: r.h*s }));
+    return (hlPoints[pageIndex] || []).map(r => ({ id: r.id, x: r.x * s, y: r.y * s, w: r.w * s, h: r.h * s }));
   };
 
   // undo / clear
-  const canUndo = React.useMemo(() => Object.values(hlPoints).some(arr => (arr||[]).length>0), [hlPoints]);
+  const canUndo = React.useMemo(() => Object.values(hlPoints).some(arr => (arr || []).length > 0), [hlPoints]);
   const onUndo = () => {
     setHlPoints(prev => {
-      const pagesWithData = Object.keys(prev).map(Number).sort((a,b)=>b-a); // last page first
+      const pagesWithData = Object.keys(prev).map(Number).sort((a, b) => b - a); // last page first
       for (const p of pagesWithData) {
         const arr = prev[p] || [];
         if (arr.length) {
@@ -158,15 +163,24 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
     if (!paperId) return;
     const highlights = Object.entries(hlPoints).map(([pageStr, rects]) => {
       const page = Number(pageStr), nat = naturalSizes[page - 1];
-      const norm = r => ({ x:+(r.x/nat.w).toFixed(6), y:+(r.y/nat.h).toFixed(6), w:+(r.w/nat.w).toFixed(6), h:+(r.h/nat.h).toFixed(6) });
+      const norm = r => ({ x: +(r.x / nat.w).toFixed(6), y: +(r.y / nat.h).toFixed(6), w: +(r.w / nat.w).toFixed(6), h: +(r.h / nat.h).toFixed(6) });
       return { page, rects: rects.map(norm) };
     });
     if (!highlights.length) return;
 
-    await dispatch(saveHighlights({
-      paperId, replace: true, sourceUrl: activeUrl, mode: 'rect',
-      highlights, style: { color: colorHex, alpha }
-    }));
+    try {
+      setSaving(true);
+      await dispatch(saveHighlights({
+        paperId, replace: true, sourceUrl: activeUrl, mode: 'rect',
+        highlights, style: { color: colorHex, alpha }
+      })).unwrap?.();
+      setToast({ severity: 'success', msg: 'Highlights saved.' });
+    } catch (e) {
+      setToast({ severity: 'error', msg: e?.message || 'Save failed' });
+    } finally {
+      setSaving(false);
+    }
+
   };
 
   return (
@@ -183,7 +197,7 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
           alpha={alpha} setAlpha={setAlpha}
           onZoomChange={onZoomChange} zoom={currentScale}
           onFitWidth={onFitWidth} onReset={onReset}
-          saving={false}
+          saving={saving}
         />
       </div>
 
@@ -202,6 +216,21 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
           />
         ))}
       </div>
+
+
+      {/* toast */}
+     <Snackbar
+        open={!!toast}
+        autoHideDuration={3000}
+        onClose={() => setToast(null)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        // optional: nudge it away from the edges / under a fixed header
+        sx={{ top: { xs: 8, sm: 16 }, right: 16 }}
+      >
+        {toast && <Alert severity={toast.severity}>{toast.msg}</Alert>}
+      </Snackbar>
+
+
     </div>
   );
 }

@@ -30,6 +30,14 @@ import SearchBar from '../../components/SearchBar';
 import EmptyState from '../../components/EmptyState';
 import ConfirmDialog from '../../components/ConfirmDialog';
 
+import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import RateReviewIcon from '@mui/icons-material/RateReview';
+
+
+
 // --- helpers to read fields regardless of API casing ---
 const val = (row, keys) => {
   for (const k of keys) {
@@ -284,23 +292,43 @@ export default function Papers() {
                         <TableCell>{val(r, ['doi', 'DOI'])}</TableCell>
                         <TableCell sx={{ whiteSpace: 'nowrap' }}>
                           <Stack direction="row" spacing={1} useFlexGap flexWrap="nowrap">
-                            <Button size="small" variant="outlined"
-                              sx={{ whiteSpace: 'nowrap', minWidth: 0 }}
-                              onClick={() => navigate(`/library/papers/${id}`)}>
-                              Edit
-                            </Button>
-                            <Button size="small" color="error" variant="outlined"
-                              sx={{ whiteSpace: 'nowrap', minWidth: 0 }}
-                              onClick={() => setConfirm(r)}>
-                              Delete
-                            </Button>
-                            <Button size="small" variant="outlined"
-                              sx={{ whiteSpace: 'nowrap', minWidth: 0 }}
-                              onClick={() => handleReview(id)}>
-                              Review
-                            </Button>
+                            <Tooltip title="Edit paper">
+                              <span>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => navigate(`/library/papers/${id}`)}
+                                >
+                                  <EditIcon fontSize="inherit" />
+                                </IconButton>
+                              </span>
+                            </Tooltip>
+
+                            <Tooltip title="Delete paper">
+                              <span>
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  onClick={() => setConfirm(r)}
+                                >
+                                  <DeleteIcon fontSize="inherit" />
+                                </IconButton>
+                              </span>
+                            </Tooltip>
+
+                            <Tooltip title="Review paper">
+                              <span>
+                                <IconButton
+                                  size="small"
+                                  color="primary"
+                                  onClick={() => handleReview(id)}
+                                >
+                                  <RateReviewIcon fontSize="inherit" />
+                                </IconButton>
+                              </span>
+                            </Tooltip>
                           </Stack>
                         </TableCell>
+
 
                       </TableRow>
                     );
