@@ -15,7 +15,8 @@ import { SECTIONS } from './constants/navSections';
 import logoUrl from '../assets/klogo.png';
 
 import ProfileDialog from '../components/profile/ProfileDialog.jsx';
-import SettingsDialog from '../components/settings/SettingsDialog.jsx'; // ✅ fixed path
+import SettingsDialog from '../components/settings/SettingsDialog.jsx';
+import NotificationBell from '../layout/NotificationBell.jsx'; // ✅ NEW
 
 export default function Header({ onToggleSidebar }) {
   const navigate = useNavigate();
@@ -76,7 +77,11 @@ export default function Header({ onToggleSidebar }) {
                 overflow: 'hidden', bgcolor: '#fff'
               }}
             >
-              <img src={logoUrl} alt="KGF" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+              <img
+                src={logoUrl}
+                alt="KGF"
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+              />
             </Box>
             <Typography variant="h6" sx={{ mr: 1, fontWeight: 700 }}>
               KGF Scholars
@@ -109,42 +114,55 @@ export default function Header({ onToggleSidebar }) {
             })}
           </Stack>
 
-          {/* User menu */}
-          <Box>
-            <IconButton
-              onClick={handleOpen}
-              size="small"
-              sx={{ ml: 1, p: 0.5, border: '1px solid #e6e6e6', borderRadius: '24px' }}
-            >
-              <Avatar sx={{ width: 28, height: 28, fontSize: 13 }}>{initials}</Avatar>
-              <Typography sx={{ ml: 1, mr: 1, display: { xs: 'none', sm: 'inline' }, fontWeight: 500 }}>
-                {firstName}
-              </Typography>
-            </IconButton>
+          {/* Right side: Notifications + User menu */}
+          <Stack direction="row" spacing={1.5} alignItems="center">
+            {/* 🔔 Invite notifications popover */}
+            <NotificationBell />
 
-            <Menu
-              anchorEl={menuEl}
-              open={openMenu}
-              onClose={handleClose}
-              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-              PaperProps={{ elevation: 3, sx: { minWidth: 200, borderRadius: 2 } }}
-            >
-              <MenuItem onClick={openProfile}>
-                <PersonIcon fontSize="small" style={{ marginRight: 8 }} />
-                Profile
-              </MenuItem>
-              <MenuItem onClick={openSettings}>
-                <SettingsIcon fontSize="small" style={{ marginRight: 8 }} />
-                Settings
-              </MenuItem>
-              <Divider sx={{ my: 0.5 }} />
-              <MenuItem onClick={handleLogout}>
-                <LogoutIcon fontSize="small" style={{ marginRight: 8 }} />
-                Logout
-              </MenuItem>
-            </Menu>
-          </Box>
+            {/* User menu */}
+            <Box>
+              <IconButton
+                onClick={handleOpen}
+                size="small"
+                sx={{ ml: 1, p: 0.5, border: '1px solid #e6e6e6', borderRadius: '24px' }}
+              >
+                <Avatar sx={{ width: 28, height: 28, fontSize: 13 }}>{initials}</Avatar>
+                <Typography
+                  sx={{
+                    ml: 1,
+                    mr: 1,
+                    display: { xs: 'none', sm: 'inline' },
+                    fontWeight: 500
+                  }}
+                >
+                  {firstName}
+                </Typography>
+              </IconButton>
+
+              <Menu
+                anchorEl={menuEl}
+                open={openMenu}
+                onClose={handleClose}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                PaperProps={{ elevation: 3, sx: { minWidth: 200, borderRadius: 2 } }}
+              >
+                <MenuItem onClick={openProfile}>
+                  <PersonIcon fontSize="small" style={{ marginRight: 8 }} />
+                  Profile
+                </MenuItem>
+                <MenuItem onClick={openSettings}>
+                  <SettingsIcon fontSize="small" style={{ marginRight: 8 }} />
+                  Settings
+                </MenuItem>
+                <Divider sx={{ my: 0.5 }} />
+                <MenuItem onClick={handleLogout}>
+                  <LogoutIcon fontSize="small" style={{ marginRight: 8 }} />
+                  Logout
+                </MenuItem>
+              </Menu>
+            </Box>
+          </Stack>
         </Toolbar>
       </AppBar>
 

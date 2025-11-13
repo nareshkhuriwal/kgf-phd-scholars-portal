@@ -88,7 +88,6 @@ export default function Researchers() {
       closeDialog();
       setForm({
         researcher_email: '',
-        researcher_name: '',
         message: '',
       });
       dispatch(loadInvites({ page: 1, perPage }));

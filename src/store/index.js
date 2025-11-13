@@ -12,6 +12,7 @@ import settingsReducer from './settingsSlice';
 import profileReducer from './profileSlice';
 import highlightsReducer from './highlightsSlice';
 import researchersReducer from './researchersSlice';
+import inviteNotificationsReducer from './inviteNotificationsSlice';
 
 const store = configureStore({
   reducer: {
@@ -28,6 +29,7 @@ const store = configureStore({
     settings: settingsReducer,
     highlights: highlightsReducer,  // to be implemented
     researchers: researchersReducer,
+    inviteNotifications: inviteNotificationsReducer,
   },
 })
 
