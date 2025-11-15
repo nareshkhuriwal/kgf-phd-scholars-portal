@@ -14,6 +14,7 @@ import SummarizeIcon from '@mui/icons-material/Summarize';
 import LayersIcon from '@mui/icons-material/Layers';
 import DescriptionIcon from '@mui/icons-material/Description';
 import GroupAddIcon from '@mui/icons-material/GroupAdd';
+
 export const SECTIONS = [
   {
     key: 'dashboard',
@@ -22,6 +23,8 @@ export const SECTIONS = [
     Icon: DashboardIcon,
     items: [
       { to: '/dashboard', label: 'Overview', Icon: DashboardIcon },
+      { to: '/dashboard/researchers', label: 'Researchers', Icon: GroupAddIcon },
+      { to: '/dashboard/supervisors', label: 'Supervisors', Icon: GroupAddIcon },
     ],
   },
   {
@@ -71,8 +74,6 @@ export const SECTIONS = [
     Icon: SummarizeIcon,
     items: [
       { to: '/reports', label: 'All Reports', Icon: DescriptionIcon },
-      // { to: '/reports/chapters', label: 'Chapter Builder', Icon: LayersIcon },
-      // { to: '/reports/rol', label: 'ROL (Excel)', Icon: SummarizeIcon },
     ],
   },
   {
@@ -80,7 +81,7 @@ export const SECTIONS = [
     label: 'Researchers',
     base: '/researchers',
     Icon: GroupAddIcon,
-     items: [
+    items: [
       { to: '/researchers', label: 'All Researchers', Icon: DescriptionIcon },
     ],
   },
@@ -89,7 +90,7 @@ export const SECTIONS = [
     label: 'Supervisors',
     base: '/supervisors',
     Icon: GroupAddIcon,
-     items: [
+    items: [
       { to: '/supervisors', label: 'All Supervisors', Icon: DescriptionIcon },
     ],
   },

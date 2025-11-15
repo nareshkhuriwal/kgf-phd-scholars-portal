@@ -47,7 +47,11 @@ export default function Router() {
       >
         <Route index element={<Navigate to="/dashboard" replace />} />
 
-        <Route path="dashboard" element={<Overview />} />
+        <Route path="/dashboard" element={<Overview />} />                     // self
+        <Route path="/dashboard/researchers" element={<Overview />} />                     // self
+        <Route path="/dashboard/supervisors" element={<Overview />} />                     // self
+        <Route path="/dashboard/researchers/:userId" element={<Overview />} />  // view a researcher
+        <Route path="/dashboard/supervisors/:userId" element={<Overview />} />  // view a supervisor
 
         <Route path="library/papers" element={<Papers />} />
         <Route path="library/upload" element={<Upload />} />

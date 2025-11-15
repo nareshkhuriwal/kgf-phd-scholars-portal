@@ -39,3 +39,14 @@ th { font-weight: 600; background: #fafafa; }
 
 a { color: var(--primary); text-decoration: none; }
 a:hover { text-decoration: underline; }
+
+
+/* Hide "Powered by CKEditor" badge */
+.ck-editor__editable .ck-powered-by {
+  display: none !important;
+}
+
+/* OR more specific (if above doesn't work due to iframe) */
+.ck-powered-by {
+  display: none !important;
+}
