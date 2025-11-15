@@ -1,11 +1,21 @@
 import * as React from 'react';
 import { 
   Paper, Typography, Box, Stack, TextField, Button, Link, 
-  Divider, FormControlLabel, Checkbox, Tabs, Tab, Alert 
+  Divider, FormControlLabel, Checkbox, Tabs, Tab, Alert, keyframes
 } from '@mui/material';
 import { Person, SupervisorAccount, AdminPanelSettings } from '@mui/icons-material';
 import PasswordField from './PasswordField';
 import { Link as RouterLink } from 'react-router-dom';
+
+// Shimmer animation (direction adjusted)
+const shimmer = keyframes`
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+`;
 
 // Role configuration
 const ROLES = [
@@ -89,9 +99,24 @@ export default function RegisterFormCard({
         color: 'text.primary'
       }}
     >
-      <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
+      {/* Heading with gradient + shimmer */}
+      <Typography
+        variant="h5"
+        sx={{
+          fontWeight: 800,
+          mb: 0.5,
+          background: 'linear-gradient(135deg, #313132ff 0%, rgba(12, 101, 178, 0.97) 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          backgroundClip: 'text',
+          letterSpacing: '-0.02em',
+          animation: `${shimmer} 6s linear infinite`,
+          backgroundSize: '200% 100%'
+        }}
+      >
         Create Account
       </Typography>
+
       <Typography variant="body2" sx={{ mb: 3, color: 'text.secondary' }}>
         Join Khuriwal Group — Select your role to get started
       </Typography>
