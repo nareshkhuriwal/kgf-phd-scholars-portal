@@ -11,12 +11,14 @@ import MenuIcon from '@mui/icons-material/Menu';
 import PersonIcon from '@mui/icons-material/Person';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
+import LockResetIcon from '@mui/icons-material/LockReset';        // 👈 NEW
 import { SECTIONS } from './constants/navSections';
 import logoUrl from '../assets/klogo.png';
 
 import ProfileDialog from '../components/profile/ProfileDialog.jsx';
 import SettingsDialog from '../components/settings/SettingsDialog.jsx';
-import NotificationBell from '../layout/NotificationBell.jsx'; // ✅ NEW
+import NotificationBell from '../layout/NotificationBell.jsx';
+import ChangePasswordDialog from '../components/profile/ChangePasswordDialog.jsx'; // 👈 NEW
 
 export default function Header({ onToggleSidebar }) {
   const navigate = useNavigate();
@@ -24,6 +26,8 @@ export default function Header({ onToggleSidebar }) {
   const dispatch = useDispatch();
 
   const { user } = useSelector(s => s.auth || {});
+  const role = user?.role;
+
   const firstName = (user?.name || user?.email || 'User').split(' ')[0];
   const initials = (user?.name || 'U')
     .split(' ')
@@ -32,6 +36,27 @@ export default function Header({ onToggleSidebar }) {
     .slice(0, 2)
     .join('')
     .toUpperCase();
+
+  const roleLabelMap = {
+    researcher: 'Researcher',
+    supervisor: 'Supervisor',
+    admin: 'Admin',
+  };
+  const roleLabel = role ? roleLabelMap[role] || role : null;
+
+  const visibleSections = React.useMemo(() => {
+    if (!role) return SECTIONS;
+
+    return SECTIONS.filter((sec) => {
+      if (sec.key === 'researchers') {
+        return role === 'supervisor' || role === 'admin';
+      }
+      if (sec.key === 'supervisors') {
+        return role === 'admin';
+      }
+      return true;
+    });
+  }, [role]);
 
   // Avatar menu
   const [menuEl, setMenuEl] = React.useState(null);
@@ -42,9 +67,11 @@ export default function Header({ onToggleSidebar }) {
   // Dialogs
   const [profileOpen, setProfileOpen] = React.useState(false);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
+  const [changePwdOpen, setChangePwdOpen] = React.useState(false); // 👈 NEW
 
   const openProfile = () => { handleClose(); setProfileOpen(true); };
   const openSettings = () => { handleClose(); setSettingsOpen(true); };
+  const openChangePassword = () => { handleClose(); setChangePwdOpen(true); }; // 👈 NEW
 
   const handleLogout = async () => {
     handleClose();
@@ -90,7 +117,7 @@ export default function Header({ onToggleSidebar }) {
 
           {/* Main menus */}
           <Stack direction="row" spacing={1} sx={{ flexGrow: 1 }}>
-            {SECTIONS.map((sec) => {
+            {visibleSections.map((sec) => {
               const ActiveIcon = sec.Icon;
               const active = location.pathname.startsWith(sec.base);
               return (
@@ -116,7 +143,6 @@ export default function Header({ onToggleSidebar }) {
 
           {/* Right side: Notifications + User menu */}
           <Stack direction="row" spacing={1.5} alignItems="center">
-            {/* 🔔 Invite notifications popover */}
             <NotificationBell />
 
             {/* User menu */}
@@ -130,13 +156,36 @@ export default function Header({ onToggleSidebar }) {
                 <Typography
                   sx={{
                     ml: 1,
-                    mr: 1,
+                    mr: 0.5,
                     display: { xs: 'none', sm: 'inline' },
                     fontWeight: 500
                   }}
                 >
                   {firstName}
                 </Typography>
+
+                {roleLabel && (
+                  <Chip
+                    label={roleLabel}
+                    size="small"
+                    sx={{
+                      ml: 0.5,
+                      display: { xs: 'none', sm: 'inline-flex' },
+                      height: 22,
+                      borderRadius: 1.5,
+                      fontSize: 11,
+                      '& .MuiChip-label': { px: 0.75 },
+                    }}
+                    color={
+                      role === 'admin'
+                        ? 'error'
+                        : role === 'supervisor'
+                          ? 'secondary'
+                          : 'default'
+                    }
+                    variant="outlined"
+                  />
+                )}
               </IconButton>
 
               <Menu
@@ -145,18 +194,70 @@ export default function Header({ onToggleSidebar }) {
                 onClose={handleClose}
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                PaperProps={{ elevation: 3, sx: { minWidth: 200, borderRadius: 2 } }}
+                PaperProps={{ elevation: 3, sx: { minWidth: 240, borderRadius: 2 } }}
               >
+                {/* Header info */}
+                <Box sx={{ px: 2, pt: 1.5, pb: 1 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                    {user?.name || firstName}
+                  </Typography>
+                  {user?.email && (
+                    <Typography variant="body2" color="text.secondary">
+                      {user.email}
+                    </Typography>
+                  )}
+                  {roleLabel && (
+                    <Chip
+                      label={roleLabel}
+                      size="small"
+                      sx={{ mt: 0.75, height: 22, borderRadius: 1.5, fontSize: 11 }}
+                      color={
+                        role === 'admin'
+                          ? 'error'
+                          : role === 'supervisor'
+                            ? 'secondary'
+                            : 'default'
+                      }
+                      variant="outlined"
+                    />
+                  )}
+                </Box>
+
+                <Divider sx={{ my: 0.5 }} />
+
+                {/* Account section */}
+                <Box sx={{ px: 2, py: 0.5 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    Account
+                  </Typography>
+                </Box>
+
                 <MenuItem onClick={openProfile}>
                   <PersonIcon fontSize="small" style={{ marginRight: 8 }} />
                   Profile
                 </MenuItem>
+
+                {/* NEW: Change password */}
+                <MenuItem onClick={openChangePassword}>
+                  <LockResetIcon fontSize="small" style={{ marginRight: 8 }} />
+                  Change password
+                </MenuItem>
+
                 <MenuItem onClick={openSettings}>
                   <SettingsIcon fontSize="small" style={{ marginRight: 8 }} />
                   Settings
                 </MenuItem>
+
                 <Divider sx={{ my: 0.5 }} />
-                <MenuItem onClick={handleLogout}>
+
+                {/* Session section */}
+                <Box sx={{ px: 2, py: 0.5 }}>
+                  <Typography variant="caption" color="error.main">
+                    Session
+                  </Typography>
+                </Box>
+
+                <MenuItem onClick={handleLogout} sx={{ color: 'error.main' }}>
                   <LogoutIcon fontSize="small" style={{ marginRight: 8 }} />
                   Logout
                 </MenuItem>
@@ -169,6 +270,10 @@ export default function Header({ onToggleSidebar }) {
       {/* Dialog mounts */}
       <ProfileDialog open={profileOpen} onClose={() => setProfileOpen(false)} />
       <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <ChangePasswordDialog
+        open={changePwdOpen}
+        onClose={() => setChangePwdOpen(false)}
+      />
     </>
   );
 }

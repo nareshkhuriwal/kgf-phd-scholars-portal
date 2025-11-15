@@ -84,4 +84,13 @@ export const SECTIONS = [
       { to: '/researchers', label: 'All Researchers', Icon: DescriptionIcon },
     ],
   },
+  {
+    key: 'supervisors',
+    label: 'Supervisors',
+    base: '/supervisors',
+    Icon: GroupAddIcon,
+     items: [
+      { to: '/supervisors', label: 'All Supervisors', Icon: DescriptionIcon },
+    ],
+  },
 ];

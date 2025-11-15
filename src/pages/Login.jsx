@@ -59,8 +59,6 @@ export default function Login() {
               display: 'flex',
               alignItems: 'stretch',
               // Professional panel background
-              background:
-                'linear-gradient(180deg, #ffffff 0%, #f7fafc 60%, #eef4ff 100%)',
               borderLeft: '1px solid rgba(0,0,0,0.06)',
               position: 'relative',
             }}
@@ -71,8 +69,6 @@ export default function Login() {
               sx={{
                 position: 'absolute',
                 inset: 0,
-                background:
-                  'radial-gradient(1200px 400px at 120% -10%, rgba(7,133,199,0.10), transparent), radial-gradient(900px 300px at -20% 110%, rgba(4,174,96,0.10), transparent)',
                 pointerEvents: 'none',
               }}
             />
@@ -89,23 +85,7 @@ export default function Login() {
               spacing={3}
             >
               {/* Small heading / tagline */}
-              <Box sx={{ width: '100%', maxWidth: 520 }}>
-                <Typography
-                  variant="overline"
-                  sx={{ color: 'text.secondary', letterSpacing: 1 }}
-                >
-                  Secure Sign-in
-                </Typography>
-                <Typography
-                  variant="h4"
-                  sx={{ fontWeight: 800, lineHeight: 1.1, color: 'text.primary', mb: 2 }}
-                >
-                  Welcome back
-                </Typography>
-                <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
-                  Sign in to your KGF scholar account to continue.
-                </Typography>
-              </Box>
+            
 
               {/* Centered login card */}
               <Box sx={{ width: '100%', maxWidth: 520 }}>

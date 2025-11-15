@@ -6,7 +6,7 @@ import Header from './Header';
 import Sidebar from './Sidebar';
 
 export default function AppLayout() {
-  const [open, setOpen] = React.useState(true);
+  const [open, setOpen] = React.useState(false);
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#f6f7fb' }}>
       <Header onToggleSidebar={() => setOpen(v => !v)} />

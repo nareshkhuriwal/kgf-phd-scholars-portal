@@ -33,6 +33,7 @@ import Register from './pages/Register';
 import Researchers from './pages/researchers/Researchers';
 
 import { ChaptersPage, ChapterEditor } from './pages/chapters'; // new import
+import Supervisors from './pages/supervisors/Supervisors';
 
 export default function Router() {
   return (
@@ -74,6 +75,9 @@ export default function Router() {
         <Route path="reports/builder" element={<CreateReports />} />
         <Route path="reports/builder/:id" element={<CreateReports />} />
         <Route path="researchers" element={<Researchers />} />
+
+        <Route path="/supervisors" element={<Supervisors />} />
+
 
       </Route>
 
