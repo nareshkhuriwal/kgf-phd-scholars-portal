@@ -3,7 +3,7 @@ import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { Box, Grid, Typography, Stack } from '@mui/material';
+import { Box, Grid, Typography, Stack, Fade, Slide } from '@mui/material';
 
 import SiteHeader from '../components/site/SiteHeader';
 import LeftFeatures from '../components/site/LeftFeatures';
@@ -15,8 +15,10 @@ export default function Login() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { loading, error, token } = useSelector(s => s.auth || {});
+  const [mounted, setMounted] = React.useState(false);
 
   React.useEffect(() => {
+    setMounted(true);
     if (token) navigate('/dashboard', { replace: true });
   }, [token, navigate]);
 
@@ -31,23 +33,87 @@ export default function Login() {
     <Box
       sx={{
         minHeight: '100vh',
-        bgcolor: '#0a1032',
-        backgroundImage: 'radial-gradient(rgba(255,255,255,0.06) 1px, transparent 1px)',
-        backgroundSize: '18px 18px',
-        color: 'white',
+        background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)',
+        position: 'relative',
+        overflow: 'hidden',
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          inset: 0,
+          backgroundImage: `
+            radial-gradient(circle at 20% 50%, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
+            radial-gradient(circle at 80% 80%, rgba(168, 85, 247, 0.15) 0%, transparent 50%),
+            radial-gradient(circle at 40% 20%, rgba(14, 165, 233, 0.1) 0%, transparent 40%)
+          `,
+          animation: 'pulse 8s ease-in-out infinite',
+        },
+        '@keyframes pulse': {
+          '0%, 100%': { opacity: 1 },
+          '50%': { opacity: 0.8 },
+        },
       }}
     >
+      {/* Animated gradient orbs */}
+      <Box
+        sx={{
+          position: 'absolute',
+          top: '-10%',
+          right: '-5%',
+          width: '500px',
+          height: '500px',
+          background: 'radial-gradient(circle, rgba(59, 130, 246, 0.2) 0%, transparent 70%)',
+          borderRadius: '50%',
+          filter: 'blur(60px)',
+          animation: 'float 15s ease-in-out infinite',
+          '@keyframes float': {
+            '0%, 100%': { transform: 'translate(0, 0)' },
+            '50%': { transform: 'translate(-30px, 30px)' },
+          },
+        }}
+      />
+      <Box
+        sx={{
+          position: 'absolute',
+          bottom: '-10%',
+          left: '-5%',
+          width: '600px',
+          height: '600px',
+          background: 'radial-gradient(circle, rgba(168, 85, 247, 0.15) 0%, transparent 70%)',
+          borderRadius: '50%',
+          filter: 'blur(80px)',
+          animation: 'float 20s ease-in-out infinite reverse',
+        }}
+      />
+
+      {/* Dot pattern overlay */}
+      <Box
+        sx={{
+          position: 'absolute',
+          inset: 0,
+          backgroundImage: 'radial-gradient(rgba(255,255,255,0.05) 1px, transparent 1px)',
+          backgroundSize: '20px 20px',
+          opacity: 0.5,
+        }}
+      />
+
       <SiteHeader />
 
       <Grid
         container
         spacing={0}
-        sx={{ minHeight: 'calc(100vh - 64px - 36px)', /* below both appbars */
-              px: { xs: 0, md: 0 }, py: { xs: 0, md: 0 } }}
+        sx={{ 
+          minHeight: 'calc(100vh - 64px - 36px)',
+          position: 'relative',
+          zIndex: 1,
+        }}
       >
         {/* Left: product features (60%) */}
         <Grid item xs={12} md={8} sx={{ px: { xs: 2, md: 6 }, py: { xs: 4, md: 8 } }}>
-          <LeftFeatures />
+          <Fade in={mounted} timeout={800}>
+            <Box>
+              <LeftFeatures />
+            </Box>
+          </Fade>
         </Grid>
 
         {/* Right: full-height branded panel (40%) */}
@@ -58,34 +124,51 @@ export default function Login() {
               minHeight: { xs: 520, md: '100%' },
               display: 'flex',
               alignItems: 'stretch',
-              // Professional panel background
               borderLeft: '1px solid rgba(0,0,0,0.06)',
               position: 'relative',
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: '1px',
+                background: 'linear-gradient(to bottom, transparent, rgba(59, 130, 246, 0.3), transparent)',
+              },
             }}
           >
-            {/* Subtle decorative layer */}
-            <Box
-              aria-hidden
-              sx={{
-                position: 'absolute',
-                inset: 0,
-                pointerEvents: 'none',
-              }}
-            />
+       
+
 
             {/* Right column content wrapper */}
-            <Stack
+            {/* <Stack
               sx={{
                 width: '100%',
                 px: { xs: 2, sm: 4, md: 6 },
                 py: { xs: 4, md: 8 },
                 alignItems: 'center',
                 justifyContent: 'center',
+                position: 'relative',
+                zIndex: 1,
+              }}
+              spacing={3}
+            > */}
+                        {/* Right column content wrapper */}
+            <Stack
+              sx={{
+                width: '100%',
+                px: { xs: 2, sm: 4, md: 6 },
+                pt: { xs: 4, md: 19 },      // less space at top
+                pb: { xs: 4, md: 6 },
+                alignItems: 'center',
+                justifyContent: 'flex-start', // start from top, not centered
+                position: 'relative',
+                zIndex: 1,
               }}
               spacing={3}
             >
-              {/* Small heading / tagline */}
-            
+
+     
 
               {/* Centered login card */}
               <Box sx={{ width: '100%', maxWidth: 520 }}>
@@ -99,22 +182,40 @@ export default function Login() {
                 />
               </Box>
 
-              {/* Optional trust badges / footer note */}
-              <Box sx={{ width: '100%', maxWidth: 520, textAlign: 'center' }}>
-                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                  Protected by enterprise-grade security & RBAC
-                </Typography>
-              </Box>
+            
             </Stack>
           </Box>
         </Grid>
       </Grid>
 
-      <Box sx={{ px: { xs: 2, md: 6 }, py: 4, bgcolor: '#0b122f' }}>
-        <Typography variant="caption" sx={{ opacity: 0.7 }}>
-          © {new Date().getFullYear()} / Khuriwal Group Technology — All Rights Reserved.
-        </Typography>
-      </Box>
+      {/* Footer */}
+      <Fade in={mounted} timeout={1000}>
+        <Box 
+          sx={{ 
+            px: { xs: 2, md: 6 }, 
+            py: 4, 
+            background: 'linear-gradient(to top, rgba(15, 23, 42, 0.9), transparent)',
+            position: 'relative',
+            zIndex: 1,
+            borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+          }}
+        >
+          <Typography 
+            variant="caption" 
+            sx={{ 
+              color: 'rgba(255, 255, 255, 0.6)',
+              fontWeight: 400,
+              letterSpacing: '0.5px',
+              transition: 'color 0.3s ease',
+              '&:hover': {
+                color: 'rgba(255, 255, 255, 0.9)',
+              },
+            }}
+          >
+            © {new Date().getFullYear()} / Khuriwal Group Technology — All Rights Reserved.
+          </Typography>
+        </Box>
+      </Fade>
     </Box>
   );
 }
