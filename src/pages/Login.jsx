@@ -124,9 +124,6 @@ export default function Login() {
               minHeight: { xs: 520, md: '100%' },
               display: 'flex',
               alignItems: 'stretch',
-              // Professional panel background
-              background:
-                'linear-gradient(180deg, #ffffff 0%, #f7fafc 60%, #eef4ff 100%)',
               borderLeft: '1px solid rgba(0,0,0,0.06)',
               position: 'relative',
               '&::before': {
@@ -140,38 +137,11 @@ export default function Login() {
               },
             }}
           >
-            {/* Glassmorphism background */}
-            <Box
-              aria-hidden
-              sx={{
-                position: 'absolute',
-                inset: 0,
-                background: 'rgba(15, 23, 42, 0.4)',
-                backdropFilter: 'blur(10px)',
-                WebkitBackdropFilter: 'blur(10px)',
-                borderLeft: '1px solid rgba(255, 255, 255, 0.05)',
-              }}
-            />
+       
 
-            {/* Animated gradient accent */}
-            <Box
-              aria-hidden
-              sx={{
-                position: 'absolute',
-                inset: 0,
-                background:
-                  'radial-gradient(1200px 400px at 120% -10%, rgba(7,133,199,0.10), transparent), radial-gradient(900px 300px at -20% 110%, rgba(4,174,96,0.10), transparent)',
-                pointerEvents: 'none',
-                animation: 'gradientShift 10s ease-in-out infinite',
-                '@keyframes gradientShift': {
-                  '0%, 100%': { opacity: 0.5 },
-                  '50%': { opacity: 0.8 },
-                },
-              }}
-            />
 
             {/* Right column content wrapper */}
-            <Stack
+            {/* <Stack
               sx={{
                 width: '100%',
                 px: { xs: 2, sm: 4, md: 6 },
@@ -182,25 +152,23 @@ export default function Login() {
                 zIndex: 1,
               }}
               spacing={3}
+            > */}
+                        {/* Right column content wrapper */}
+            <Stack
+              sx={{
+                width: '100%',
+                px: { xs: 2, sm: 4, md: 6 },
+                pt: { xs: 4, md: 19 },      // less space at top
+                pb: { xs: 4, md: 6 },
+                alignItems: 'center',
+                justifyContent: 'flex-start', // start from top, not centered
+                position: 'relative',
+                zIndex: 1,
+              }}
+              spacing={3}
             >
-              {/* Small heading / tagline */}
-              <Box sx={{ width: '100%', maxWidth: 520 }}>
-                <Typography
-                  variant="overline"
-                  sx={{ color: 'text.secondary', letterSpacing: 1 }}
-                >
-                  Secure Sign-in
-                </Typography>
-                <Typography
-                  variant="h4"
-                  sx={{ fontWeight: 800, lineHeight: 1.1, color: 'text.primary', mb: 2 }}
-                >
-                  Welcome back
-                </Typography>
-                <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
-                  Sign in to your KGF scholar account to continue.
-                </Typography>
-              </Box>
+
+     
 
               {/* Centered login card */}
               <Box sx={{ width: '100%', maxWidth: 520 }}>
@@ -214,12 +182,7 @@ export default function Login() {
                 />
               </Box>
 
-              {/* Optional trust badges / footer note */}
-              <Box sx={{ width: '100%', maxWidth: 520, textAlign: 'center' }}>
-                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                  Protected by enterprise-grade security & RBAC
-                </Typography>
-              </Box>
+            
             </Stack>
           </Box>
         </Grid>
