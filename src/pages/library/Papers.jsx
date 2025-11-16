@@ -75,6 +75,8 @@ export default function Papers() {
     return [];
   }, [list]);
 
+  const meta = list?.meta || {};
+
   // search (client-side)
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -93,8 +95,9 @@ export default function Papers() {
   }, [all, query]);
 
   // paginate (client-side for now)
-  const start = page * rowsPerPage;
-  const rows = filtered.slice(start, start + rowsPerPage);
+  // const start = page * rowsPerPage;
+  // const rows = filtered.slice(start, start + rowsPerPage);
+  const rows = filtered;
 
   // ----- selection helpers -----
   const pageIds = React.useMemo(() => rows.map(idOf).filter(Boolean), [rows]);
@@ -166,6 +169,9 @@ export default function Papers() {
     }
     openSnack(`Queued ${ok} paper(s)${fail ? `, ${fail} failed` : ''}`, fail ? 'warning' : 'success');
   };
+
+
+  console.log("meta: ", meta)
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -338,7 +344,7 @@ export default function Papers() {
             </TableContainer>
 
             <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <TablePagination
+              {/* <TablePagination
                 component="div"
                 count={filtered.length}
                 page={page}
@@ -347,7 +353,38 @@ export default function Papers() {
                 onRowsPerPageChange={e => { setRpp(parseInt(e.target.value, 10)); setPage(0); }}
                 rowsPerPageOptions={[10, 25, 50, 100]}
                 showFirstButton showLastButton
-              />
+              /> */}
+
+              <TablePagination
+  component="div"
+  // ✅ total number of rows from backend
+  count={meta.total ?? filtered.length}
+
+  // ✅ MUI page is 0-based, Laravel page is 1-based
+  page={meta.current_page ? meta.current_page - 1 : page}
+
+  onPageChange={(_e, newPage) => {
+    setPage(newPage);
+    // 🔁 load that page from API (adjust params to your loadPapers)
+    dispatch(loadPapers({ page: newPage + 1, perPage: rowsPerPage }));
+  }}
+
+  // ✅ rows per page – keep your local state, or use meta.per_page
+  rowsPerPage={rowsPerPage}
+
+  onRowsPerPageChange={e => {
+    const next = parseInt(e.target.value, 10);
+    setRpp(next);
+    setPage(0);
+    // reload from page 1 with new per-page size
+    dispatch(loadPapers({ page: 1, perPage: next }));
+  }}
+
+  rowsPerPageOptions={[10, 25, 50, 100]}
+  showFirstButton
+  showLastButton
+/>
+
             </Box>
           </>
         )}

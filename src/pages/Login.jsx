@@ -124,6 +124,10 @@ export default function Login() {
               minHeight: { xs: 520, md: '100%' },
               display: 'flex',
               alignItems: 'stretch',
+              // Professional panel background
+              background:
+                'linear-gradient(180deg, #ffffff 0%, #f7fafc 60%, #eef4ff 100%)',
+              borderLeft: '1px solid rgba(0,0,0,0.06)',
               position: 'relative',
               '&::before': {
                 content: '""',
@@ -155,10 +159,8 @@ export default function Login() {
               sx={{
                 position: 'absolute',
                 inset: 0,
-                background: `
-                  radial-gradient(800px 400px at 50% -10%, rgba(59, 130, 246, 0.15), transparent),
-                  radial-gradient(600px 300px at 50% 110%, rgba(168, 85, 247, 0.12), transparent)
-                `,
+                background:
+                  'radial-gradient(1200px 400px at 120% -10%, rgba(7,133,199,0.10), transparent), radial-gradient(900px 300px at -20% 110%, rgba(4,174,96,0.10), transparent)',
                 pointerEvents: 'none',
                 animation: 'gradientShift 10s ease-in-out infinite',
                 '@keyframes gradientShift': {
@@ -181,26 +183,43 @@ export default function Login() {
               }}
               spacing={3}
             >
-              {/* Centered login card with slide animation */}
-              <Slide direction="left" in={mounted} timeout={600}>
-                <Box 
-                  sx={{ 
-                    width: '100%', 
-                    maxWidth: 520,
-                    transform: mounted ? 'scale(1)' : 'scale(0.95)',
-                    transition: 'transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                  }}
+              {/* Small heading / tagline */}
+              <Box sx={{ width: '100%', maxWidth: 520 }}>
+                <Typography
+                  variant="overline"
+                  sx={{ color: 'text.secondary', letterSpacing: 1 }}
                 >
-                  <LoginFormCard
-                    r={register}
-                    errors={errors}
-                    loading={loading}
-                    errorMsg={error}
-                    handleSubmit={handleSubmit}
-                    onSubmit={onSubmit}
-                  />
-                </Box>
-              </Slide>
+                  Secure Sign-in
+                </Typography>
+                <Typography
+                  variant="h4"
+                  sx={{ fontWeight: 800, lineHeight: 1.1, color: 'text.primary', mb: 2 }}
+                >
+                  Welcome back
+                </Typography>
+                <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
+                  Sign in to your KGF scholar account to continue.
+                </Typography>
+              </Box>
+
+              {/* Centered login card */}
+              <Box sx={{ width: '100%', maxWidth: 520 }}>
+                <LoginFormCard
+                  r={register}
+                  errors={errors}
+                  loading={loading}
+                  errorMsg={error}
+                  handleSubmit={handleSubmit}
+                  onSubmit={onSubmit}
+                />
+              </Box>
+
+              {/* Optional trust badges / footer note */}
+              <Box sx={{ width: '100%', maxWidth: 520, textAlign: 'center' }}>
+                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                  Protected by enterprise-grade security & RBAC
+                </Typography>
+              </Box>
             </Stack>
           </Box>
         </Grid>
