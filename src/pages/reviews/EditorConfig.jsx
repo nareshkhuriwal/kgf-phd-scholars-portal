@@ -46,10 +46,9 @@ function makeUploadPlugin(paperId) {
   };
 }
 
-/**
- * Create CKEditor config for a given paper.
- * Usage: const config = makeEditorConfig(paperId);
- */
+
+// ... EditorUploadAdapter + makeUploadPlugin stay exactly as you have them ...
+
 export default function makeEditorConfig(paperId) {
   return {
     toolbar: {
@@ -57,22 +56,52 @@ export default function makeEditorConfig(paperId) {
         'undo', 'redo', '|',
         'heading', '|',
         'bold', 'italic', 'underline', 'strikethrough', 'link', '|',
+
+        // paragraph alignment + line spacing
+        'alignment', 'lineHeight', '|',
+
+        // lists & indent
         'bulletedList', 'numberedList', 'outdent', 'indent', '|',
-        'alignment', '|',
-        'blockQuote', 'imageUpload', 'insertTable', 'mediaEmbed', '|',
+
+        // shading / highlight
+        'highlight', '|',
+
+        // tables (incl. borders + background)
+        'insertTable', 'tableProperties', 'tableCellProperties', '|',
+
+        'blockQuote', 'imageUpload', 'mediaEmbed', '|',
         'removeFormat',
       ],
     },
 
     alignment: {
-      options: ['left', 'center', 'right', 'justify'],
+      options: [ 'left', 'center', 'right', 'justify' ],
+    },
+
+    // line & paragraph spacing dropdown
+    lineHeight: {
+      options: [ '1', '1.15', '1.5', '2', '2.5' ],
+    },
+
+    // highlight (pseudo “shading” button)
+    highlight: {
+      options: [
+        { model: 'yellowMarker', class: 'marker-yellow', title: 'Yellow highlight', color: 'var(--ck-highlight-marker-yellow)', type: 'marker' },
+        { model: 'greenMarker',  class: 'marker-green',  title: 'Green highlight',  color: 'var(--ck-highlight-marker-green)',  type: 'marker' },
+        { model: 'pinkMarker',   class: 'marker-pink',   title: 'Pink highlight',   color: 'var(--ck-highlight-marker-pink)',   type: 'marker' }
+      ]
     },
 
     table: {
-      contentToolbar: ['tableColumn', 'tableRow', 'mergeTableCells'],
+      contentToolbar: [
+        'tableColumn',
+        'tableRow',
+        'mergeTableCells',
+        'tableProperties',
+        'tableCellProperties',
+      ],
     },
 
-    // ⬇️ register upload plugin bound to this paperId
     extraPlugins: [makeUploadPlugin(paperId)],
   };
 }
