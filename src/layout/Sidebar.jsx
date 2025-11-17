@@ -1,6 +1,7 @@
 // src/layout/Sidebar.jsx
 import React from 'react';
 import { useLocation, NavLink } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import {
   Drawer,
   Toolbar,
@@ -20,9 +21,22 @@ const collapsedWidth = 68;
 
 export default function Sidebar({ open }) {
   const location = useLocation();
+  const user = useSelector((s) => s.auth?.user);
+  const role = user?.role || null; // 'admin' | 'supervisor' | 'researcher' | null
 
   const activeSection =
     SECTIONS.find((s) => location.pathname.startsWith(s.base)) || SECTIONS[0];
+
+  // Filter items based on roles (only affects dashboard items where roles is set)
+  const visibleItems = (activeSection.items || []).filter((item) => {
+    if (!item.roles || item.roles.length === 0) {
+      // item has no role restriction
+      return true;
+    }
+    // item has explicit allowed roles; show only if user's role is in the list
+    if (!role) return false;
+    return item.roles.includes(role);
+  });
 
   return (
     <Drawer
@@ -61,7 +75,7 @@ export default function Sidebar({ open }) {
         </Typography>
 
         <List component="nav" dense>
-          {(activeSection.items || []).map((item) => {
+          {visibleItems.map((item) => {
             const Icon = item.Icon;
             const selected = location.pathname === item.to;
 
@@ -72,7 +86,6 @@ export default function Sidebar({ open }) {
                 to={item.to}
                 selected={selected}
                 sx={{
-                  // center icon when collapsed
                   justifyContent: open ? 'flex-start' : 'center',
                   px: open ? 2 : 1,
                   minHeight: 44,
@@ -88,7 +101,6 @@ export default function Sidebar({ open }) {
                   <Icon />
                 </ListItemIcon>
 
-                {/* Hide text when collapsed */}
                 <ListItemText
                   primary={item.label}
                   sx={{
@@ -100,7 +112,6 @@ export default function Sidebar({ open }) {
               </ListItemButton>
             );
 
-            // When collapsed, wrap each item in a Tooltip for discoverability
             return open ? (
               button
             ) : (

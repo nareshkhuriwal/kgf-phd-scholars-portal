@@ -22,9 +22,22 @@ export const SECTIONS = [
     base: '/dashboard',
     Icon: DashboardIcon,
     items: [
+      // always visible
       { to: '/dashboard', label: 'Overview', Icon: DashboardIcon },
-      { to: '/dashboard/researchers', label: 'Researchers', Icon: GroupAddIcon },
-      { to: '/dashboard/supervisors', label: 'Supervisors', Icon: GroupAddIcon },
+      // visible for admin, supervisor, researcher
+      {
+        to: '/dashboard/researchers',
+        label: 'Researchers',
+        Icon: GroupAddIcon,
+        roles: ['admin', 'supervisor'],
+      },
+      // visible for admin only
+      {
+        to: '/dashboard/supervisors',
+        label: 'Supervisors',
+        Icon: GroupAddIcon,
+        roles: ['admin'],
+      },
     ],
   },
   {

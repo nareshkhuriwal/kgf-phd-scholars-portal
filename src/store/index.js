@@ -14,6 +14,7 @@ import highlightsReducer from './highlightsSlice';
 import researchersReducer from './researchersSlice';
 import inviteNotificationsReducer from './inviteNotificationsSlice';
 import supervisorsReducer from './supervisorsSlice';
+import orderReducer from './orderSlice';
 
 const store = configureStore({
   reducer: {
@@ -32,6 +33,8 @@ const store = configureStore({
     researchers: researchersReducer,
     inviteNotifications: inviteNotificationsReducer,
     supervisors: supervisorsReducer,
+    order: orderReducer,
+
 
   },
 })
