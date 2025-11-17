@@ -11,14 +11,15 @@ import MenuIcon from '@mui/icons-material/Menu';
 import PersonIcon from '@mui/icons-material/Person';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
-import LockResetIcon from '@mui/icons-material/LockReset';        // 👈 NEW
+import LockResetIcon from '@mui/icons-material/LockReset';
+import UpgradeIcon from '@mui/icons-material/Upgrade';              // 👈 NEW
 import { SECTIONS } from './constants/navSections';
 import logoUrl from '../assets/klogo.png';
 
 import ProfileDialog from '../components/profile/ProfileDialog.jsx';
 import SettingsDialog from '../components/settings/SettingsDialog.jsx';
 import NotificationBell from '../layout/NotificationBell.jsx';
-import ChangePasswordDialog from '../components/profile/ChangePasswordDialog.jsx'; // 👈 NEW
+import ChangePasswordDialog from '../components/profile/ChangePasswordDialog.jsx';
 
 export default function Header({ onToggleSidebar }) {
   const navigate = useNavigate();
@@ -67,11 +68,17 @@ export default function Header({ onToggleSidebar }) {
   // Dialogs
   const [profileOpen, setProfileOpen] = React.useState(false);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
-  const [changePwdOpen, setChangePwdOpen] = React.useState(false); // 👈 NEW
+  const [changePwdOpen, setChangePwdOpen] = React.useState(false);
 
   const openProfile = () => { handleClose(); setProfileOpen(true); };
   const openSettings = () => { handleClose(); setSettingsOpen(true); };
-  const openChangePassword = () => { handleClose(); setChangePwdOpen(true); }; // 👈 NEW
+  const openChangePassword = () => { handleClose(); setChangePwdOpen(true); };
+
+  // 👇 NEW: Upgrade navigates to pricing page
+  const openUpgrade = () => {
+    handleClose();
+    navigate('/price');          // <-- change this path if your pricing route is different
+  };
 
   const handleLogout = async () => {
     handleClose();
@@ -237,7 +244,12 @@ export default function Header({ onToggleSidebar }) {
                   Profile
                 </MenuItem>
 
-                {/* NEW: Change password */}
+                {/* 👇 NEW: Upgrade option */}
+                <MenuItem onClick={openUpgrade}>
+                  <UpgradeIcon fontSize="small" style={{ marginRight: 8 }} />
+                  Upgrade plan
+                </MenuItem>
+
                 <MenuItem onClick={openChangePassword}>
                   <LockResetIcon fontSize="small" style={{ marginRight: 8 }} />
                   Change password

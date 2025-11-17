@@ -20,10 +20,9 @@ import ROL from './pages/reports/ROL';
 
 import Login from './pages/Login'; // existing
 import PrivateRoute from './components/PrivateRoute'; // existing
-// e.g., in App.jsx or routes.jsx
+import PricePage from './pages/Price.jsx';
 
 import PaperForm from './pages/library/PaperForm';
-// src/AppRoutes.jsx (or wherever you define routes)
 import PaperView from './pages/library/PaperView';
 import CollectionBoard from './pages/collections/CollectionBoard';
 import CollectionManage from './pages/collections/CollectionManage';
@@ -43,15 +42,22 @@ export default function Router() {
 
       <Route
         path="/"
-        element={<PrivateRoute><AppLayout /></PrivateRoute>}
+        element={
+          <PrivateRoute>
+            <AppLayout />
+          </PrivateRoute>
+        }
       >
         <Route index element={<Navigate to="/dashboard" replace />} />
 
         <Route path="/dashboard" element={<Overview />} />                     // self
-        <Route path="/dashboard/researchers" element={<Overview />} />                     // self
-        <Route path="/dashboard/supervisors" element={<Overview />} />                     // self
-        <Route path="/dashboard/researchers/:userId" element={<Overview />} />  // view a researcher
-        <Route path="/dashboard/supervisors/:userId" element={<Overview />} />  // view a supervisor
+        <Route path="/dashboard/researchers" element={<Overview />} />         // self
+        <Route path="/dashboard/supervisors" element={<Overview />} />         // self
+        <Route path="/dashboard/researchers/:userId" element={<Overview />} /> // view a researcher
+        <Route path="/dashboard/supervisors/:userId" element={<Overview />} /> // view a supervisor
+
+        {/* NEW: pricing page for Upgrade menu */}
+        <Route path="/price" element={<PricePage />} />
 
         <Route path="library/papers" element={<Papers />} />
         <Route path="library/upload" element={<Upload />} />
@@ -60,16 +66,13 @@ export default function Router() {
         <Route path="library/papers/:paperId" element={<PaperForm mode="edit" />} />
         <Route path="library/papers/:paperId/view" element={<PaperView />} />
 
-
         <Route path="/chapters" element={<ChaptersPage />} />
         <Route path="/chapters/:id" element={<ChapterEditor />} />
-
 
         <Route path="collections" element={<CollectionsList />} />
         <Route path="collections/new" element={<NewCollection />} />
         <Route path="/collections/:id" element={<CollectionBoard />} />
         <Route path="/collections/:id/manage" element={<CollectionManage />} />
-
 
         <Route path="reviews/queue" element={<ReviewQueue />} />
         <Route path="reviews/templates" element={<Templates />} />
@@ -81,8 +84,6 @@ export default function Router() {
         <Route path="researchers" element={<Researchers />} />
 
         <Route path="/supervisors" element={<Supervisors />} />
-
-
       </Route>
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

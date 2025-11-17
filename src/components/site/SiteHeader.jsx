@@ -13,7 +13,7 @@ import {
   Popover,
   Card,
   CardContent,
-  Chip,
+  Slide,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import KeyboardArrowDownRounded from '@mui/icons-material/KeyboardArrowDownRounded';
@@ -125,7 +125,7 @@ export default function SiteHeader() {
             <NavItem label="WHY KHURIWALGROUP" hasDrop />
             <NavItem label="PRODUCTS" hasDrop />
 
-            {/* PRICE dropdown – upgraded to rich popover */}
+            {/* PRICE dropdown – rich popover */}
             <Button
               onClick={handlePriceClick}
               endIcon={<KeyboardArrowDownRounded fontSize="small" />}
@@ -146,6 +146,8 @@ export default function SiteHeader() {
               onClose={handlePriceClose}
               anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
               transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+              TransitionComponent={Slide}
+              TransitionProps={{ direction: 'down', timeout: 220 }}
               PaperProps={{
                 sx: {
                   mt: 1,
@@ -158,10 +160,10 @@ export default function SiteHeader() {
             >
               <Box sx={{ mb: 1.5 }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                  Simple pricing for every role
+                  Your research. Your pace. Your plan.
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Start free as a researcher and upgrade when you grow.
+                  Designed for individuals, guides, and institutions.
                 </Typography>
               </Box>
 
@@ -192,16 +194,20 @@ export default function SiteHeader() {
                     <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5 }}>
                       Free
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                       Up to 50 papers, 5 reports, 2 collections.
                     </Typography>
-                    <Typography variant="body2" sx={{ mt: 1 }}>
-                      Then <b>₹149</b> for unlimited use.
+                    <Divider sx={{ my: 1 }} />
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      Researcher Pro
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Upgrade to <b>₹149/month</b> for 200 papers, 20 reports & 10 collections.
                     </Typography>
                   </CardContent>
                 </Card>
 
-                {/* Supervisor card (highlighted) */}
+                {/* Supervisor card */}
                 <Card
                   variant="outlined"
                   sx={{
@@ -216,30 +222,22 @@ export default function SiteHeader() {
                     flexDirection: 'column',
                   }}
                 >
-                  <Chip
-                    label="Most Popular"
-                    size="small"
-                    color="primary"
-                    sx={{
-                      position: 'absolute',
-                      top: -10,
-                      left: 16,
-                      fontSize: 10,
-                      height: 22,
-                    }}
-                  />
                   <CardContent sx={{ pb: 2.5 }}>
                     <Typography variant="overline" sx={{ fontWeight: 700 }}>
                       Supervisor
                     </Typography>
                     <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5 }}>
-                      ₹249
+                      Free
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      Review access for 1 researcher with 30 papers, 2 reports, 1 collection.
+                    </Typography>
+                    <Divider sx={{ my: 1 }} />
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      Supervisor Pro
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Includes 50 papers, 3 reports, 2 collections.
-                    </Typography>
-                    <Typography variant="body2" sx={{ mt: 1 }}>
-                      Ideal for guiding multiple researchers.
+                      Upgrade to <b>₹249/month</b> for up to 6 researchers + all Pro features.
                     </Typography>
                   </CardContent>
                 </Card>
@@ -252,20 +250,27 @@ export default function SiteHeader() {
                     borderRadius: 2,
                     display: 'flex',
                     flexDirection: 'column',
+                    bgcolor: '#fef7f0',
                   }}
                 >
                   <CardContent sx={{ pb: 2.5 }}>
-                    <Typography variant="overline" sx={{ fontWeight: 700 }}>
+                    <Typography variant="overline" sx={{ fontWeight: 700, color: 'warning.main' }}>
                       Admin (University)
                     </Typography>
                     <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5 }}>
-                      ₹499
+                      ₹1,999
+                      <Typography component="span" variant="body2" color="text.secondary">
+                        /month
+                      </Typography>
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Central admin access for your university.
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      Enterprise-grade solution for universities and large institutions.
                     </Typography>
-                    <Typography variant="body2" sx={{ mt: 1 }}>
-                      Manage researchers, supervisors & reports in one place.
+                    <Typography variant="body2" sx={{ mt: 1.5 }}>
+                      • Unlimited researchers & supervisors<br />
+                      • Advanced analytics & reporting<br />
+                      • Priority support with SLA<br />
+                      • Custom branding options
                     </Typography>
                   </CardContent>
                 </Card>
