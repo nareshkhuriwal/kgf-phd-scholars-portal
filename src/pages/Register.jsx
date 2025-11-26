@@ -21,6 +21,7 @@ export default function Register() {
 
   const onSubmit = async (payload) => {
     try {
+      console.log('Registering with payload:', payload);
       await dispatch(registerThunk(payload)).unwrap();
       navigate('/', { replace: true });
     } catch {}

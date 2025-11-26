@@ -74,22 +74,7 @@ export const ROLE_PLANS = {
     current: {
       key: 'admin-current',
       title: 'Admin',
-      price: 'Free',
-      subtitle: 'Perfect when you are starting with a small team.',
-      bullets: [
-        'Up to 1 researcher for review',
-        'Includes 30 papers',
-        '2 reports',
-        '1 collection',
-        'Basic review and approval workflow',
-        'Email notifications',
-      ],
-      chip: 'Current plan',
-    },
-    upgrade: {
-      key: 'admin-current',
-      title: 'Admin',
-      price: '₹499',
+      price: '₹1999',
       subtitle: 'Central admin access for your university.',
       bullets: [
         'Paid plan — no free tier for Admin',
@@ -103,5 +88,6 @@ export const ROLE_PLANS = {
       ],
       chip: 'Current plan',
     },
+    upgrade: null
   },
 };

@@ -50,14 +50,15 @@ export default function Router() {
       >
         <Route index element={<Navigate to="/dashboard" replace />} />
 
-        <Route path="/dashboard" element={<Overview />} />                     // self
-        <Route path="/dashboard/researchers" element={<Overview />} />         // self
-        <Route path="/dashboard/supervisors" element={<Overview />} />         // self
-        <Route path="/dashboard/researchers/:userId" element={<Overview />} /> // view a researcher
-        <Route path="/dashboard/supervisors/:userId" element={<Overview />} /> // view a supervisor
+        <Route path="/dashboard" element={<Overview />} />                     {/* self */}
+        <Route path="/dashboard/researchers" element={<Overview />} />         {/* self */}
+        <Route path="/dashboard/supervisors" element={<Overview />} />         {/* self */}
+        <Route path="/dashboard/researchers/:userId" element={<Overview />} /> {/* view a researcher */}
+        <Route path="/dashboard/supervisors/:userId" element={<Overview />} /> {/* view a supervisor */}
 
-        {/* NEW: pricing page for Upgrade menu */}
-        <Route path="/price" element={<PricePage />} />
+
+        <Route path="/pricing" element={<PricePage />} />
+        <Route path="/price" element={<Navigate to="/pricing" replace />} />
 
         <Route path="library/papers" element={<Papers />} />
         <Route path="library/upload" element={<Upload />} />
