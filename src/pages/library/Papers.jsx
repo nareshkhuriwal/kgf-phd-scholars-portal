@@ -22,7 +22,8 @@ import {
   Checkbox,
   Toolbar,
   Snackbar,
-  Alert
+  Alert,
+  TableSortLabel
 } from '@mui/material';
 
 import PageHeader from '../../components/PageHeader';
@@ -36,8 +37,6 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import RateReviewIcon from '@mui/icons-material/RateReview';
 
-
-
 // --- helpers to read fields regardless of API casing ---
 const val = (row, keys) => {
   for (const k of keys) {
@@ -47,37 +46,97 @@ const val = (row, keys) => {
 };
 const idOf = (r) => r?.id ?? r?.['Paper ID'] ?? r?.paper_id;
 
+// Map displayed column keys to backend fields (used for sort param)
+const COLUMN_TO_FIELD = {
+  id: 'id',
+  title: 'title',
+  authors: 'authors',
+  year: 'year',
+  doi: 'doi'
+};
+
+// Helper to get value for sorting (normalize numbers)
+const sortValue = (row, field) => {
+  if (!row) return '';
+  switch (field) {
+    case 'id':
+      return Number(idOf(row)) || 0;
+    case 'title':
+      return (val(row, ['title', 'Title']) || '').toString().toLowerCase();
+    case 'authors':
+      return (val(row, ['authors', 'Author(s)']) || '').toString().toLowerCase();
+    case 'year':
+      // year may be string or number
+      return Number(val(row, ['year', 'Year'])) || 0;
+    case 'doi':
+      return (val(row, ['doi', 'DOI']) || '').toString().toLowerCase();
+    default:
+      return (val(row, [field]) || '').toString().toLowerCase();
+  }
+};
+
+// comparator returns -1/0/1
+const compare = (a, b, field, dir = 'asc') => {
+  const va = sortValue(a, field);
+  const vb = sortValue(b, field);
+  if (va < vb) return dir === 'asc' ? -1 : 1;
+  if (va > vb) return dir === 'asc' ? 1 : -1;
+  return 0;
+};
+
 export default function Papers() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { list, loading, error } = useSelector(s => s.papers || { list: [], loading: false, error: null });
 
-  // load once
-  React.useEffect(() => { dispatch(loadPapers()); }, [dispatch]);
+  // read list + meta from store (meta used for pagination)
+  const { list, meta, loading, error } = useSelector(s => s.papers || { list: [], meta: null, loading: false, error: null });
 
-  // state
+  // local UI state
   const [query, setQuery] = React.useState('');
-  const [page, setPage] = React.useState(0);
+  const [page, setPage] = React.useState(0);            // MUI 0-based
   const [rowsPerPage, setRpp] = React.useState(10);
-  const [confirm, setConfirm] = React.useState(null);     // single delete confirm (stores row)
-  const [bulkCfm, setBulkCfm] = React.useState(null);     // bulk delete confirm (stores ids)
-  const [selected, setSelected] = React.useState([]);       // selected ids
+  const [confirm, setConfirm] = React.useState(null);
+  const [bulkCfm, setBulkCfm] = React.useState(null);
+  const [selected, setSelected] = React.useState([]);
 
-  // toast state
+  // sorting state
+  const [sortBy, setSortBy] = React.useState('id');     // use backend field names (id, title, authors, year, doi)
+  const [sortDir, setSortDir] = React.useState('desc'); // 'asc' | 'desc'
+
+  // toast
   const [snack, setSnack] = React.useState({ open: false, msg: '', sev: 'success' });
   const openSnack = (msg, sev = 'success') => setSnack({ open: true, msg, sev });
   const closeSnack = () => setSnack(s => ({ ...s, open: false }));
 
-  // normalize list -> array
+  // load once on mount — request server with current rowsPerPage & current sort
+  const initialLoaded = React.useRef(false);
+  React.useEffect(() => {
+    if (!initialLoaded.current) {
+      dispatch(loadPapers({ page: 1, perPage: rowsPerPage, sort_by: sortBy, sort_dir: sortDir }));
+      initialLoaded.current = true;
+    }
+  }, [dispatch, rowsPerPage, sortBy, sortDir]);
+
+  // keep UI controls in sync with backend meta (when meta arrives)
+  React.useEffect(() => {
+    if (!meta) return;
+    if (meta.per_page && meta.per_page !== rowsPerPage) {
+      setRpp(meta.per_page);
+    }
+    if (meta.current_page !== undefined && (meta.current_page - 1) !== page) {
+      setPage(meta.current_page - 1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [meta]);
+
+  // ----- backend list -> array of rows -----
   const all = React.useMemo(() => {
     if (Array.isArray(list)) return list;
     if (list && Array.isArray(list.data)) return list.data;
     return [];
   }, [list]);
 
-  const meta = list?.meta || {};
-
-  // search (client-side)
+  // ----- search (client-side over current page's rows) -----
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return all;
@@ -94,10 +153,21 @@ export default function Papers() {
     });
   }, [all, query]);
 
-  // paginate (client-side for now)
-  // const start = page * rowsPerPage;
-  // const rows = filtered.slice(start, start + rowsPerPage);
-  const rows = filtered;
+  // ----- sorting + pagination for display -----
+  // If a search query is present we sort client-side (over `filtered`) then paginate locally.
+  // If no query, rely on server-side sort (we asked server with sort_by/sort_dir) and display `all`.
+  const rows = React.useMemo(() => {
+    if (query) {
+      // client side sort then paginate
+      const fld = sortBy || 'id';
+      const dir = sortDir || 'asc';
+      const sorted = [...filtered].sort((a, b) => compare(a, b, fld, dir));
+      const start = page * rowsPerPage;
+      return sorted.slice(start, start + rowsPerPage);
+    }
+    // server pagination + sorting: `all` is already the page we received
+    return all;
+  }, [query, filtered, all, page, rowsPerPage, sortBy, sortDir]);
 
   // ----- selection helpers -----
   const pageIds = React.useMemo(() => rows.map(idOf).filter(Boolean), [rows]);
@@ -170,8 +240,36 @@ export default function Papers() {
     openSnack(`Queued ${ok} paper(s)${fail ? `, ${fail} failed` : ''}`, fail ? 'warning' : 'success');
   };
 
+  // ----- sorting: handler that requests server when no query, or only changes local sort if query active -----
+  const handleSort = (colKey) => {
+    const field = COLUMN_TO_FIELD[colKey] ?? colKey;
+    const isSame = sortBy === field;
+    const nextDir = isSame ? (sortDir === 'asc' ? 'desc' : 'asc') : 'asc';
 
-  console.log("meta: ", meta)
+    setSortBy(field);
+    setSortDir(nextDir);
+
+    // reset to first page
+    setPage(0);
+
+    // If there's an active search (client-side), we don't call server; sorting is applied client-side.
+    if (query) {
+      // rows will recompute because sortBy/sortDir changed (useMemo)
+      return;
+    }
+
+    // otherwise call backend to request fresh sorted page
+    dispatch(loadPapers({
+      page: 1,
+      perPage: rowsPerPage,
+      query: undefined,
+      sort_by: field,
+      sort_dir: nextDir
+    }));
+  };
+
+  // debug
+  // console.log('meta:', meta, 'rowsPerPage:', rowsPerPage, 'page:', page, 'sortBy:', sortBy, 'sortDir:', sortDir);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -231,7 +329,7 @@ export default function Papers() {
         ) : error ? (
           <Box sx={{ p: 2 }}>
             <Typography color="error">Failed to load papers: {String(error)}</Typography>
-            <Button size="small" sx={{ mt: 1 }} onClick={() => dispatch(loadPapers())}>Retry</Button>
+            <Button size="small" sx={{ mt: 1 }} onClick={() => dispatch(loadPapers({ page: 1, perPage: rowsPerPage, sort_by: sortBy, sort_dir: sortDir }))}>Retry</Button>
           </Box>
         ) : (
           <>
@@ -247,14 +345,61 @@ export default function Papers() {
                         inputProps={{ 'aria-label': 'select all on page' }}
                       />
                     </TableCell>
-                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>ID</TableCell>
-                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>Title</TableCell>
-                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>Authors</TableCell>
-                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>Year</TableCell>
-                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>DOI</TableCell>
+
+                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>
+                      <TableSortLabel
+                        active={sortBy === 'id'}
+                        direction={sortBy === 'id' ? sortDir : 'asc'}
+                        onClick={() => handleSort('id')}
+                      >
+                        ID
+                      </TableSortLabel>
+                    </TableCell>
+
+                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>
+                      <TableSortLabel
+                        active={sortBy === 'title'}
+                        direction={sortBy === 'title' ? sortDir : 'asc'}
+                        onClick={() => handleSort('title')}
+                      >
+                        Title
+                      </TableSortLabel>
+                    </TableCell>
+
+                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>
+                      <TableSortLabel
+                        active={sortBy === 'authors'}
+                        direction={sortBy === 'authors' ? sortDir : 'asc'}
+                        onClick={() => handleSort('authors')}
+                      >
+                        Authors
+                      </TableSortLabel>
+                    </TableCell>
+
+                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>
+                      <TableSortLabel
+                        active={sortBy === 'year'}
+                        direction={sortBy === 'year' ? sortDir : 'asc'}
+                        onClick={() => handleSort('year')}
+                      >
+                        Year
+                      </TableSortLabel>
+                    </TableCell>
+
+                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>
+                      <TableSortLabel
+                        active={sortBy === 'doi'}
+                        direction={sortBy === 'doi' ? sortDir : 'asc'}
+                        onClick={() => handleSort('doi')}
+                      >
+                        DOI
+                      </TableSortLabel>
+                    </TableCell>
+
                     <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 220 }}>Actions</TableCell>
                   </TableRow>
                 </TableHead>
+
                 <TableBody>
                   {rows.length === 0 ? (
                     <TableRow>
@@ -275,9 +420,9 @@ export default function Papers() {
                             inputProps={{ 'aria-label': `select paper ${id}` }}
                           />
                         </TableCell>
+
                         <TableCell>{id}</TableCell>
 
-                        {/* Title clickable -> view/edit page */}
                         <TableCell>
                           <Typography
                             component={Link}
@@ -296,6 +441,7 @@ export default function Papers() {
                         <TableCell>{val(r, ['authors', 'Author(s)'])}</TableCell>
                         <TableCell>{val(r, ['year', 'Year'])}</TableCell>
                         <TableCell>{val(r, ['doi', 'DOI'])}</TableCell>
+
                         <TableCell sx={{ whiteSpace: 'nowrap' }}>
                           <Stack direction="row" spacing={1} useFlexGap flexWrap="nowrap">
                             <Tooltip title="Edit paper">
@@ -334,8 +480,6 @@ export default function Papers() {
                             </Tooltip>
                           </Stack>
                         </TableCell>
-
-
                       </TableRow>
                     );
                   })}
@@ -344,47 +488,37 @@ export default function Papers() {
             </TableContainer>
 
             <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-              {/* <TablePagination
-                component="div"
-                count={filtered.length}
-                page={page}
-                onPageChange={(_e, p) => setPage(p)}
-                rowsPerPage={rowsPerPage}
-                onRowsPerPageChange={e => { setRpp(parseInt(e.target.value, 10)); setPage(0); }}
-                rowsPerPageOptions={[10, 25, 50, 100]}
-                showFirstButton showLastButton
-              /> */}
-
               <TablePagination
-  component="div"
-  // ✅ total number of rows from backend
-  count={meta.total ?? filtered.length}
-
-  // ✅ MUI page is 0-based, Laravel page is 1-based
-  page={meta.current_page ? meta.current_page - 1 : page}
-
-  onPageChange={(_e, newPage) => {
-    setPage(newPage);
-    // 🔁 load that page from API (adjust params to your loadPapers)
-    dispatch(loadPapers({ page: newPage + 1, perPage: rowsPerPage }));
-  }}
-
-  // ✅ rows per page – keep your local state, or use meta.per_page
-  rowsPerPage={rowsPerPage}
-
-  onRowsPerPageChange={e => {
-    const next = parseInt(e.target.value, 10);
-    setRpp(next);
-    setPage(0);
-    // reload from page 1 with new per-page size
-    dispatch(loadPapers({ page: 1, perPage: next }));
-  }}
-
-  rowsPerPageOptions={[10, 25, 50, 100]}
-  showFirstButton
-  showLastButton
-/>
-
+                component="div"
+                count={meta?.total ?? filtered.length}
+                page={meta?.current_page ? meta.current_page - 1 : page}
+                onPageChange={(_e, newPage) => {
+                  setPage(newPage);
+                  dispatch(loadPapers({
+                    page: newPage + 1,
+                    perPage: rowsPerPage,
+                    query: query || undefined,
+                    sort_by: !query ? sortBy : undefined,
+                    sort_dir: !query ? sortDir : undefined
+                  }));
+                }}
+                rowsPerPage={rowsPerPage}
+                onRowsPerPageChange={e => {
+                  const next = parseInt(e.target.value, 10);
+                  setRpp(next);
+                  setPage(0);
+                  dispatch(loadPapers({
+                    page: 1,
+                    perPage: next,
+                    query: query || undefined,
+                    sort_by: !query ? sortBy : undefined,
+                    sort_dir: !query ? sortDir : undefined
+                  }));
+                }}
+                rowsPerPageOptions={[10, 25, 50, 100]}
+                showFirstButton
+                showLastButton
+              />
             </Box>
           </>
         )}

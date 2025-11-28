@@ -16,12 +16,35 @@ const msg = (e) => e?.message || 'Request failed';
 
 // ───────────────────────────── Thunks ─────────────────────────────
 
-// Load list
+// Load list (normalized params; frontend callers can pass perPage or per_page)
 export const loadPapers = createAsyncThunk(
   'papers/load',
-  async (params, { rejectWithValue }) => {
+  async (params = {}, { rejectWithValue }) => {
     try {
-      return await fetchPapers(params || {});
+      // Ensure a consistent default param shape.
+      const finalParams = {
+        page: params.page ?? 1,
+        perPage: params.perPage ?? params.per_page ?? 25,
+        // accept search/q/query from callers; service will normalize into `search`
+        query: params.query ?? params.search ?? params.q ?? undefined,
+        category: params.category ?? undefined,
+        // forward any other params if present (filters, sorts)
+        ...params
+      };
+
+      // remove potential large objects accidentally passed
+      // Keep only primitives and arrays for safe serialization
+      const safeParams = {};
+      Object.entries(finalParams).forEach(([k, v]) => {
+        if (v === undefined) return;
+        if (typeof v === 'object' && !Array.isArray(v)) {
+          // skip nested objects (unless you need JSON-encoding)
+          return;
+        }
+        safeParams[k] = v;
+      });
+
+      return await fetchPapers(safeParams);
     } catch (e) {
       return rejectWithValue(msg(e));
     }
@@ -45,7 +68,6 @@ export const addPaper = createAsyncThunk(
   'papers/add',
   async (formOrFD, { rejectWithValue }) => {
     try {
-      // If caller passed { data, onUploadProgress }, unwrap
       const data = formOrFD?.data ?? formOrFD;
       const onUploadProgress = formOrFD?.onUploadProgress;
       return await createPaper(data, { onUploadProgress });
@@ -130,6 +152,7 @@ const papersSlice = createSlice({
       .addCase(loadPapers.fulfilled, (s, a) => {
         s.loading = false;
         s.list = arr(a.payload);
+        // Backwards compatibility: some services return { data, meta } while others return top-level array
         s.meta = a.payload?.meta ?? null;
       })
       .addCase(loadPapers.rejected, (s, a) => { s.loading = false; s.error = a.payload; s.list = []; })
@@ -189,8 +212,6 @@ const papersSlice = createSlice({
         s.list = s.list.filter((p) => !removedIds.includes(p.id));
         if (s.current && removedIds.includes(s.current.id)) s.current = null;
       });
-
-
   }
 });
 

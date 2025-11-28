@@ -1,6 +1,9 @@
 // src/services/papersService.js
 import { apiFetch } from '../services/api';
 
+/**
+ * Field label -> API key mapping for create/update payloads
+ */
 export const LABEL_TO_API = {
   'Paper ID': 'paper_id',
   'DOI': 'doi',
@@ -55,10 +58,83 @@ function buildBody(form) {
   return toApiPayload(form);
 }
 
-/** Endpoints */
+/**
+ * Helper: map friendly param names to backend params and remove undefined
+ * Accepts params like: { page, perPage, per_page, q, query, search, category, ... }
+ * Ensures backend receives page and per_page and search (if provided)
+ */
+function normalizeQueryParams(params = {}) {
+  if (!params) return {};
+
+  const {
+    page,
+    perPage,
+    per_page,
+    limit,
+    q,
+    query,
+    search,
+    category,
+    ...rest
+  } = params || {};
+
+  // build final map
+  const out = { ...rest };
+
+  // page default 1
+  if (page !== undefined && page !== null) out.page = page;
+  else out.page = 1;
+
+  // prefer per_page if given, then perPage, then limit, else default 25
+  const chosenPer = per_page ?? perPage ?? limit ?? 25;
+  out.per_page = chosenPer;
+
+  // search param: prefer search, then q, then query
+  if (search !== undefined) out.search = search;
+  else if (q !== undefined) out.search = q;
+  else if (query !== undefined) out.search = query;
+
+  if (category !== undefined) out.category = category;
+
+  // strip undefined / null values
+  Object.keys(out).forEach(k => {
+    if (out[k] === undefined || out[k] === null) delete out[k];
+  });
+
+  return out;
+}
+
+/** Build query string from params object (skip arrays/objects) */
+function buildQueryString(qp = {}) {
+  const usp = new URLSearchParams();
+  Object.entries(qp).forEach(([k, v]) => {
+    // allow numbers and strings; skip arrays/objects to avoid weird serialization
+    if (v === undefined || v === null) return;
+    if (typeof v === 'object') {
+      // simple support: JSON stringify arrays/objects
+      usp.append(k, JSON.stringify(v));
+    } else {
+      usp.append(k, String(v));
+    }
+  });
+  return usp.toString();
+}
+
+/** Endpoints ---------------------------------------------------------- */
+
+/**
+ * GET /papers
+ * Accepts flexible params; sends page, per_page, search, category to API.
+ */
 export async function fetchPapers(params = {}) {
-  const qs = new URLSearchParams(params).toString();
+  const qp = normalizeQueryParams(params);
+  const qs = buildQueryString(qp);
   const path = qs ? `/papers?${qs}` : '/papers';
+
+  // debug — remove or gate by env in production
+  // eslint-disable-next-line no-console
+  console.debug('fetchPapers ->', path, qp);
+
   return apiFetch(path, { method: 'GET' });
 }
 
