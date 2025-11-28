@@ -28,7 +28,8 @@ export default function PricePage() {
   const user = useSelector((s) => s.auth?.user);
   const orderState = useSelector((s) => s.order);
 
-  const role = user?.role || 'researcher';
+  // ✅ Default to 'admin' so price is picked according to the Admin plan (1999)
+  const role = user?.role || 'admin';
   const userPlanKey = user?.plan_key || null;
 
   const [loading, setLoading] = React.useState(false);
@@ -59,8 +60,8 @@ export default function PricePage() {
     isOnUpgradePlan && upgrade
       ? upgrade.title
       : isOnBasicPlan
-      ? current.title
-      : null;
+        ? current.title
+        : null;
 
   // Handle upgrade payment
   const handleUpgrade = async (plan) => {
@@ -69,7 +70,9 @@ export default function PricePage() {
 
       const scriptLoaded = await loadRazorpayScript();
       if (!scriptLoaded) {
-        throw new Error('Razorpay SDK failed to load. Please check your internet connection.');
+        throw new Error(
+          'Razorpay SDK failed to load. Please check your internet connection.'
+        );
       }
 
       // 1) Create order using Redux thunk
@@ -83,7 +86,9 @@ export default function PricePage() {
       }
 
       const publicKey =
-        orderData.key || import.meta.env.VITE_RAZORPAY_KEY_ID || 'YOUR_RAZORPAY_KEY_ID';
+        orderData.key ||
+        import.meta.env.VITE_RAZORPAY_KEY_ID ||
+        'YOUR_RAZORPAY_KEY_ID';
 
       // 2) Razorpay Checkout options
       const options = {
@@ -153,7 +158,8 @@ export default function PricePage() {
       console.error('Payment error:', error);
       setNotification({
         open: true,
-        message: error.message || 'Failed to initiate payment. Please try again.',
+        message:
+          error.message || 'Failed to initiate payment. Please try again.',
         severity: 'error',
       });
       setLoading(false);
@@ -167,19 +173,20 @@ export default function PricePage() {
   return (
     <Box sx={{ p: 3, maxWidth: 1000, mx: 'auto' }}>
       <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
-        Simple pricing for every role
+        Choose your plan
       </Typography>
 
       <Typography variant="subtitle1" sx={{ mb: 4, color: 'text.secondary' }}>
-        You are currently logged in as <strong>{roleLabel}</strong>
+        You are currently seeing pricing for <strong>{roleLabel}</strong>
         {currentPlanTitle && (
           <>
-            {' '}with plan <strong>{currentPlanTitle}</strong>
+            {' '}
+            with plan <strong>{currentPlanTitle}</strong>
           </>
         )}
         {upgrade
           ? '. Compare your current plan with the upgrade below.'
-          : '. You are on a paid Admin plan. Contact us if you want to change your subscription.'}
+          : '. You are on a paid Admin plan.'}
       </Typography>
 
       <Box
@@ -216,8 +223,8 @@ export default function PricePage() {
               isOnUpgradePlan
                 ? 'Current plan'
                 : loading || orderState.creating || orderState.verifying
-                ? 'Processing...'
-                : 'Upgrade plan'
+                  ? 'Processing...'
+                  : 'Upgrade plan'
             }
             buttonDisabled={isOnUpgradePlan}
             isUpgrade
@@ -226,9 +233,7 @@ export default function PricePage() {
               (loading || orderState.creating || orderState.verifying)
             }
             onClick={
-              isOnUpgradePlan
-                ? undefined
-                : () => handleUpgrade(upgrade)
+              isOnUpgradePlan ? undefined : () => handleUpgrade(upgrade)
             }
           />
         )}
@@ -281,10 +286,13 @@ function PlanCard({
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        '&:hover': isUpgrade && !buttonDisabled ? {
-          transform: 'translateY(-4px)',
-          boxShadow: 6,
-        } : {},
+        '&:hover':
+          isUpgrade && !buttonDisabled
+            ? {
+              transform: 'translateY(-4px)',
+              boxShadow: 6,
+            }
+            : {},
       }}
     >
       <CardContent sx={{ flexGrow: 1 }}>
@@ -368,11 +376,14 @@ function PlanCard({
             borderColor: isUpgrade ? 'primary.main' : 'grey.300',
             color: isUpgrade ? 'primary.main' : 'text.secondary',
             transition: 'all 0.2s ease',
-            '&:hover': isUpgrade && !buttonDisabled ? {
-              borderColor: 'primary.dark',
-              backgroundColor: 'rgba(25, 118, 210, 0.04)',
-              transform: 'scale(1.02)',
-            } : {},
+            '&:hover':
+              isUpgrade && !buttonDisabled
+                ? {
+                  borderColor: 'primary.dark',
+                  backgroundColor: 'rgba(25, 118, 210, 0.04)',
+                  transform: 'scale(1.02)',
+                }
+                : {},
             '&:disabled': {
               borderColor: 'grey.300',
               color: 'text.disabled',

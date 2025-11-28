@@ -93,6 +93,13 @@ const authSlice = createSlice({
       state.user = null
       state.hydrated = true
       clearAuth()
+    },
+    
+    // 👇 NEW: This allows us to update the user manually from other components
+    setUser(state, action) {
+      state.user = action.payload
+      // We also update local storage so the new name persists on refresh
+      writeAuth({ token: state.token, user: state.user })
     }
   },
   extraReducers: (b) => {
@@ -143,5 +150,6 @@ const authSlice = createSlice({
   }
 })
 
-export const { hydrateFromStorage, logout } = authSlice.actions
+// 👇 Export setUser here
+export const { hydrateFromStorage, logout, setUser } = authSlice.actions
 export default authSlice.reducer
