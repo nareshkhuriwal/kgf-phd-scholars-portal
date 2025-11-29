@@ -1,10 +1,13 @@
 // src/config/pricingPlans.js
 
 // Role-specific plan definitions
+// Note: monthlyAmountPaise / yearlyAmountPaise are numeric amounts in paise
+// monthlyPlanKey / yearlyPlanKey map to backend Razorpay plan keys
+
 export const ROLE_PLANS = {
   researcher: {
     current: {
-      key: 'researcher-current',
+      key: 'researcher-free',
       title: 'Researcher',
       price: 'Free',
       subtitle: 'Start free with limited usage.',
@@ -18,25 +21,33 @@ export const ROLE_PLANS = {
       chip: 'Current plan',
     },
     upgrade: {
-      key: 'researcher-upgrade',
+      // plan family
+      key: 'researcher-pro',
       title: 'Researcher Pro',
-      price: '₹149',
+      price: '₹299/month or ₹2,999/year',
       subtitle: 'Unlock higher limits for serious work.',
+      monthlyAmountPaise: 29900,   // ₹299.00
+      yearlyAmountPaise: 299900,   // ₹2,999.00
+      monthlyPlanKey: 'researcher-pro',
+      yearlyPlanKey: 'researcher-pro-yearly',
       bullets: [
         'Up to 200 papers',
         '20 reports',
         '10 collections',
         'Advanced search and filtering',
         'Priority email support',
-        'Export to multiple formats',
+        'Export to multiple formats (PDF, CSV, BibTeX)',
+        'AI-assisted literature summarization (limited credits)',
+        'Project folders & version history',
       ],
       chip: 'Upgrade plan',
+      isAnnualOnly: false,
     },
   },
 
   supervisor: {
     current: {
-      key: 'supervisor-current',
+      key: 'supervisor-free',
       title: 'Supervisor',
       price: 'Free',
       subtitle: 'Perfect when you are starting with a small team.',
@@ -51,36 +62,40 @@ export const ROLE_PLANS = {
       chip: 'Current plan',
     },
     upgrade: {
-      key: 'supervisor-upgrade',
+      key: 'supervisor-pro',
       title: 'Supervisor Pro',
-      price: '₹249',
+      price: '₹999/month or ₹9,999/year',
       subtitle: 'Scale supervision across more researchers.',
+      monthlyAmountPaise: 99900,    // ₹999.00
+      yearlyAmountPaise: 999900,    // ₹9,999.00
+      monthlyPlanKey: 'supervisor-pro',
+      yearlyPlanKey: 'supervisor-pro-yearly',
       bullets: [
-        'Up to 6 researchers for review',
-        'Includes everything in upgraded Researcher plan:',
-        '• 200 papers',
-        '• 20 reports',
-        '• 10 collections',
-        'Advanced review and approval workflow',
-        'Team collaboration tools',
-        'Bulk actions and management',
-        'Priority support',
+        'Manage up to 20 researchers',
+        'Includes everything in Researcher Pro (200 papers, 20 reports, 10 collections)',
+        'Advanced review & approval workflows',
+        'Supervisor dashboard with per-student activity',
+        'Team collaboration tools (shared notes, comments)',
+        'Bulk actions and student management',
+        'Priority support & faster AI job queue',
+        'Usage & exportable audit logs',
       ],
       chip: 'Upgrade plan',
+      isAnnualOnly: false,
     },
   },
 
   admin: {
     current: {
-      key: 'admin-current',
+      key: 'admin-trial',
       title: 'Admin',
-      price: '₹1999',
+      price: 'Admin (Trial)',
       subtitle: 'Central admin access for your university.',
       bullets: [
         'Paid plan — no free tier for Admin',
         'Central admin access for your university',
         'Manage researchers, supervisors & reports in one place',
-        'Unlimited users and researchers',
+        'Unlimited users and researchers (trial limits may apply)',
         'Advanced analytics and reporting',
         'Custom branding options',
         'Dedicated account manager',
@@ -88,6 +103,29 @@ export const ROLE_PLANS = {
       ],
       chip: 'Current plan',
     },
-    upgrade: null
+    upgrade: {
+      key: 'admin-pro',
+      title: 'Admin Pro',
+      // Admin sold as annual institutional license
+      price: '₹99,000/year',
+      subtitle: 'Institutional license for departments or entire universities.',
+      yearlyAmountPaise: 9900000,   // ₹99,000.00
+      monthlyAmountPaise: null,     // no monthly option by default
+      monthlyPlanKey: null,
+      yearlyPlanKey: 'admin-pro',
+      bullets: [
+        'Unlimited researchers & supervisors',
+        'Centralized admin and billing',
+        'SSO / SAML integration',
+        'Custom onboarding & training',
+        'Private cloud / on-prem deployment (optional, paid)',
+        'API access and integrations (LMS, institutional repos)',
+        'Advanced usage analytics & exportable reports',
+        'SLA-backed priority support and dedicated account manager',
+        'Custom contract and volume discounts available',
+      ],
+      chip: 'Upgrade plan',
+      isAnnualOnly: true,
+    },
   },
 };

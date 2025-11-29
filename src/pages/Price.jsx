@@ -12,6 +12,8 @@ import {
   CircularProgress,
   Alert,
   Snackbar,
+  ToggleButton,
+  ToggleButtonGroup,
 } from '@mui/material';
 
 import { ROLE_PLANS } from '../config/pricingPlans';
@@ -28,7 +30,7 @@ export default function PricePage() {
   const user = useSelector((s) => s.auth?.user);
   const orderState = useSelector((s) => s.order);
 
-  // ✅ Default to 'admin' so price is picked according to the Admin plan (1999)
+  // Default role
   const role = user?.role || 'admin';
   const userPlanKey = user?.plan_key || null;
 
@@ -39,6 +41,30 @@ export default function PricePage() {
     severity: 'info',
   });
 
+  // ---------- CHANGED: determine initial billing cycle from user's plan_key ----------
+  const { current, upgrade } = ROLE_PLANS[role] || ROLE_PLANS.researcher;
+
+  const resolveInitialBillingCycle = React.useCallback(() => {
+    if (!upgrade) return 'monthly'; // no upgrade available (admin paid etc)
+    // if user's current plan key is the yearly plan key -> set yearly
+    if (userPlanKey && upgrade.yearlyPlanKey && userPlanKey === upgrade.yearlyPlanKey)
+      return 'yearly';
+    // if user's current plan key is the monthly plan key -> set monthly
+    if (userPlanKey && upgrade.monthlyPlanKey && userPlanKey === upgrade.monthlyPlanKey)
+      return 'monthly';
+    // if plan is annual-only prefer yearly
+    if (upgrade.isAnnualOnly) return 'yearly';
+    // default fallback
+    return 'monthly';
+  }, [userPlanKey, upgrade]);
+
+  const [billingCycle, setBillingCycle] = React.useState(resolveInitialBillingCycle);
+
+  // Update billingCycle when userPlanKey or upgrade changes (e.g., after meThunk refresh)
+  React.useEffect(() => {
+    setBillingCycle(resolveInitialBillingCycle());
+  }, [resolveInitialBillingCycle]);
+
   // Load user on page load so latest plan is always in Redux
   React.useEffect(() => {
     dispatch(meThunk())
@@ -48,23 +74,31 @@ export default function PricePage() {
       });
   }, [dispatch]);
 
-  const { current, upgrade } = ROLE_PLANS[role] || ROLE_PLANS.researcher;
   const roleLabel = current.title;
 
-  // derive which plan is current based on plan_key
+  // derive which plan is current based on plan_key (monthly or yearly keys allowed)
   const isOnBasicPlan =
     !userPlanKey || userPlanKey === current.key; // free/default
-  const isOnUpgradePlan = upgrade && userPlanKey === upgrade.key;
+
+  const isOnUpgradePlan =
+    upgrade &&
+    (userPlanKey === upgrade.monthlyPlanKey ||
+      userPlanKey === upgrade.yearlyPlanKey);
 
   const currentPlanTitle =
     isOnUpgradePlan && upgrade
       ? upgrade.title
       : isOnBasicPlan
-        ? current.title
-        : null;
+      ? current.title
+      : null;
 
-  // Handle upgrade payment
-  const handleUpgrade = async (plan) => {
+  const handleBillingCycleChange = (event, value) => {
+    if (!value) return;
+    setBillingCycle(value);
+  };
+
+  // Handle upgrade payment (no changes here)
+  const handleUpgrade = async (selectedPlanKey, displayTitle, displayAmount) => {
     try {
       setLoading(true);
 
@@ -75,9 +109,9 @@ export default function PricePage() {
         );
       }
 
-      // 1) Create order using Redux thunk
+      // 1) Create order using Redux thunk - pass exact plan key (monthly/yearly backend key)
       const orderData = await dispatch(
-        createPaymentOrderThunk(plan.key)
+        createPaymentOrderThunk(selectedPlanKey)
       ).unwrap();
       // orderData: { orderId, amount, currency, key }
 
@@ -96,7 +130,7 @@ export default function PricePage() {
         amount: orderData.amount, // in paise
         currency: orderData.currency,
         name: 'KGF Scholars',
-        description: `Upgrade to ${plan.title}`,
+        description: `Upgrade to ${displayTitle}`,
         order_id: orderData.orderId,
 
         handler: async function (response) {
@@ -107,7 +141,7 @@ export default function PricePage() {
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_signature: response.razorpay_signature,
-                plan_key: plan.key,
+                plan_key: selectedPlanKey,
               })
             ).unwrap();
 
@@ -116,7 +150,7 @@ export default function PricePage() {
 
             setNotification({
               open: true,
-              message: `Successfully upgraded to ${plan.title}! Your plan status is now updated.`,
+              message: `Successfully upgraded to ${displayTitle}! Your plan status is now updated.`,
               severity: 'success',
             });
 
@@ -170,13 +204,43 @@ export default function PricePage() {
     setNotification({ ...notification, open: false });
   };
 
+  // helper that returns display price and plan key given upgrade config + billingCycle
+  const resolvePriceAndKey = (upgradeConfig, cycle) => {
+    if (!upgradeConfig) return { displayPrice: null, planKey: null, amountPaise: null };
+    if (cycle === 'monthly' && upgradeConfig.monthlyAmountPaise) {
+      return {
+        displayPrice: `₹${(upgradeConfig.monthlyAmountPaise / 100).toLocaleString()}/month`,
+        planKey: upgradeConfig.monthlyPlanKey,
+        amountPaise: upgradeConfig.monthlyAmountPaise,
+      };
+    }
+    if (cycle === 'yearly' && upgradeConfig.yearlyAmountPaise) {
+      return {
+        displayPrice: `₹${(upgradeConfig.yearlyAmountPaise / 100).toLocaleString()}/year`,
+        planKey: upgradeConfig.yearlyPlanKey,
+        amountPaise: upgradeConfig.yearlyAmountPaise,
+      };
+    }
+    // fallback: if admin and only yearly available
+    if (upgradeConfig.isAnnualOnly && upgradeConfig.yearlyAmountPaise) {
+      return {
+        displayPrice: `₹${(upgradeConfig.yearlyAmountPaise / 100).toLocaleString()}/year`,
+        planKey: upgradeConfig.yearlyPlanKey,
+        amountPaise: upgradeConfig.yearlyAmountPaise,
+      };
+    }
+    return { displayPrice: 'Contact sales', planKey: null, amountPaise: null };
+  };
+
+  const { displayPrice, planKey } = resolvePriceAndKey(upgrade, billingCycle);
+
   return (
     <Box sx={{ p: 3, maxWidth: 1000, mx: 'auto' }}>
       <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
         Choose your plan
       </Typography>
 
-      <Typography variant="subtitle1" sx={{ mb: 4, color: 'text.secondary' }}>
+      <Typography variant="subtitle1" sx={{ mb: 2, color: 'text.secondary' }}>
         You are currently seeing pricing for <strong>{roleLabel}</strong>
         {currentPlanTitle && (
           <>
@@ -188,6 +252,24 @@ export default function PricePage() {
           ? '. Compare your current plan with the upgrade below.'
           : '. You are on a paid Admin plan.'}
       </Typography>
+
+      {/* Billing cycle toggle */}
+      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end' }}>
+        <ToggleButtonGroup
+          value={billingCycle}
+          exclusive
+          onChange={handleBillingCycleChange}
+          aria-label="billing cycle"
+          size="small"
+        >
+          <ToggleButton value="monthly" aria-label="monthly" disabled={upgrade?.isAnnualOnly}>
+            Monthly
+          </ToggleButton>
+          <ToggleButton value="yearly" aria-label="yearly">
+            Yearly
+          </ToggleButton>
+        </ToggleButtonGroup>
+      </Box>
 
       <Box
         sx={{
@@ -215,7 +297,7 @@ export default function PricePage() {
         {upgrade && (
           <PlanCard
             title={upgrade.title}
-            price={upgrade.price}
+            price={displayPrice || upgrade.price}
             subtitle={upgrade.subtitle}
             bullets={upgrade.bullets}
             chipLabel={isOnUpgradePlan ? 'Current plan' : upgrade.chip}
@@ -223,17 +305,21 @@ export default function PricePage() {
               isOnUpgradePlan
                 ? 'Current plan'
                 : loading || orderState.creating || orderState.verifying
-                  ? 'Processing...'
-                  : 'Upgrade plan'
+                ? 'Processing...'
+                : 'Upgrade plan'
             }
-            buttonDisabled={isOnUpgradePlan}
+            buttonDisabled={isOnUpgradePlan || !planKey}
             isUpgrade
             loading={
               !isOnUpgradePlan &&
               (loading || orderState.creating || orderState.verifying)
             }
-            onClick={
-              isOnUpgradePlan ? undefined : () => handleUpgrade(upgrade)
+            onClick={() =>
+              handleUpgrade(
+                planKey,
+                `${upgrade.title} (${billingCycle === 'monthly' ? 'Monthly' : 'Yearly'})`,
+                displayPrice
+              )
             }
           />
         )}
@@ -258,6 +344,7 @@ export default function PricePage() {
     </Box>
   );
 }
+
 
 /**
  * Reusable card for current / upgrade plan
@@ -289,9 +376,9 @@ function PlanCard({
         '&:hover':
           isUpgrade && !buttonDisabled
             ? {
-              transform: 'translateY(-4px)',
-              boxShadow: 6,
-            }
+                transform: 'translateY(-4px)',
+                boxShadow: 6,
+              }
             : {},
       }}
     >
@@ -310,15 +397,6 @@ function PlanCard({
 
         <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5 }}>
           {price}
-          {price !== 'Free' && (
-            <Typography
-              component="span"
-              variant="body2"
-              sx={{ color: 'text.secondary', ml: 0.5 }}
-            >
-              /month
-            </Typography>
-          )}
         </Typography>
 
         <Typography
@@ -379,10 +457,10 @@ function PlanCard({
             '&:hover':
               isUpgrade && !buttonDisabled
                 ? {
-                  borderColor: 'primary.dark',
-                  backgroundColor: 'rgba(25, 118, 210, 0.04)',
-                  transform: 'scale(1.02)',
-                }
+                    borderColor: 'primary.dark',
+                    backgroundColor: 'rgba(25, 118, 210, 0.04)',
+                    transform: 'scale(1.02)',
+                  }
                 : {},
             '&:disabled': {
               borderColor: 'grey.300',
