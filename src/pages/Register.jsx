@@ -5,8 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { Box, Grid, Typography } from '@mui/material';
 import SiteHeader from '../components/site/SiteHeader';
 import LeftFeatures from '../components/site/LeftFeatures';
-import RegisterFormCard from '../components/auth/RegisterFormCard';
-import RegisterFormCardEmail from '../components/auth/RegisterFormCardEmail';
+import RegisterFormCard from '../components/auth/RegisterFormCardEmail';
 
 import { registerThunk } from '../store/authSlice';
 
@@ -49,7 +48,7 @@ export default function Register() {
 
         {/* Right 40% */}
         <Grid item xs={12} md={4} sx={{ pl: { md: 4 }, mt: { xs: 3, md: 0 } }}>
-          <RegisterFormCardEmail
+          <RegisterFormCard
             r={register}
             errors={errors}
             loading={loading}
