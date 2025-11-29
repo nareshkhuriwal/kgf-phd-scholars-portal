@@ -284,22 +284,31 @@ export default function RegisterFormCard({
       return;
     }
 
+    // inside handleVerifyOtp after a successful action
     if (verifyRegisterOtp.fulfilled.match(action)) {
       const payload = action.payload || {};
-      const msg = payload.message || 'Email verified successfully';
-      setSnackMsg(msg);
+      const msg = (payload.message || '').toString();
+
+      // If backend tells us it's verified (explicit flag or message), mark verified
+      if (payload.verified === true || /verified/i.test(msg)) {
+        dispatch(markVerified());
+        if (payload.email) dispatch(setEmailAction(payload.email));
+        setEmailLocal((payload.email || readEmail()).toLowerCase());
+        setOtpValue('');
+        setSnackMsg(payload.message || 'Email verified successfully');
+        setSnackSeverity('success');
+        setSnackOpen(true);
+        return;
+      }
+
+      // default behavior (if any other structure)
+      setSnackMsg(payload.message || 'Email verified successfully');
       setSnackSeverity('success');
       setSnackOpen(true);
       setOtpValue('');
-      // IMPORTANT: emailVerified will be true from the slice — useEffect above will sync emailLocal
       return;
     }
 
-    // fallback
-    setSnackMsg('Email verified successfully.');
-    setSnackSeverity('success');
-    setSnackOpen(true);
-    setOtpValue('');
   };
 
   // Small UI pieces
