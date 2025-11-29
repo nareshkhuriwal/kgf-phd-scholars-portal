@@ -71,6 +71,9 @@ export default function RegisterFormCard({
   const [otpValue, setOtpValue] = React.useState('');
   const [emailLocal, setEmailLocal] = React.useState(''); // local mirror for convenience
 
+  // NEW: track terms checkbox locally (keeps UI quick + lets us enable submit)
+  const [termsChecked, setTermsChecked] = React.useState(false);
+
   // Snackbar state
   const [snackOpen, setSnackOpen] = React.useState(false);
   const [snackMsg, setSnackMsg] = React.useState('');
@@ -101,12 +104,23 @@ export default function RegisterFormCard({
     return () => clearInterval(iv);
   }, [resendCooldown, dispatch]);
 
+  // Ensure local email mirrors registeredEmail when verification completes
+  React.useEffect(() => {
+    if (emailVerified) {
+      // sync local state to authoritative email from redux (if available)
+      if (registeredEmail) {
+        setEmailLocal(registeredEmail);
+      }
+      // optionally markVerified action if you want to ensure slice is consistent
+      // dispatch(markVerified()); // uncomment if needed to set any slice flags
+    }
+  }, [emailVerified, registeredEmail, dispatch]);
+
   // Enhanced submit handler that includes role
   const enhancedOnSubmit = (data) => {
     // if email not verified, block submit and show error
     if (!emailVerified) {
       setError?.('email', { type: 'validate', message: 'Please verify your email before submitting' });
-      // also show inline alert by updating local state via register slice (we rely on sendError)
       return;
     }
 
@@ -169,6 +183,10 @@ export default function RegisterFormCard({
 
   // basic email validation
   const isValidEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v || '').trim());
+  const emailReg = r('email', {
+    required: true,
+    pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'Invalid email' }
+  });
 
   // helper to read email reliably
   const readEmail = () => {
@@ -262,6 +280,7 @@ export default function RegisterFormCard({
       setSnackSeverity('success');
       setSnackOpen(true);
       setOtpValue('');
+      // IMPORTANT: emailVerified will be true from the slice — useEffect above will sync emailLocal
       return;
     }
 
@@ -282,6 +301,27 @@ export default function RegisterFormCard({
       sx={{ ml: 1 }}
     />
   );
+
+  // Decide whether submit should be enabled:
+  const canSubmit = !loading && emailVerified && termsChecked;
+
+  // Prepare registered handlers for terms checkbox so we can compose with our local state update
+  // We call r('terms', ...) to get react-hook-form register props, then wrap onChange.
+  const termsReg = r('terms', { required: true }) || {};
+  const composedTermsProps = {
+    ...termsReg,
+    // Compose onChange so both react-hook-form and our local state update run.
+    onChange: (e) => {
+      try {
+        // call react-hook-form's onChange if it exists
+        if (typeof termsReg.onChange === 'function') termsReg.onChange(e);
+      } catch (err) {
+        /* ignore */
+      }
+      // update local terms state
+      setTermsChecked(Boolean(e?.target?.checked));
+    }
+  };
 
   return (
     <>
@@ -389,21 +429,30 @@ export default function RegisterFormCard({
                 '& .verify-btn': { flex: '0 0 auto' },
               }}
             >
+
               <TextField
                 label="Email"
                 name="email"
                 fullWidth
                 error={!!errors.email}
                 helperText={errors.email ? (errors.email.message || 'Valid email is required') : ''}
+                // Compose register onChange with local state + optional redux update
+                {...emailReg}
                 onChange={(e) => {
-                  setEmailLocal(e.target.value);
-                  // update redux email too (but do not mark verified)
-                  dispatch(setEmailAction(e.target.value.trim().toLowerCase()));
+                  const val = e.target.value || '';
+                  // Update local mirror so the input remains controlled
+                  setEmailLocal(val);
+
+                  // Only update redux/email slice if email is not yet verified
+                  if (!emailVerified) {
+                    dispatch(setEmailAction(val.trim().toLowerCase()));
+                  }
+
+                  // Call react-hook-form's onChange so validation works
+                  if (typeof emailReg.onChange === 'function') {
+                    emailReg.onChange(e);
+                  }
                 }}
-                {...r('email', {
-                  required: true,
-                  pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'Invalid email' }
-                })}
                 sx={{
                   '& .MuiInputBase-root': {
                     height: 48,
@@ -413,9 +462,12 @@ export default function RegisterFormCard({
                   '& .MuiInputLabel-root': { transformOrigin: 'left top' }
                 }}
                 InputProps={{
-                  sx: { height: '100%' }
+                  sx: { height: '100%' },
+                  readOnly: !!emailVerified // make read-only once verified
                 }}
+                value={emailLocal}
               />
+
 
               {emailVerified ? (
                 <VerifiedChip />
@@ -601,7 +653,8 @@ export default function RegisterFormCard({
             <FormControlLabel
               control={
                 <Checkbox
-                  {...r('terms', { required: true })}
+                  // use composed props so react-hook-form and our state both update
+                  {...composedTermsProps}
                   sx={{
                     color: currentRole.color,
                     '&.Mui-checked': { color: currentRole.color }
@@ -632,7 +685,7 @@ export default function RegisterFormCard({
             <Button
               type="submit"
               variant="contained"
-              disabled={loading}
+              disabled={!canSubmit} // NEW: disabled until terms checked AND email verified (and not loading)
               sx={{
                 py: 1.2,
                 textTransform: 'none',
