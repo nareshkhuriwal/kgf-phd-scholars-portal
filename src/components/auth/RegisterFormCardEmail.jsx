@@ -19,6 +19,7 @@ import {
   clearErrors as clearRegisterErrors,
   selectRegisterState,
 } from '../../store/registerSlice'; // adjust path if needed
+import * as ga from '../../lib/analytics/ga'; // adjust path if needed
 
 // Shimmer animation (direction adjusted)
 const shimmer = keyframes`
@@ -97,6 +98,20 @@ export default function RegisterFormCard({
     if (newValue) setSelectedRole(newValue);
   };
 
+  // init GA (defensive — ga.initGa() is a no-op if you use static script)
+  React.useEffect(() => {
+    try {
+      ga.initGa();
+    } catch (err) {
+      // don't break the UI if analytics fails
+      if (import.meta.env.DEV === 'development') {
+        // eslint-disable-next-line no-console
+        console.warn('GA init failed', err);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // keep redux cooldown ticking every second when > 0
   React.useEffect(() => {
     if (resendCooldown <= 0) return undefined;
@@ -118,9 +133,25 @@ export default function RegisterFormCard({
 
   // Enhanced submit handler that includes role
   const enhancedOnSubmit = (data) => {
+    // Track registration attempt
+    try {
+      ga.trackEvent('registration_attempt', {
+        email: readEmail(),
+        role: selectedRole
+      });
+    } catch (err) {
+      if (import.meta.env.DEV === 'development') {
+        // eslint-disable-next-line no-console
+        console.warn('GA registration_attempt failed', err);
+      }
+    }
+
     // if email not verified, block submit and show error
     if (!emailVerified) {
       setError?.('email', { type: 'validate', message: 'Please verify your email before submitting' });
+      try {
+        ga.trackEvent('registration_blocked_email_unverified', { email: readEmail() });
+      } catch (err) { /* ignore analytics errors */ }
       return;
     }
 
@@ -148,6 +179,11 @@ export default function RegisterFormCard({
       setPaymentModalOpen(true);
     } else {
       // For researcher and supervisor, submit directly
+      // Note: parent should track registration_success / registration_failure
+      try {
+        // keep analytics lightweight here
+        ga.trackEvent('registration_submit', { email: readEmail(), role: selectedRole });
+      } catch (err) { /* ignore */ }
       onSubmit(submissionData);
     }
   };
@@ -197,21 +233,26 @@ export default function RegisterFormCard({
   };
 
   // Send OTP via redux thunk (shows toast with API message)
-  // inside RegisterFormCard.jsx — replace your existing handleSendOtp with this
-
   const handleSendOtp = async (force = false) => {
     const email = readEmail();
 
     if (!isValidEmail(email)) {
       setError?.('email', { type: 'validate', message: 'Enter a valid email' });
       dispatch(clearRegisterErrors?.());
+      try { ga.trackEvent('otp_send_invalid_email', { email: email || null }); } catch (err) { /* ignore */ }
       return;
     }
 
-    if (resendCooldown > 0 && !force) return;
+    if (resendCooldown > 0 && !force) {
+      try { ga.trackEvent('otp_send_rate_limited', { email }); } catch (err) { /* ignore */ }
+      return;
+    }
 
     // ensure slice has correct email
     dispatch(setEmailAction(email));
+
+    // Track user trying to send OTP
+    try { ga.trackEvent('otp_send_attempt', { email }); } catch (err) { /* ignore */ }
 
     const action = await dispatch(sendRegisterOtp({ email }));
 
@@ -222,6 +263,7 @@ export default function RegisterFormCard({
       setSnackSeverity('error');
       setSnackOpen(true);
       setError?.('email', { type: 'validate', message: msg });
+      try { ga.trackEvent('otp_send_failed', { email, message: msg }); } catch (err) { /* ignore */ }
       return;
     }
 
@@ -240,6 +282,7 @@ export default function RegisterFormCard({
         setSnackMsg(payload.message || 'Email already verified. You can proceed.');
         setSnackSeverity('success');
         setSnackOpen(true);
+        try { ga.trackEvent('otp_already_verified', { email: (payload.email || email).toLowerCase() }); } catch (err) { /* ignore */ }
         return;
       }
 
@@ -248,7 +291,7 @@ export default function RegisterFormCard({
       setSnackMsg(friendly);
       setSnackSeverity('success');
       setSnackOpen(true);
-
+      try { ga.trackEvent('otp_sent', { email, serverMessage: payload.message || null }); } catch (err) { /* ignore */ }
       return;
     }
 
@@ -256,6 +299,7 @@ export default function RegisterFormCard({
     setSnackMsg('If an account exists for this email, a verification code was sent.');
     setSnackSeverity('info');
     setSnackOpen(true);
+    try { ga.trackEvent('otp_sent_fallback', { email }); } catch (err) { /* ignore */ }
   };
 
 
@@ -265,13 +309,17 @@ export default function RegisterFormCard({
 
     if (!isValidEmail(email)) {
       setError?.('email', { type: 'validate', message: 'Invalid email' });
+      try { ga.trackEvent('otp_verify_invalid_email', { email }); } catch (err) { /* ignore */ }
       return;
     }
     if (!otpValue || otpValue.trim().length < 3) {
       // brief client-side validation
       setError?.('otp', { type: 'required', message: 'Enter OTP' });
+      try { ga.trackEvent('otp_verify_invalid_code', { email }); } catch (err) { /* ignore */ }
       return;
     }
+
+    try { ga.trackEvent('otp_verify_attempt', { email }); } catch (err) { /* ignore */ }
 
     const action = await dispatch(verifyRegisterOtp({ email, otp: otpValue.trim() }));
 
@@ -281,6 +329,7 @@ export default function RegisterFormCard({
       setSnackSeverity('error');
       setSnackOpen(true);
       setError?.('otp', { type: 'validate', message: msg });
+      try { ga.trackEvent('otp_verify_failed', { email, message: msg }); } catch (err) { /* ignore */ }
       return;
     }
 
@@ -298,6 +347,7 @@ export default function RegisterFormCard({
         setSnackMsg(payload.message || 'Email verified successfully');
         setSnackSeverity('success');
         setSnackOpen(true);
+        try { ga.trackEvent('otp_verified', { email: (payload.email || readEmail()).toLowerCase() }); } catch (err) { /* ignore */ }
         return;
       }
 
@@ -306,6 +356,7 @@ export default function RegisterFormCard({
       setSnackSeverity('success');
       setSnackOpen(true);
       setOtpValue('');
+      try { ga.trackEvent('otp_verified_generic', { email, message: payload.message || null }); } catch (err) { /* ignore */ }
       return;
     }
 
@@ -339,7 +390,12 @@ export default function RegisterFormCard({
         /* ignore */
       }
       // update local terms state
-      setTermsChecked(Boolean(e?.target?.checked));
+      const checked = Boolean(e?.target?.checked);
+      setTermsChecked(checked);
+      // track accepted terms once checked
+      if (checked) {
+        try { ga.trackEvent('terms_checked', { email: readEmail() }); } catch (err) { /* ignore */ }
+      }
     }
   };
 
