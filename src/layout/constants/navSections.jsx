@@ -15,7 +15,7 @@ import LayersIcon from '@mui/icons-material/Layers';
 import DescriptionIcon from '@mui/icons-material/Description';
 import GroupAddIcon from '@mui/icons-material/GroupAdd';
 import PersonIcon from '@mui/icons-material/Person';
-
+import PaymentIcon from '@mui/icons-material/Payment'; // new
 
 export const SECTIONS = [
   {
@@ -26,7 +26,7 @@ export const SECTIONS = [
     items: [
       // always visible
       { to: '/dashboard', label: 'Overview', Icon: DashboardIcon },
-      // visible for admin, supervisor, researcher
+      // visible for admin, supervisor
       {
         to: '/dashboard/researchers',
         label: 'Researchers',
@@ -109,15 +109,27 @@ export const SECTIONS = [
       { to: '/supervisors', label: 'All Supervisors', Icon: DescriptionIcon },
     ],
   },
-    {
+
+  // Monitoring: visible only to super_admin
+  {
     key: 'monitoring',
     label: 'Monitoring',
     base: '/monitoring',
     Icon: TableViewIcon,
+    roles: ['super_admin'],
     items: [
-      { to: '/monitoring/users', label: 'Users', Icon: PersonIcon },
-      { to: '/monitoring/payments', label: 'Payments', Icon: CollectionsBookmarkIcon },
+      {
+        to: '/monitoring/users',
+        label: 'Users',
+        Icon: PersonIcon,
+        roles: ['super_admin'],
+      },
+      {
+        to: '/monitoring/payments',
+        label: 'Payments',
+        Icon: PaymentIcon,
+        roles: ['super_admin'],
+      },
     ],
   },
-
 ];

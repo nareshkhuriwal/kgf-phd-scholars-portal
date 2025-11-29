@@ -51,33 +51,50 @@ export default function Header({ onToggleSidebar }) {
   };
   const roleLabel = normalizedRole ? roleLabelMap[normalizedRole] || role : null;
 
+  // helper: normalize an array of roles for comparison
+  const normalizeRoles = (arr) =>
+    (Array.isArray(arr) ? arr : []).map(r => String(r).toLowerCase().replace(/\s+/g, '_'));
+
   const visibleSections = React.useMemo(() => {
     if (!normalizedRole) return SECTIONS;
 
-    return SECTIONS.filter((sec) => {
-      // If section explicitly declares allowed roles, honor it (normalize entries)
-      if (Array.isArray(sec.roles) && sec.roles.length > 0) {
-        const allowed = sec.roles.map((r) =>
-          String(r).toLowerCase().replace(/\s+/g, '_')
-        );
-        return allowed.includes(normalizedRole);
-      }
+    return SECTIONS
+      .map((sec) => {
+        // Determine if section-level roles allow access
+        if (Array.isArray(sec.roles) && sec.roles.length > 0) {
+          const allowed = normalizeRoles(sec.roles);
+          if (!allowed.includes(normalizedRole)) {
+            return null; // section blocked
+          }
+        }
 
-      // Keep existing custom visibility logic, but treat super_admin as superset
-      if (sec.key === 'researchers') {
-        return (
-          normalizedRole === 'supervisor' ||
-          normalizedRole === 'admin' ||
-          normalizedRole === 'super_admin'
-        );
-      }
-      if (sec.key === 'supervisors') {
-        return normalizedRole === 'admin' || normalizedRole === 'super_admin';
-      }
+        // Filter items by their roles (if any)
+        let visibleItems = (sec.items || []).filter((item) => {
+          if (Array.isArray(item.roles) && item.roles.length > 0) {
+            const allowed = normalizeRoles(item.roles);
+            return allowed.includes(normalizedRole);
+          }
+          // if item has no roles, keep it visible
+          return true;
+        });
 
-      // default: visible
-      return true;
-    });
+        // If section has no visible items:
+        // - if sec.roles explicitly allowed current user, keep section (may link to sec.base)
+        // - otherwise hide the section
+        if (visibleItems.length === 0) {
+          if (Array.isArray(sec.roles) && sec.roles.length > 0) {
+            // sec.roles already checked at top; keep section but with empty items
+            visibleItems = [];
+          } else {
+            // no explicit section role and no visible children → hide section
+            return null;
+          }
+        }
+
+        // Return a shallow copy with filtered items
+        return { ...sec, items: visibleItems };
+      })
+      .filter(Boolean);
   }, [normalizedRole]);
 
   // Avatar menu
@@ -147,6 +164,11 @@ export default function Header({ onToggleSidebar }) {
             {visibleSections.map((sec) => {
               const ActiveIcon = sec.Icon;
               const active = location.pathname.startsWith(sec.base);
+
+              // choose the first visible item's path if it exists
+              const firstVisible = sec.items?.[0];
+              const navigateTo = (firstVisible && firstVisible.to) ? firstVisible.to : (sec.base || '/');
+
               return (
                 <Chip
                   key={sec.key}
@@ -154,10 +176,7 @@ export default function Header({ onToggleSidebar }) {
                   label={sec.label}
                   variant={active ? 'filled' : 'outlined'}
                   color={active ? 'primary' : 'default'}
-                  onClick={() => {
-                    const first = sec.items?.[0]?.to || sec.base;
-                    navigate(first);
-                  }}
+                  onClick={() => navigate(navigateTo)}
                   sx={{
                     height: 32,
                     borderRadius: 1.5,
@@ -204,11 +223,13 @@ export default function Header({ onToggleSidebar }) {
                       '& .MuiChip-label': { px: 0.75 },
                     }}
                     color={
-                      normalizedRole === 'admin'
-                        ? 'error'
-                        : normalizedRole === 'supervisor'
-                          ? 'secondary'
-                          : 'default'
+                      normalizedRole === 'super_admin'
+                        ? 'primary'
+                        : normalizedRole === 'admin'
+                          ? 'error'
+                          : normalizedRole === 'supervisor'
+                            ? 'secondary'
+                            : 'default'
                     }
                     variant="outlined"
                   />
@@ -239,11 +260,13 @@ export default function Header({ onToggleSidebar }) {
                       size="small"
                       sx={{ mt: 0.75, height: 22, borderRadius: 1.5, fontSize: 11 }}
                       color={
-                        normalizedRole === 'admin'
-                          ? 'error'
-                          : normalizedRole === 'supervisor'
-                            ? 'secondary'
-                            : 'default'
+                        normalizedRole === 'super_admin'
+                          ? 'primary'
+                          : normalizedRole === 'admin'
+                            ? 'error'
+                            : normalizedRole === 'supervisor'
+                              ? 'secondary'
+                              : 'default'
                       }
                       variant="outlined"
                     />
