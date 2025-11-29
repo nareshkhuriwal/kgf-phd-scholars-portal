@@ -46,7 +46,7 @@ jobs:
           EOF
         # Note: values inserted from secrets are masked in logs by GitHub.
 
-      # Install dependencies (use CI-friendly npm ci)
+      # Install dependencies and build production bundle
       - name: Install dependencies (install devDependencies so build tools like vite are available)
         run: |
           if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then
