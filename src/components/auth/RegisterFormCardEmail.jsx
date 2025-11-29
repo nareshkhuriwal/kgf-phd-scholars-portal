@@ -197,56 +197,67 @@ export default function RegisterFormCard({
   };
 
   // Send OTP via redux thunk (shows toast with API message)
+  // inside RegisterFormCard.jsx — replace your existing handleSendOtp with this
+
   const handleSendOtp = async (force = false) => {
-    // read current email value from the DOM (name="email") or local mirror
     const email = readEmail();
 
-    // client validation
     if (!isValidEmail(email)) {
       setError?.('email', { type: 'validate', message: 'Enter a valid email' });
-      // Dispatch a clear so UI doesn't carry stale errors (optional)
       dispatch(clearRegisterErrors?.());
       return;
     }
 
-    // prevent rapid resends if not forced and cooldown active
-    if (resendCooldown > 0 && !force) {
-      // nothing — the UI shows cooldown
-      return;
-    }
+    if (resendCooldown > 0 && !force) return;
 
-    // store email in slice (optional helper action)
+    // ensure slice has correct email
     dispatch(setEmailAction(email));
 
     const action = await dispatch(sendRegisterOtp({ email }));
 
-    // If rejected -> show error toast + set field error
+    // rejected -> show error
     if (sendRegisterOtp.rejected.match(action)) {
       const msg = (action.payload || action.error?.message) || 'Failed to send OTP';
       setSnackMsg(msg);
       setSnackSeverity('error');
       setSnackOpen(true);
-
       setError?.('email', { type: 'validate', message: msg });
       return;
     }
 
-    // fulfilled -> display server message (if any) as toast (works for "If an account exists..." msg)
+    // fulfilled -> handle normal OTP-sent OR already-verified responses
     if (sendRegisterOtp.fulfilled.match(action)) {
-      // action.payload should contain server response - extract user-friendly message
       const payload = action.payload || {};
-      const msg = payload.message || 'If an account exists for this email, a verification code was sent.';
-      setSnackMsg(msg);
+      const msg = (payload.message || '').toString();
+
+      // CASE A: explicit flag from backend that email already verified
+      if (payload.verified === true || /already verified/i.test(msg)) {
+        // mark slice as verified, hide otp UI and sync local email
+        dispatch(markVerified());
+        if (payload.email) dispatch(setEmailAction(payload.email));
+        setEmailLocal((payload.email || email).toLowerCase());
+        setOtpValue('');
+        setSnackMsg(payload.message || 'Email already verified. You can proceed.');
+        setSnackSeverity('success');
+        setSnackOpen(true);
+        return;
+      }
+
+      // CASE B: normal OTP sent response
+      const friendly = payload.message || 'If an account exists for this email, a verification code was sent.';
+      setSnackMsg(friendly);
       setSnackSeverity('success');
       setSnackOpen(true);
+
       return;
     }
 
-    // default fallback
+    // fallback
     setSnackMsg('If an account exists for this email, a verification code was sent.');
     setSnackSeverity('info');
     setSnackOpen(true);
   };
+
 
   // Verify OTP via redux thunk (also surfaces server message on failure)
   const handleVerifyOtp = async () => {
