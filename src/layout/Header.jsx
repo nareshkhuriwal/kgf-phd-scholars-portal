@@ -12,7 +12,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
 import LockResetIcon from '@mui/icons-material/LockReset';
-import UpgradeIcon from '@mui/icons-material/Upgrade';              // 👈 NEW
+import UpgradeIcon from '@mui/icons-material/Upgrade';
 import { SECTIONS } from './constants/navSections';
 import logoUrl from '../assets/klogo.png';
 
@@ -26,38 +26,59 @@ export default function Header({ onToggleSidebar }) {
   const location = useLocation();
   const dispatch = useDispatch();
 
-  const { user } = useSelector(s => s.auth || {});
+  const { user } = useSelector((s) => s.auth || {});
   const role = user?.role;
 
   const firstName = (user?.name || user?.email || 'User').split(' ')[0];
   const initials = (user?.name || 'U')
     .split(' ')
-    .map(w => w?.[0])
+    .map((w) => w?.[0])
     .filter(Boolean)
     .slice(0, 2)
     .join('')
     .toUpperCase();
 
+  // Normalize role -> "super_admin", "admin", "supervisor", "researcher", etc.
+  const normalizedRole = role
+    ? String(role).toLowerCase().replace(/\s+/g, '_')
+    : null;
+
   const roleLabelMap = {
     researcher: 'Researcher',
     supervisor: 'Supervisor',
     admin: 'Admin',
+    super_admin: 'Super Admin',
   };
-  const roleLabel = role ? roleLabelMap[role] || role : null;
+  const roleLabel = normalizedRole ? roleLabelMap[normalizedRole] || role : null;
 
   const visibleSections = React.useMemo(() => {
-    if (!role) return SECTIONS;
+    if (!normalizedRole) return SECTIONS;
 
     return SECTIONS.filter((sec) => {
+      // If section explicitly declares allowed roles, honor it (normalize entries)
+      if (Array.isArray(sec.roles) && sec.roles.length > 0) {
+        const allowed = sec.roles.map((r) =>
+          String(r).toLowerCase().replace(/\s+/g, '_')
+        );
+        return allowed.includes(normalizedRole);
+      }
+
+      // Keep existing custom visibility logic, but treat super_admin as superset
       if (sec.key === 'researchers') {
-        return role === 'supervisor' || role === 'admin';
+        return (
+          normalizedRole === 'supervisor' ||
+          normalizedRole === 'admin' ||
+          normalizedRole === 'super_admin'
+        );
       }
       if (sec.key === 'supervisors') {
-        return role === 'admin';
+        return normalizedRole === 'admin' || normalizedRole === 'super_admin';
       }
+
+      // default: visible
       return true;
     });
-  }, [role]);
+  }, [normalizedRole]);
 
   // Avatar menu
   const [menuEl, setMenuEl] = React.useState(null);
@@ -74,10 +95,9 @@ export default function Header({ onToggleSidebar }) {
   const openSettings = () => { handleClose(); setSettingsOpen(true); };
   const openChangePassword = () => { handleClose(); setChangePwdOpen(true); };
 
-  // 👇 NEW: Upgrade navigates to pricing page
   const openUpgrade = () => {
     handleClose();
-    navigate('/price');          // <-- change this path if your pricing route is different
+    navigate('/price');
   };
 
   const handleLogout = async () => {
@@ -95,7 +115,7 @@ export default function Header({ onToggleSidebar }) {
           bgcolor: 'white',
           color: 'text.primary',
           boxShadow: 0,
-          borderBottom: '1px solid #eee'
+          borderBottom: '1px solid #eee',
         }}
       >
         <Toolbar sx={{ gap: 1, minHeight: 60 }}>
@@ -184,9 +204,9 @@ export default function Header({ onToggleSidebar }) {
                       '& .MuiChip-label': { px: 0.75 },
                     }}
                     color={
-                      role === 'admin'
+                      normalizedRole === 'admin'
                         ? 'error'
-                        : role === 'supervisor'
+                        : normalizedRole === 'supervisor'
                           ? 'secondary'
                           : 'default'
                     }
@@ -219,9 +239,9 @@ export default function Header({ onToggleSidebar }) {
                       size="small"
                       sx={{ mt: 0.75, height: 22, borderRadius: 1.5, fontSize: 11 }}
                       color={
-                        role === 'admin'
+                        normalizedRole === 'admin'
                           ? 'error'
-                          : role === 'supervisor'
+                          : normalizedRole === 'supervisor'
                             ? 'secondary'
                             : 'default'
                       }
@@ -244,7 +264,6 @@ export default function Header({ onToggleSidebar }) {
                   Profile
                 </MenuItem>
 
-                {/* 👇 NEW: Upgrade option */}
                 <MenuItem onClick={openUpgrade}>
                   <UpgradeIcon fontSize="small" style={{ marginRight: 8 }} />
                   Upgrade plan
