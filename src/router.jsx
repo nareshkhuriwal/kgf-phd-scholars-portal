@@ -36,7 +36,7 @@ import Supervisors from './pages/supervisors/Supervisors';
 
 import Users from './pages/monitoring/Users';
 import Payments from './pages/monitoring/Payments';
-
+import Analytics from './pages/monitoring/Analytics';
 
 export default function Router() {
   return (
@@ -92,7 +92,7 @@ export default function Router() {
 
           <Route path="/monitoring/users" element={<Users />} />
           <Route path="/monitoring/payments" element={<Payments />} />
-
+          <Route path="/monitoring/analytics" element={<Analytics />} />
 
       </Route>
 
