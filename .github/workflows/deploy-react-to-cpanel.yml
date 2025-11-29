@@ -1,4 +1,4 @@
-name: Deploy React app to cPanel
+name: Deploy Prod KGF Scholars Frontend to cPanel
 
 on:
   push:
@@ -10,18 +10,23 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
+    env:
+      # non-secret defaults (if you want to provide fallbacks)
+      NODE_ENV: production
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Node setup + cache
+      # Setup Node.js and enable built-in npm cache
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
 
-      - name: Cache node modules (optional)
+      # Additional cache for runner-side npm cache (speeds cold starts)
+      - name: Cache npm (runner cache)
         uses: actions/cache@v4
         with:
           path: ~/.npm
@@ -29,49 +34,76 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-node-
 
-      # Install deps and build
+      # Create .env.production from secrets (Vite requires VITE_ prefix for client env)
+      # Store only what you need for the build. These secrets must be added in the repo Settings -> Secrets -> Actions.
+      - name: Create .env.production from repository secrets
+        run: |
+          echo "Creating .env.production for build (temporary file in runner workspace)."
+          cat > .env.production <<'EOF'
+          VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }}
+          VITE_MOCK_MODE=${{ secrets.VITE_MOCK_MODE }}
+          VITE_RAZORPAY_KEY_ID=${{ secrets.VITE_RAZORPAY_KEY_ID }}
+          EOF
+        # Note: values inserted from secrets are masked in logs by GitHub.
+
+      # Install dependencies (use CI-friendly npm ci)
       - name: Install dependencies
         run: |
           if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then
-            npm ci
+            echo "Installing dependencies with npm ci"
+            npm ci --no-audit --prefer-offline
           else
-            npm install
+            echo "Installing dependencies with npm install"
+            npm install --no-audit --prefer-offline
           fi
 
+      # Build production bundle (CRA -> build/ ; Vite -> dist/)
       - name: Build production bundle
+        env:
+          # expose NODE_ENV explicitly and ensure Vite picks .env.production
+          NODE_ENV: production
         run: |
-          # Prefer 'build' (Create React App) else 'dist' (Vite) — rely on npm script
+          echo "Running build script..."
           if npm run | grep -q " build"; then
             npm run build
           else
-            echo "No build script found — ensure package.json contains a build script."
+            echo "No 'build' script found in package.json. Aborting."
             exit 1
           fi
 
-      # Prepare deployment package:
-      # We'll create a deploy/ directory containing only the static build output.
+      # Optional: sanity-check sizes (helpful to detect accidental large assets)
+      - name: Show build size summary (first lines)
+        if: always()
+        run: |
+          if [ -d build ]; then du -sh build || true; find build -maxdepth 2 -type f -exec du -h {} + | sort -hr | sed -n '1,10p' || true; fi
+          if [ -d dist ]; then du -sh dist || true; find dist -maxdepth 2 -type f -exec du -h {} + | sort -hr | sed -n '1,10p' || true; fi
+
+      # Prepare deployment package (only the static build)
       - name: Prepare deployment files (static build)
         run: |
-          # ensure clean deploy dir
           rm -rf deploy || true
           mkdir -p deploy
 
-          # prefer CRA output 'build', then Vite/others 'dist'
           if [ -d ./build ]; then
-            echo "Found build/ — copying to deploy/"
+            echo "Copying CRA build/ -> deploy/"
             cp -a build/. deploy/
           elif [ -d ./dist ]; then
-            echo "Found dist/ — copying to deploy/"
+            echo "Copying Vite dist/ -> deploy/"
             cp -a dist/. deploy/
           else
-            echo "ERROR: No build output found (build/ or dist/ missing). Showing directory listing:"
+            echo "ERROR: No build output found (build/ or dist/ missing). Listing workspace:"
             ls -la
             exit 1
           fi
 
-          # optionally include _redirects (for SPA client-side routing) if present
+          # If you have public/_redirects for Netlify-style SPA routing, copy it
           if [ -f public/_redirects ]; then
             cp public/_redirects deploy/_redirects
+          fi
+
+          # Optionally copy any static public files you need
+          if [ -d public ] && [ -f public/robots.txt ]; then
+            cp public/robots.txt deploy/ || true
           fi
 
       # Normalize server dir (same as your pipeline)
@@ -90,7 +122,7 @@ jobs:
       - name: Show deployment package (local debug)
         run: |
           echo "Working dir: $(pwd)"
-          echo "deploy/ listing (first 200 files):"
+          echo "deploy/ listing (first 200 entries):"
           ls -la deploy | sed -n '1,200p' || true
           if [ ! -d deploy ] || [ -z "$(ls -A deploy 2>/dev/null)" ]; then
             echo "Error: deploy/ is missing or empty. Aborting."
@@ -110,6 +142,12 @@ jobs:
           server: ${{ secrets.CPANEL_FTP_HOST }}
           username: ${{ secrets.CPANEL_FTP_USERNAME }}
           password: ${{ secrets.CPANEL_FTP_PASSWORD }}
-          local-dir: ./deploy/          # deploy folder contents
+          local-dir: ./deploy/
           server-dir: ${{ env.SERVER_DIR }}
           dangerous-clean-slate: false
+
+      # Optional cleanup: remove generated .env.production from workspace
+      - name: Cleanup temporary env file
+        if: always()
+        run: |
+          rm -f .env.production || true
