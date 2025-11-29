@@ -129,7 +129,7 @@ export default function PricePage() {
         key: publicKey,
         amount: orderData.amount, // in paise
         currency: orderData.currency,
-        name: 'KGF Scholars',
+        name: 'Khuriwalgroup AI Solutions',
         description: `Upgrade to ${displayTitle}`,
         order_id: orderData.orderId,
 
