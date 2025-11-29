@@ -14,6 +14,8 @@ import SummarizeIcon from '@mui/icons-material/Summarize';
 import LayersIcon from '@mui/icons-material/Layers';
 import DescriptionIcon from '@mui/icons-material/Description';
 import GroupAddIcon from '@mui/icons-material/GroupAdd';
+import PersonIcon from '@mui/icons-material/Person';
+
 
 export const SECTIONS = [
   {
@@ -107,4 +109,15 @@ export const SECTIONS = [
       { to: '/supervisors', label: 'All Supervisors', Icon: DescriptionIcon },
     ],
   },
+    {
+    key: 'monitoring',
+    label: 'Monitoring',
+    base: '/monitoring',
+    Icon: TableViewIcon,
+    items: [
+      { to: '/monitoring/users', label: 'Users', Icon: PersonIcon },
+      { to: '/monitoring/payments', label: 'Payments', Icon: CollectionsBookmarkIcon },
+    ],
+  },
+
 ];

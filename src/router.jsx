@@ -34,6 +34,10 @@ import Researchers from './pages/researchers/Researchers';
 import { ChaptersPage, ChapterEditor } from './pages/chapters'; // new import
 import Supervisors from './pages/supervisors/Supervisors';
 
+import Users from './pages/monitoring/Users';
+import Payments from './pages/monitoring/Payments';
+
+
 export default function Router() {
   return (
     <Routes>
@@ -85,6 +89,11 @@ export default function Router() {
         <Route path="researchers" element={<Researchers />} />
 
         <Route path="/supervisors" element={<Supervisors />} />
+
+          <Route path="/monitoring/users" element={<Users />} />
+          <Route path="/monitoring/payments" element={<Payments />} />
+
+
       </Route>
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
