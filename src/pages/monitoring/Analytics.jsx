@@ -39,6 +39,7 @@ export default function Analytics() {
     total_researchers = 0,
     total_payments_count = 0,
     total_payments_amount = 0, // in paise or smallest unit - we will adapt
+    total_paid_amount = 0, // in paise or smallest unit - we will adapt
     payment_status_breakdown = [], // [{ status, count }]
     payments_over_time = [], // [{ date: '2025-11-01', amount: 12345, count: 3 }]
     created_payments_count = 0,
@@ -82,11 +83,14 @@ export default function Analytics() {
 
             <Grid item xs={12} sx={{ mt: 1 }}>
               <Grid container spacing={2}>
-                <Grid item xs={12} md={6}>
+                <Grid item xs={12} md={4}>
                   <StatTile title="Total payments (count)" value={total_payments_count} subtitle={`Created: ${created_payments_count} • Successful: ${successful_payments_count}`} />
                 </Grid>
-                <Grid item xs={12} md={6}>
+                <Grid item xs={12} md={4}>
                   <StatTile title="Total payments (amount)" value={amountFormatted(total_payments_amount)} />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <StatTile title="Total paid payments (amount)" value={amountFormatted(total_paid_amount)} />
                 </Grid>
               </Grid>
             </Grid>
