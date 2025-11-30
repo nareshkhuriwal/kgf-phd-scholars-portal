@@ -15,6 +15,11 @@ import researchersReducer from './researchersSlice';
 import inviteNotificationsReducer from './inviteNotificationsSlice';
 import supervisorsReducer from './supervisorsSlice';
 import orderReducer from './orderSlice';
+import usersReducer from './usersSlice';
+import paymentsReducer from './paymentsSlice';
+import monitoringStatsReducer from './monitoringStatsSlice';
+import registerReducer from './registerSlice';
+
 
 const store = configureStore({
   reducer: {
@@ -34,7 +39,10 @@ const store = configureStore({
     inviteNotifications: inviteNotificationsReducer,
     supervisors: supervisorsReducer,
     order: orderReducer,
-
+    users: usersReducer,
+    payments: paymentsReducer,
+    monitoringStats: monitoringStatsReducer,
+    register: registerReducer,
 
   },
 })

@@ -195,14 +195,14 @@ export default function SiteHeader() {
                       Free
                     </Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                      Up to 50 papers, 5 reports, 2 collections.
+                      Up to 50 papers, 5 reports, 2 collections. Basic search & email support.
                     </Typography>
                     <Divider sx={{ my: 1 }} />
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>
                       Researcher Pro
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Upgrade to <b>₹149/month</b> for 200 papers, 20 reports & 10 collections.
+                      <b>₹299/month</b> or <b>₹2,999/year</b> — 200 papers, 20 reports, 10 collections, advanced search, priority support, export (PDF/CSV/BibTeX), AI-assisted summarization, project folders & version history.
                     </Typography>
                   </CardContent>
                 </Card>
@@ -230,14 +230,14 @@ export default function SiteHeader() {
                       Free
                     </Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                      Review access for 1 researcher with 30 papers, 2 reports, 1 collection.
+                      Review access for 1 researcher: 30 papers, 2 reports, 1 collection, basic approval workflow.
                     </Typography>
                     <Divider sx={{ my: 1 }} />
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>
                       Supervisor Pro
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Upgrade to <b>₹249/month</b> for up to 6 researchers + all Pro features.
+                      <b>₹999/month</b> or <b>₹9,999/year</b> — Manage up to <b>20 researchers</b>, includes Researcher Pro features, advanced review & approval workflows, supervisor dashboard, team collaboration, bulk actions, and priority support.
                     </Typography>
                   </CardContent>
                 </Card>
@@ -258,20 +258,26 @@ export default function SiteHeader() {
                       Admin (University)
                     </Typography>
                     <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5 }}>
-                      ₹1,999
+                      ₹99,000
                       <Typography component="span" variant="body2" color="text.secondary">
-                        /month
+                        /year
                       </Typography>
                     </Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                      Enterprise-grade solution for universities and large institutions.
+                      Institutional license — unlimited users, centralized admin and billing.
                     </Typography>
                     <Typography variant="body2" sx={{ mt: 1.5 }}>
                       • Unlimited researchers & supervisors<br />
-                      • Advanced analytics & reporting<br />
-                      • Priority support with SLA<br />
-                      • Custom branding options
+                      • SSO / SAML integration & API access<br />
+                      • Advanced analytics & exportable reports<br />
+                      • Custom onboarding, training & private deployment (optional)<br />
+                      • Priority SLA-backed support and dedicated account manager
                     </Typography>
+                    <Box sx={{ mt: 1 }}>
+                      <Typography variant="caption" color="text.secondary">
+                        Annual pricing only — contact sales for volume discounts and multi-department licensing.
+                      </Typography>
+                    </Box>
                   </CardContent>
                 </Card>
               </Stack>

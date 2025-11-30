@@ -1,0 +1,155 @@
+name: Deploy Prod Kgf Scholars Frontend to cPanel
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      # non-secret defaults (if you want to provide fallbacks)
+      NODE_ENV: production
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Setup Node.js and enable built-in npm cache
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # Additional cache for runner-side npm cache (speeds cold starts)
+      - name: Cache npm (runner cache)
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      # Create .env.production from secrets (Vite requires VITE_ prefix for client env)
+      # Store only what you need for the build. These secrets must be added in the repo Settings -> Secrets -> Actions.
+      - name: Create .env.production from repository secrets
+        run: |
+          echo "Creating .env.production for build (temporary file in runner workspace)."
+          cat > .env.production <<'EOF'
+          VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }}
+          VITE_MOCK_MODE=${{ secrets.VITE_MOCK_MODE }}
+          VITE_RAZORPAY_KEY_ID=${{ secrets.VITE_RAZORPAY_KEY_ID }}
+          REACT_APP_GA_ID=${{ secrets.REACT_APP_GA_ID }}
+          EOF
+        # Note: values inserted from secrets are masked in logs by GitHub.
+
+      # Install dependencies and build production bundle
+      - name: Install dependencies (install devDependencies so build tools like vite are available)
+        run: |
+          if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then
+            echo "Installing dependencies (including devDependencies) with npm ci"
+            # ensure devDependencies are installed even if NODE_ENV is production
+            NPM_CONFIG_PRODUCTION=false npm ci --no-audit --prefer-offline
+          else
+            echo "Installing dependencies with npm install"
+            NPM_CONFIG_PRODUCTION=false npm install --no-audit --prefer-offline
+          fi
+
+      - name: Build production bundle
+        # Run build with NODE_ENV=production so tools produce optimized assets
+        env:
+          NODE_ENV: production
+        run: |
+          echo "Running build script..."
+          if npm run | grep -q " build"; then
+            npm run build
+          else
+            echo "No 'build' script found in package.json. Aborting."
+            exit 1
+          fi
+
+
+      # Optional: sanity-check sizes (helpful to detect accidental large assets)
+      - name: Show build size summary (first lines)
+        if: always()
+        run: |
+          if [ -d build ]; then du -sh build || true; find build -maxdepth 2 -type f -exec du -h {} + | sort -hr | sed -n '1,10p' || true; fi
+          if [ -d dist ]; then du -sh dist || true; find dist -maxdepth 2 -type f -exec du -h {} + | sort -hr | sed -n '1,10p' || true; fi
+
+      # Prepare deployment package (only the static build)
+      - name: Prepare deployment files (static build)
+        run: |
+          rm -rf deploy || true
+          mkdir -p deploy
+
+          if [ -d ./build ]; then
+            echo "Copying CRA build/ -> deploy/"
+            cp -a build/. deploy/
+          elif [ -d ./dist ]; then
+            echo "Copying Vite dist/ -> deploy/"
+            cp -a dist/. deploy/
+          else
+            echo "ERROR: No build output found (build/ or dist/ missing). Listing workspace:"
+            ls -la
+            exit 1
+          fi
+
+          # If you have public/_redirects for Netlify-style SPA routing, copy it
+          if [ -f public/_redirects ]; then
+            cp public/_redirects deploy/_redirects
+          fi
+
+          # Optionally copy any static public files you need
+          if [ -d public ] && [ -f public/robots.txt ]; then
+            cp public/robots.txt deploy/ || true
+          fi
+
+      # Normalize server dir (same as your pipeline)
+      - name: Normalize server dir
+        run: |
+          SD="${{ secrets.CPANEL_FTP_PATH }}"
+          if [ -z "$SD" ]; then
+            echo "No CPANEL_FTP_PATH secret set; aborting."
+            exit 1
+          fi
+          case "$SD" in
+            */) echo "SERVER_DIR=$SD" >> $GITHUB_ENV ;;
+            *)  echo "SERVER_DIR=${SD}/" >> $GITHUB_ENV ;;
+          esac
+
+      - name: Show deployment package (local debug)
+        run: |
+          echo "Working dir: $(pwd)"
+          echo "deploy/ listing (first 200 entries):"
+          ls -la deploy | sed -n '1,200p' || true
+          if [ ! -d deploy ] || [ -z "$(ls -A deploy 2>/dev/null)" ]; then
+            echo "Error: deploy/ is missing or empty. Aborting."
+            exit 1
+          fi
+
+      - name: List remote FTP dir (debug)
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y lftp
+          echo "Listing remote: $SERVER_DIR"
+          lftp -u "${{ secrets.CPANEL_FTP_USERNAME }}","${{ secrets.CPANEL_FTP_PASSWORD }}" "${{ secrets.CPANEL_FTP_HOST }}" -e "cls -la ${SERVER_DIR}; bye" || echo "Remote listing failed (check host/creds)"
+
+      - name: Deploy to cPanel via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.CPANEL_FTP_HOST }}
+          username: ${{ secrets.CPANEL_FTP_USERNAME }}
+          password: ${{ secrets.CPANEL_FTP_PASSWORD }}
+          local-dir: ./deploy/
+          server-dir: ${{ env.SERVER_DIR }}
+          dangerous-clean-slate: false
+
+      # Optional cleanup: remove generated .env.production from workspace
+      - name: Cleanup temporary env file
+        if: always()
+        run: |
+          rm -f .env.production || true

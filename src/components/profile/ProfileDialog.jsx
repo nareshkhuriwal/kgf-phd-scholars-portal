@@ -134,7 +134,7 @@ const ORGANIZATION_SUGGESTIONS = [
 
 // Phone format suggestion
 const generatePhoneSuggestion = (phone) => {
-  const cleaned = phone.replace(/\D/g, '');
+  const cleaned = (phone || '').replace(/\D/g, '');
   if (cleaned.length === 10) {
     return `+1 (${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
   }
@@ -209,6 +209,9 @@ export default function ProfileDialog({ open, onClose }) {
     fileInputRef.current?.click();
   };
 
+  // Avatar source: prefer profile.me avatar, otherwise auth user avatar
+  const avatarSrc = me?.avatar || authUser?.avatar || null;
+
   const handleFileChange = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -217,10 +220,18 @@ export default function ProfileDialog({ open, onClose }) {
     formData.append('avatar', file);
 
     try {
-      const updatedUser = await dispatch(uploadAvatar(formData)).unwrap();
+      // uploadAvatar thunk should return backend response (possibly { user: {...} })
+      const res = await dispatch(uploadAvatar(formData)).unwrap();
+      // normalize response (support { user: {...} } or direct user object)
+      const updatedUser = res?.user ?? res ?? null;
+
       if (authUser && updatedUser) {
+        // update auth slice with returned user fields (avatar included)
         dispatch(setUser({ ...authUser, ...updatedUser }));
       }
+
+      // Refresh profile.me so UI uses latest data (ensures avatar shows immediately)
+      dispatch(fetchMe());
     } catch (err) {
       console.error("Avatar upload failed:", err);
     }
@@ -240,7 +251,11 @@ export default function ProfileDialog({ open, onClose }) {
     }
   };
 
-  const getInitials = () => form.name ? form.name.charAt(0).toUpperCase() : <PersonIcon />;
+  const getInitials = () => {
+    const name = form.name || me?.name || authUser?.name || '';
+    if (!name) return <PersonIcon />;
+    return name.charAt(0).toUpperCase();
+  };
 
   return (
     <StyledDialog 
@@ -254,7 +269,7 @@ export default function ProfileDialog({ open, onClose }) {
         type="file"
         ref={fileInputRef}
         hidden
-        accept="image/png, image/jpeg, image/jpg"
+        accept="image/png, image/jpeg, image/jpg, image/webp"
         onChange={handleFileChange}
       />
 
@@ -297,7 +312,9 @@ export default function ProfileDialog({ open, onClose }) {
                 </Box>
               }
             >
-              <Avatar src={me?.avatarUrl}>{getInitials()}</Avatar>
+              <Avatar src={avatarSrc} alt={form.name || 'User avatar'}>
+                {getInitials()}
+              </Avatar>
             </Badge>
           </AvatarWrapper>
           

@@ -10,10 +10,20 @@ coverage
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+<<<<<<< HEAD
 .env.local
+=======
+
+.env.local
+.env.*.local
+>>>>>>> 866677d0d4c21319ce05de370ac8fa9367284903
 .env.development.local
 .env.test.local
 .env.production.local
 .env.development
 .env.test
+<<<<<<< HEAD
 .env.production
+=======
+.env.production
+>>>>>>> 866677d0d4c21319ce05de370ac8fa9367284903

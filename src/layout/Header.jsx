@@ -12,7 +12,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
 import LockResetIcon from '@mui/icons-material/LockReset';
-import UpgradeIcon from '@mui/icons-material/Upgrade';              // 👈 NEW
+import UpgradeIcon from '@mui/icons-material/Upgrade';
 import { SECTIONS } from './constants/navSections';
 import logoUrl from '../assets/klogo.png';
 
@@ -26,38 +26,76 @@ export default function Header({ onToggleSidebar }) {
   const location = useLocation();
   const dispatch = useDispatch();
 
-  const { user } = useSelector(s => s.auth || {});
+  const { user } = useSelector((s) => s.auth || {});
   const role = user?.role;
 
   const firstName = (user?.name || user?.email || 'User').split(' ')[0];
   const initials = (user?.name || 'U')
     .split(' ')
-    .map(w => w?.[0])
+    .map((w) => w?.[0])
     .filter(Boolean)
     .slice(0, 2)
     .join('')
     .toUpperCase();
 
+  // Normalize role -> "super_admin", "admin", "supervisor", "researcher", etc.
+  const normalizedRole = role
+    ? String(role).toLowerCase().replace(/\s+/g, '_')
+    : null;
+
   const roleLabelMap = {
     researcher: 'Researcher',
     supervisor: 'Supervisor',
     admin: 'Admin',
+    super_admin: 'Super Admin',
   };
-  const roleLabel = role ? roleLabelMap[role] || role : null;
+  const roleLabel = normalizedRole ? roleLabelMap[normalizedRole] || role : null;
+
+  // helper: normalize an array of roles for comparison
+  const normalizeRoles = (arr) =>
+    (Array.isArray(arr) ? arr : []).map(r => String(r).toLowerCase().replace(/\s+/g, '_'));
 
   const visibleSections = React.useMemo(() => {
-    if (!role) return SECTIONS;
+    if (!normalizedRole) return SECTIONS;
 
-    return SECTIONS.filter((sec) => {
-      if (sec.key === 'researchers') {
-        return role === 'supervisor' || role === 'admin';
-      }
-      if (sec.key === 'supervisors') {
-        return role === 'admin';
-      }
-      return true;
-    });
-  }, [role]);
+    return SECTIONS
+      .map((sec) => {
+        // Determine if section-level roles allow access
+        if (Array.isArray(sec.roles) && sec.roles.length > 0) {
+          const allowed = normalizeRoles(sec.roles);
+          if (!allowed.includes(normalizedRole)) {
+            return null; // section blocked
+          }
+        }
+
+        // Filter items by their roles (if any)
+        let visibleItems = (sec.items || []).filter((item) => {
+          if (Array.isArray(item.roles) && item.roles.length > 0) {
+            const allowed = normalizeRoles(item.roles);
+            return allowed.includes(normalizedRole);
+          }
+          // if item has no roles, keep it visible
+          return true;
+        });
+
+        // If section has no visible items:
+        // - if sec.roles explicitly allowed current user, keep section (may link to sec.base)
+        // - otherwise hide the section
+        if (visibleItems.length === 0) {
+          if (Array.isArray(sec.roles) && sec.roles.length > 0) {
+            // sec.roles already checked at top; keep section but with empty items
+            visibleItems = [];
+          } else {
+            // no explicit section role and no visible children → hide section
+            return null;
+          }
+        }
+
+        // Return a shallow copy with filtered items
+        return { ...sec, items: visibleItems };
+      })
+      .filter(Boolean);
+  }, [normalizedRole]);
 
   // Avatar menu
   const [menuEl, setMenuEl] = React.useState(null);
@@ -74,10 +112,9 @@ export default function Header({ onToggleSidebar }) {
   const openSettings = () => { handleClose(); setSettingsOpen(true); };
   const openChangePassword = () => { handleClose(); setChangePwdOpen(true); };
 
-  // 👇 NEW: Upgrade navigates to pricing page
   const openUpgrade = () => {
     handleClose();
-    navigate('/price');          // <-- change this path if your pricing route is different
+    navigate('/price');
   };
 
   const handleLogout = async () => {
@@ -95,7 +132,7 @@ export default function Header({ onToggleSidebar }) {
           bgcolor: 'white',
           color: 'text.primary',
           boxShadow: 0,
-          borderBottom: '1px solid #eee'
+          borderBottom: '1px solid #eee',
         }}
       >
         <Toolbar sx={{ gap: 1, minHeight: 60 }}>
@@ -127,6 +164,11 @@ export default function Header({ onToggleSidebar }) {
             {visibleSections.map((sec) => {
               const ActiveIcon = sec.Icon;
               const active = location.pathname.startsWith(sec.base);
+
+              // choose the first visible item's path if it exists
+              const firstVisible = sec.items?.[0];
+              const navigateTo = (firstVisible && firstVisible.to) ? firstVisible.to : (sec.base || '/');
+
               return (
                 <Chip
                   key={sec.key}
@@ -134,10 +176,7 @@ export default function Header({ onToggleSidebar }) {
                   label={sec.label}
                   variant={active ? 'filled' : 'outlined'}
                   color={active ? 'primary' : 'default'}
-                  onClick={() => {
-                    const first = sec.items?.[0]?.to || sec.base;
-                    navigate(first);
-                  }}
+                  onClick={() => navigate(navigateTo)}
                   sx={{
                     height: 32,
                     borderRadius: 1.5,
@@ -184,11 +223,13 @@ export default function Header({ onToggleSidebar }) {
                       '& .MuiChip-label': { px: 0.75 },
                     }}
                     color={
-                      role === 'admin'
-                        ? 'error'
-                        : role === 'supervisor'
-                          ? 'secondary'
-                          : 'default'
+                      normalizedRole === 'super_admin'
+                        ? 'primary'
+                        : normalizedRole === 'admin'
+                          ? 'error'
+                          : normalizedRole === 'supervisor'
+                            ? 'secondary'
+                            : 'default'
                     }
                     variant="outlined"
                   />
@@ -219,11 +260,13 @@ export default function Header({ onToggleSidebar }) {
                       size="small"
                       sx={{ mt: 0.75, height: 22, borderRadius: 1.5, fontSize: 11 }}
                       color={
-                        role === 'admin'
-                          ? 'error'
-                          : role === 'supervisor'
-                            ? 'secondary'
-                            : 'default'
+                        normalizedRole === 'super_admin'
+                          ? 'primary'
+                          : normalizedRole === 'admin'
+                            ? 'error'
+                            : normalizedRole === 'supervisor'
+                              ? 'secondary'
+                              : 'default'
                       }
                       variant="outlined"
                     />
@@ -244,7 +287,6 @@ export default function Header({ onToggleSidebar }) {
                   Profile
                 </MenuItem>
 
-                {/* 👇 NEW: Upgrade option */}
                 <MenuItem onClick={openUpgrade}>
                   <UpgradeIcon fontSize="small" style={{ marginRight: 8 }} />
                   Upgrade plan

@@ -14,6 +14,8 @@ import SummarizeIcon from '@mui/icons-material/Summarize';
 import LayersIcon from '@mui/icons-material/Layers';
 import DescriptionIcon from '@mui/icons-material/Description';
 import GroupAddIcon from '@mui/icons-material/GroupAdd';
+import PersonIcon from '@mui/icons-material/Person';
+import PaymentIcon from '@mui/icons-material/Payment'; // new
 
 export const SECTIONS = [
   {
@@ -24,7 +26,7 @@ export const SECTIONS = [
     items: [
       // always visible
       { to: '/dashboard', label: 'Overview', Icon: DashboardIcon },
-      // visible for admin, supervisor, researcher
+      // visible for admin, supervisor
       {
         to: '/dashboard/researchers',
         label: 'Researchers',
@@ -105,6 +107,36 @@ export const SECTIONS = [
     Icon: GroupAddIcon,
     items: [
       { to: '/supervisors', label: 'All Supervisors', Icon: DescriptionIcon },
+    ],
+  },
+
+  // Monitoring: visible only to super_admin
+  {
+    key: 'monitoring',
+    label: 'Monitoring',
+    base: '/monitoring',
+    Icon: TableViewIcon,
+    roles: ['super_admin'],
+    items: [
+      // inside the monitoring items array in src/layout/constants/navSections.js
+      {
+        to: '/monitoring/analytics',
+        label: 'Analytics',
+        Icon: TableViewIcon, // pick an icon you like
+        roles: ['super_admin'],
+      },
+      {
+        to: '/monitoring/users',
+        label: 'Users',
+        Icon: PersonIcon,
+        roles: ['super_admin'],
+      },
+      {
+        to: '/monitoring/payments',
+        label: 'Payments',
+        Icon: PaymentIcon,
+        roles: ['super_admin'],
+      },
     ],
   },
 ];

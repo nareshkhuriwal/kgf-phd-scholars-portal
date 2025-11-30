@@ -5,7 +5,8 @@ import { useNavigate } from 'react-router-dom';
 import { Box, Grid, Typography } from '@mui/material';
 import SiteHeader from '../components/site/SiteHeader';
 import LeftFeatures from '../components/site/LeftFeatures';
-import RegisterFormCard from '../components/auth/RegisterFormCard';
+import RegisterFormCard from '../components/auth/RegisterFormCardEmail';
+
 import { registerThunk } from '../store/authSlice';
 
 export default function Register() {
