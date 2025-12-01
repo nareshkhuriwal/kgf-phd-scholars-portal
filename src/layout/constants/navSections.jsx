@@ -96,6 +96,7 @@ export const SECTIONS = [
     label: 'Researchers',
     base: '/researchers',
     Icon: GroupAddIcon,
+    roles: ['admin', 'supervisor', 'super_admin'],
     items: [
       { to: '/researchers', label: 'All Researchers', Icon: DescriptionIcon },
     ],
@@ -105,6 +106,7 @@ export const SECTIONS = [
     label: 'Supervisors',
     base: '/supervisors',
     Icon: GroupAddIcon,
+    roles: ['admin', 'super_admin'],
     items: [
       { to: '/supervisors', label: 'All Supervisors', Icon: DescriptionIcon },
     ],

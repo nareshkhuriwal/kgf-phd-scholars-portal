@@ -3,6 +3,7 @@ import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { logoutThunk } from '../store/authSlice';
+import { Link as RouterLink } from 'react-router-dom';
 import {
   AppBar, Toolbar, Typography, IconButton, Box, Stack, Chip, Avatar,
   Menu, MenuItem, Divider
@@ -140,12 +141,35 @@ export default function Header({ onToggleSidebar }) {
             <MenuIcon />
           </IconButton>
 
-          {/* Brand */}
-          <Box sx={{ display: 'flex', alignItems: 'center', mr: 2 }}>
+          <Box
+            component={RouterLink}
+            to="/"
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              mr: 2,
+              textDecoration: 'none',
+              color: 'inherit',
+              '&:hover': {
+                textDecoration: 'none',
+                opacity: 0.9,   // optional hover effect
+              },
+              '&:focus': {
+                textDecoration: 'none',
+              },
+              '&:visited': {
+                textDecoration: 'none',
+              }
+            }}
+          >
             <Box
               sx={{
-                width: 30, height: 30, mr: 1.25, borderRadius: 1,
-                overflow: 'hidden', bgcolor: '#fff'
+                width: 30,
+                height: 30,
+                mr: 1.25,
+                borderRadius: 1,
+                overflow: 'hidden',
+                bgcolor: '#fff',
               }}
             >
               <img
@@ -154,10 +178,13 @@ export default function Header({ onToggleSidebar }) {
                 style={{ width: '100%', height: '100%', objectFit: 'contain' }}
               />
             </Box>
+
             <Typography variant="h6" sx={{ mr: 1, fontWeight: 700 }}>
               KGF Scholars
             </Typography>
           </Box>
+
+
 
           {/* Main menus */}
           <Stack direction="row" spacing={1} sx={{ flexGrow: 1 }}>
