@@ -149,8 +149,8 @@ export default function ReviewEditor() {
     } finally { setSaving(false); }
   };
 
-  // Mark as complete
-  const onMarkComplete = async () => {
+  // Reviewed
+  const Reviewed = async () => {
     setSaving(true);
     try {
       await dispatch(setReviewStatus({ paperId, status: 'done' })).unwrap();
@@ -175,8 +175,8 @@ export default function ReviewEditor() {
             <Button variant="contained" disabled={saving} onClick={onSaveCurrentTab}>
               {saving ? 'Saving…' : `Save: ${EDITOR_ORDER[tab]}`}
             </Button>
-            <Button variant="outlined" color="success" onClick={onMarkComplete}>
-              Mark Complete
+            <Button variant="outlined" color="success" onClick={Reviewed}>
+              Reviewed
             </Button>
           </Stack>
         }
