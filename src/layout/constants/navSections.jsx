@@ -118,6 +118,13 @@ export const SECTIONS = [
     Icon: TableViewIcon,
     roles: ['super_admin'],
     items: [
+      // inside the monitoring items array in src/layout/constants/navSections.js
+      {
+        to: '/monitoring/analytics',
+        label: 'Analytics',
+        Icon: TableViewIcon, // pick an icon you like
+        roles: ['super_admin'],
+      },
       {
         to: '/monitoring/users',
         label: 'Users',

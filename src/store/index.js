@@ -17,6 +17,8 @@ import supervisorsReducer from './supervisorsSlice';
 import orderReducer from './orderSlice';
 import usersReducer from './usersSlice';
 import paymentsReducer from './paymentsSlice';
+import monitoringStatsReducer from './monitoringStatsSlice';
+import registerReducer from './registerSlice';
 
 
 const store = configureStore({
@@ -39,7 +41,8 @@ const store = configureStore({
     order: orderReducer,
     users: usersReducer,
     payments: paymentsReducer,
-
+    monitoringStats: monitoringStatsReducer,
+    register: registerReducer,
 
   },
 })
