@@ -719,7 +719,7 @@ export default function Overview() {
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={weeklyRows}
-                    margin={{ left: 24, right: 24, top: 12, bottom: 32 }}
+                    margin={{ left: 24, right: 24, top: 12, bottom: 60 }}
                     barCategoryGap={8}
                   >
                     <CartesianGrid strokeDasharray="3 3" />

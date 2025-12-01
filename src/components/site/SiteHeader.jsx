@@ -202,7 +202,7 @@ export default function SiteHeader() {
                       Researcher Pro
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      <b>₹299/month</b> or <b>₹2,999/year</b> — 200 papers, 20 reports, 10 collections, advanced search, priority support, export (PDF/CSV/BibTeX), AI-assisted summarization, project folders & version history.
+                      <b>₹249/month</b> or <b>₹2,899/year</b> — 200 papers, 20 reports, 10 collections, advanced search, priority support, export (PDF/CSV/BibTeX), AI-assisted summarization, project folders & version history.
                     </Typography>
                   </CardContent>
                 </Card>
@@ -237,7 +237,7 @@ export default function SiteHeader() {
                       Supervisor Pro
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      <b>₹999/month</b> or <b>₹9,999/year</b> — Manage up to <b>20 researchers</b>, includes Researcher Pro features, advanced review & approval workflows, supervisor dashboard, team collaboration, bulk actions, and priority support.
+                      <b>₹499/month</b> or <b>₹4,999/year</b> — Manage up to <b>20 researchers</b>, includes Researcher Pro features, advanced review & approval workflows, supervisor dashboard, team collaboration, bulk actions, and priority support.
                     </Typography>
                   </CardContent>
                 </Card>
@@ -258,7 +258,7 @@ export default function SiteHeader() {
                       Admin (University)
                     </Typography>
                     <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5 }}>
-                      ₹99,000
+                      ₹14,999
                       <Typography component="span" variant="body2" color="text.secondary">
                         /year
                       </Typography>
@@ -267,16 +267,14 @@ export default function SiteHeader() {
                       Institutional license — unlimited users, centralized admin and billing.
                     </Typography>
                     <Typography variant="body2" sx={{ mt: 1.5 }}>
-                      • Unlimited researchers & supervisors<br />
+                      • 30 Days free trial for Admin access<br />
                       • SSO / SAML integration & API access<br />
                       • Advanced analytics & exportable reports<br />
                       • Custom onboarding, training & private deployment (optional)<br />
                       • Priority SLA-backed support and dedicated account manager
                     </Typography>
                     <Box sx={{ mt: 1 }}>
-                      <Typography variant="caption" color="text.secondary">
-                        Annual pricing only — contact sales for volume discounts and multi-department licensing.
-                      </Typography>
+
                     </Box>
                   </CardContent>
                 </Card>

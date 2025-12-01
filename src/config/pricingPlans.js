@@ -24,10 +24,10 @@ export const ROLE_PLANS = {
       // plan family
       key: 'researcher-pro',
       title: 'Researcher Pro',
-      price: '₹299/month or ₹2,999/year',
+      price: '₹249/month or ₹2,899/year',
       subtitle: 'Unlock higher limits for serious work.',
-      monthlyAmountPaise: 29900,   // ₹299.00
-      yearlyAmountPaise: 299900,   // ₹2,999.00
+      monthlyAmountPaise: 24900,   // ₹249.00
+      yearlyAmountPaise: 289900,   // ₹2,899.00
       monthlyPlanKey: 'researcher-pro',
       yearlyPlanKey: 'researcher-pro-yearly',
       bullets: [
@@ -66,8 +66,8 @@ export const ROLE_PLANS = {
       title: 'Supervisor Pro',
       price: '₹999/month or ₹9,999/year',
       subtitle: 'Scale supervision across more researchers.',
-      monthlyAmountPaise: 99900,    // ₹999.00
-      yearlyAmountPaise: 999900,    // ₹9,999.00
+      monthlyAmountPaise: 49900,    // ₹499.00
+      yearlyAmountPaise: 499900,    // ₹4,999.00
       monthlyPlanKey: 'supervisor-pro',
       yearlyPlanKey: 'supervisor-pro-yearly',
       bullets: [
@@ -92,7 +92,7 @@ export const ROLE_PLANS = {
       price: 'Admin (Trial)',
       subtitle: 'Central admin access for your university.',
       bullets: [
-        'Paid plan — no free tier for Admin',
+        '30 Days free trial for Admin access',
         'Central admin access for your university',
         'Manage researchers, supervisors & reports in one place',
         'Unlimited users and researchers (trial limits may apply)',
@@ -107,14 +107,14 @@ export const ROLE_PLANS = {
       key: 'admin-pro',
       title: 'Admin Pro',
       // Admin sold as annual institutional license
-      price: '₹99,000/year',
+      price: '₹14,999/year',
       subtitle: 'Institutional license for departments or entire universities.',
-      yearlyAmountPaise: 9900000,   // ₹99,000.00
+      yearlyAmountPaise: 1499900,   // ₹14999.00
       monthlyAmountPaise: null,     // no monthly option by default
       monthlyPlanKey: null,
       yearlyPlanKey: 'admin-pro',
       bullets: [
-        'Unlimited researchers & supervisors',
+        '30 Days free trial for Admin access',
         'Centralized admin and billing',
         'SSO / SAML integration',
         'Custom onboarding & training',
