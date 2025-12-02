@@ -39,6 +39,8 @@ export default function Header({ onToggleSidebar }) {
     .join('')
     .toUpperCase();
 
+    const avatarSrc = user?.avatar || null;  
+
   // Normalize role -> "super_admin", "admin", "supervisor", "researcher", etc.
   const normalizedRole = role
     ? String(role).toLowerCase().replace(/\s+/g, '_')
@@ -225,7 +227,7 @@ export default function Header({ onToggleSidebar }) {
                 size="small"
                 sx={{ ml: 1, p: 0.5, border: '1px solid #e6e6e6', borderRadius: '24px' }}
               >
-                <Avatar sx={{ width: 28, height: 28, fontSize: 13 }}>{initials}</Avatar>
+                <Avatar sx={{ width: 28, height: 28, fontSize: 13 }} src={avatarSrc}>{initials}</Avatar>
                 <Typography
                   sx={{
                     ml: 1,
