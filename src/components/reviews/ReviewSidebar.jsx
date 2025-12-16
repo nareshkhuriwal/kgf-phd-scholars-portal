@@ -1,4 +1,3 @@
-// src/components/reviews/ReviewSidebar.jsx
 import React from 'react';
 import {
   Paper,
@@ -12,6 +11,7 @@ import {
   Collapse,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 function fmtBytes(b) {
   if (b == null) return '—';
@@ -21,13 +21,25 @@ function fmtBytes(b) {
   return `${n.toFixed(1)} ${u[i]}`;
 }
 
-export default function ReviewSidebar({ paper, open = true, onToggle }) {
+const hasContent = (html = '') =>
+  html.replace(/<[^>]*>/g, '').trim().length > 0;
+
+export default function ReviewSidebar({
+  paper,
+  open = true,          // sidebar visibility (controlled by parent)
+  onToggle,             // sidebar toggle (NOT used for details)
+  sections = {},
+  activeTab = 0,
+  onSelectSection,
+  editorOrder = [],
+}) {
+  const [detailsOpen, setDetailsOpen] = React.useState(true);
+
   const meta = paper?.paper || paper || {};
-  // prefer nested (from ReviewResource->paper), fallback to top-level
-  const title    = meta.title     ?? paper?.title     ?? '—';
-  const authors  = meta.authors   ?? paper?.authors   ?? '—';
-  const year     = meta.year      ?? paper?.year      ?? '—';
-  const pdfUrl   = meta.pdf_url   ?? paper?.pdf_url   ?? null;
+  const title = meta.title ?? paper?.title ?? '—';
+  const authors = meta.authors ?? paper?.authors ?? '—';
+  const year = meta.year ?? paper?.year ?? '—';
+  const pdfUrl = meta.pdf_url ?? paper?.pdf_url ?? null;
   const fileName = meta.file_name ?? paper?.file_name ?? (pdfUrl ? pdfUrl.split('/').pop() : '—');
   const fileSize = meta.file_size ?? paper?.file_size ?? null;
   const filePath = meta.file_path ?? paper?.file_path ?? pdfUrl ?? '—';
@@ -35,151 +47,210 @@ export default function ReviewSidebar({ paper, open = true, onToggle }) {
   return (
     <Paper
       sx={{
-        height: '100%',
         p: 1.5,
         border: '1px solid #eee',
         borderRadius: 2,
         display: 'flex',
         flexDirection: 'column',
+        overflowY: 'auto',
+
+        '&::-webkit-scrollbar': { width: '6px' },
+        '&::-webkit-scrollbar-thumb': {
+          backgroundColor: '#c1c1c1',
+          borderRadius: '8px',
+        },
+        '&::-webkit-scrollbar-thumb:hover': {
+          backgroundColor: '#a8a8a8',
+        },
       }}
     >
-      <Stack
-        direction="row"
-        alignItems="center"
-        justifyContent="space-between"
-        sx={{ mb: 0.5 }}
-      >
-        <Typography
-          variant="subtitle2"
-          sx={{ color: 'text.secondary' }}
-        >
-          Details
-        </Typography>
 
-        <Tooltip title={open ? 'Hide details' : 'Show details'}>
-          <IconButton
-            size="small"
-            onClick={onToggle}
+      {/* ================= SECTIONS ================= */}
+      <Typography
+        variant="subtitle2"
+        sx={{
+          mb: 1,
+          fontWeight: 600,
+          letterSpacing: 0.3,
+          color: 'text.secondary',
+        }}
+      >
+        Sections
+      </Typography>
+
+
+      <Stack spacing={0.5} sx={{
+        mb: 1.5,
+        maxHeight: 500,
+        overflowY: 'auto',
+
+        '&::-webkit-scrollbar': { width: '6px' },
+        '&::-webkit-scrollbar-thumb': {
+          backgroundColor: '#c1c1c1',
+          borderRadius: '8px',
+        },
+        '&::-webkit-scrollbar-thumb:hover': {
+          backgroundColor: '#a8a8a8',
+        },
+      }}>
+        {editorOrder.map((label, index) => {
+          const filled = hasContent(sections[label]);
+
+          return (
+            <Box
+              key={label}
+              onClick={() => onSelectSection(index)}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                px: 1.25,
+                py: 0.85,
+                borderRadius: 1.25,
+                cursor: 'pointer',
+                transition: 'background-color 0.15s ease, box-shadow 0.15s ease',
+                bgcolor: activeTab === index ? 'action.selected' : 'transparent',
+                '&:hover': {
+                  bgcolor: 'action.hover',
+                },
+              }}
+            >
+
+              {/* Number */}
+              <Box
+                sx={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: '50%',
+                  bgcolor: activeTab === index ? 'primary.main' : 'grey.200',
+                  color: activeTab === index ? '#fff' : 'text.secondary',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  flexShrink: 0,
+                }}
+              >
+                {index + 1}
+              </Box>
+
+
+              {/* Label */}
+              <Typography
+                variant="body2"
+                sx={{ flex: 1, fontWeight: activeTab === index ? 600 : 400 }}
+              >
+                {label}
+              </Typography>
+
+              {/* Tick */}
+              {filled && (
+                <Tooltip title="Completed">
+                  <CheckCircleIcon
+                    sx={{
+                      fontSize: 18,
+                      color: 'success.main',
+                      opacity: 0.9,
+                    }}
+                  />
+                </Tooltip>
+              )}
+
+            </Box>
+          );
+        })}
+
+        {/* ================= DETAILS ================= */}
+
+        <Divider sx={{ mb: 1 }} />
+
+        <Box>
+          <Typography
+            variant="subtitle2"
             sx={{
-              transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
-              transition: 'transform 0.2s ease',
+              fontWeight: 600,
+              letterSpacing: 0.3,
+              p: 0.5,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              color: 'text.secondary',
             }}
           >
-            <ExpandMoreIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
+            Details
+          </Typography>
+
+        </Box>
+        <Divider sx={{ mb: 1 }} />
+
+
+        <Box>
+          <Typography variant="caption" color="text.secondary">Title</Typography>
+          <Typography variant="body2" noWrap title={title}>
+            {title}
+          </Typography>
+        </Box>
+
+        <Box>
+          <Typography variant="caption" color="text.secondary">Authors</Typography>
+          <Typography variant="body2" noWrap title={authors}>
+            {authors}
+          </Typography>
+        </Box>
+
+        <Box>
+          <Typography variant="caption" color="text.secondary">Year</Typography>
+          <Typography variant="body2">{year}</Typography>
+        </Box>
+
+        <Divider />
+
+        <Box>
+          <Typography variant="caption" color="text.secondary">File name</Typography>
+          <Typography variant="body2" noWrap title={fileName}>
+            {fileName}
+          </Typography>
+        </Box>
+
+        <Box>
+          <Typography variant="caption" color="text.secondary">Size</Typography>
+          <Typography variant="body2">{fmtBytes(fileSize)}</Typography>
+        </Box>
+
+        <Box>
+          <Typography variant="caption" color="text.secondary">Path / URL</Typography>
+          {pdfUrl ? (
+            <Tooltip title={filePath}>
+              <Link
+                href={pdfUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                underline="hover"
+                sx={{
+                  display: 'block',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  fontSize: 12,
+                }}
+              >
+                {filePath}
+              </Link>
+            </Tooltip>
+          ) : (
+            <Typography variant="body2" noWrap title={filePath}>
+              {filePath}
+            </Typography>
+          )}
+        </Box>
+
       </Stack>
 
-      <Divider sx={{ mb: 1.25 }} />
+      <Divider sx={{ mb: 1 }} />
 
-      <Collapse in={open} timeout="auto" unmountOnExit>
-        <Stack spacing={1.25}>
-          <Box>
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ display: 'block', mb: 0.25 }}
-            >
-              Title
-            </Typography>
-            <Typography
-              variant="body2"
-              sx={{ wordBreak: 'break-word' }}
-            >
-              {title}
-            </Typography>
-          </Box>
 
-          <Box>
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ display: 'block', mb: 0.25 }}
-            >
-              Authors
-            </Typography>
-            <Typography
-              variant="body2"
-              sx={{ wordBreak: 'break-word' }}
-            >
-              {authors || '—'}
-            </Typography>
-          </Box>
 
-          <Box>
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ display: 'block', mb: 0.25 }}
-            >
-              Year
-            </Typography>
-            <Typography variant="body2">
-              {year || '—'}
-            </Typography>
-          </Box>
-
-          <Divider />
-
-          <Box>
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ display: 'block', mb: 0.25 }}
-            >
-              File name
-            </Typography>
-            <Typography
-              variant="body2"
-              sx={{ wordBreak: 'break-all' }}
-            >
-              {fileName || '—'}
-            </Typography>
-          </Box>
-
-          <Box>
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ display: 'block', mb: 0.25 }}
-            >
-              Size
-            </Typography>
-            <Typography variant="body2">
-              {fmtBytes(fileSize)}
-            </Typography>
-          </Box>
-
-          <Box>
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ display: 'block', mb: 0.25 }}
-            >
-              Path / URL
-            </Typography>
-            {pdfUrl ? (
-              <Typography
-                variant="caption"
-                sx={{ wordBreak: 'break-all', lineHeight: 1.4 }}
-              >
-                <Link
-                  href={pdfUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  sx={{ wordBreak: 'break-all' }}
-                >
-                  {filePath}
-                </Link>
-              </Typography>
-            ) : (
-              <Typography variant="body2" sx={{ wordBreak: 'break-all' }}>
-                {filePath}
-              </Typography>
-            )}
-          </Box>
-        </Stack>
-      </Collapse>
     </Paper>
   );
 }

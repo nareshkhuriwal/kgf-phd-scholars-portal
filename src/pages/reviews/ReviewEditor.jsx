@@ -73,6 +73,8 @@ export default function ReviewEditor() {
   const navigate = useNavigate();
   const { current, error } = useSelector((s) => s.reviews || {});
   const [sidebarOpen, setSidebarOpen] = React.useState(true);
+  const [charCount, setCharCount] = React.useState(0);
+
 
   console.log("current: ", current)
   const [tab, setTab] = React.useState(0);
@@ -132,9 +134,28 @@ export default function ReviewEditor() {
     return () => d && d.cancel && d.cancel();
   }, []);
 
+  // const onEditorChange = React.useCallback((label, editor) => {
+  //   debouncedSetSectionsRef.current(label, editor.getData());
+  // }, []);
+
   const onEditorChange = React.useCallback((label, editor) => {
-    debouncedSetSectionsRef.current(label, editor.getData());
-  }, []);
+  const data = editor.getData();
+
+  // Strip HTML to count characters only
+  const text = data.replace(/<[^>]*>/g, '').trim();
+  setCharCount(text.length);
+
+  debouncedSetSectionsRef.current(label, data);
+}, []);
+
+React.useEffect(() => {
+  const activeLabel = EDITOR_ORDER[tab];
+  const html = sections[activeLabel] || '';
+  const text = html.replace(/<[^>]*>/g, '').trim();
+  setCharCount(text.length);
+}, [tab, sections]);
+
+
 
   // Save only CURRENT tab
   const onSaveCurrentTab = async () => {
@@ -261,7 +282,11 @@ export default function ReviewEditor() {
                           data={sections[label] || ''}
                           onChange={(_, ed) => onEditorChange(label, ed)}
                         />
+                        
                       )}
+                      <Typography variant="caption" color="text.secondary">
+    Characters: {charCount}
+  </Typography>
                     </Box>
                   </Box>
                 ))}
@@ -271,11 +296,16 @@ export default function ReviewEditor() {
 
           {/* RIGHT: Metadata sidebar – hidden completely when closed */}
           {sidebarOpen && (
-            <Grid item xs={12} lg={2} sx={{ height: '100%', minHeight: 300 }}>
+   
+            <Grid item xs={12} lg={2}>
               <ReviewSidebar
                 paper={current}
                 open={sidebarOpen}
                 onToggle={() => setSidebarOpen(false)}
+                sections={sections}
+                activeTab={tab}
+                onSelectSection={setTab}
+                editorOrder={EDITOR_ORDER}
               />
             </Grid>
           )}
