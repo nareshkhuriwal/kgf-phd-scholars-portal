@@ -9,120 +9,244 @@ import { saveHighlights } from '../../store/highlightsSlice';
 import { Snackbar, Alert } from '@mui/material';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
+
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
+const isDev = import.meta.env.VITE_APP_ENV || 'DEV';
 const ZOOM_STEP = 1.15;
+const DEFAULT_BRUSH_SIZE = 12;
 
 function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange }) {
   const dispatch = useDispatch();
 
-  // sync url
+  /* ---------------- URL ---------------- */
   const [activeUrl, setActiveUrl] = React.useState('');
-  // React.useEffect(() => { setActiveUrl(fileUrl ? toRelative(fileUrl) : ''); }, [fileUrl]);
-  React.useEffect(() => { setActiveUrl(fileUrl ? fileUrl : ''); }, [fileUrl]);
+  /* ---------------- LOADING ---------------- */
+  const [loading, setLoading] = React.useState(false);
+  const [loadingMsg, setLoadingMsg] = React.useState('Loading PDF…');
 
-  // viewer state
+
+  React.useEffect(() => {
+    setActiveUrl(fileUrl ? (isDev ? toRelative(fileUrl) : fileUrl) : '');
+  }, [fileUrl]);
+
+  /* ---------------- PDF STATE ---------------- */
   const [doc, setDoc] = React.useState(null);
   const [pages, setPages] = React.useState([]);
   const [viewports, setViewports] = React.useState([]);
-  const [pageCount, setPageCount] = React.useState(0);
   const [naturalSizes, setNaturalSizes] = React.useState([]);
 
-  // highlight style + enable
+  /* ---------------- UI STATE ---------------- */
   const [enabled, setEnabled] = React.useState(true);
-  const [mode, setMode] = React.useState('rect'); // brush reserved
+  const [mode, setMode] = React.useState('rect');
   const [colorHex, setColorHex] = React.useState('#FFEB3B');
   const [alpha, setAlpha] = React.useState(0.35);
   const [saving, setSaving] = React.useState(false);
-  const [toast, setToast] = React.useState(null); // {severity,msg}
+  const [toast, setToast] = React.useState(null);
 
-  // stored in PDF points (scale=1)
-  const [hlPoints, setHlPoints] = React.useState({});
+  /* ---------------- HIGHLIGHT STATE ---------------- */
+  const [hlRects, setHlRects] = React.useState({});
+  const [hlBrushes, setHlBrushes] = React.useState({});
 
-  // zoom
+  /* ---------------- ZOOM ---------------- */
   const [currentScale, setCurrentScale] = React.useState(initialScale);
   const scaleRef = React.useRef(initialScale);
   const paneRef = React.useRef(null);
 
-  // reset when URL changes
+  /* ---------------- RESET ON URL CHANGE ---------------- */
   React.useEffect(() => {
-    setDoc(null); setPages([]); setViewports([]); setNaturalSizes([]); setPageCount(0); setHlPoints({});
+    setDoc(null);
+    setPages([]);
+    setViewports([]);
+    setNaturalSizes([]);
+    setHlRects({});
+    setHlBrushes({});
   }, [activeUrl]);
 
-  // load
+  /* ---------------- LOAD PDF ---------------- */
+  // React.useEffect(() => {
+  //   let cancelled = false;
+  //   if (!activeUrl) return;
+
+  //   (async () => {
+  //     const pdf = await pdfjsLib.getDocument(activeUrl).promise;
+  //     if (cancelled) return;
+
+  //     setDoc(pdf);
+  //     const _pages = [];
+  //     const _natural = [];
+
+  //     for (let i = 1; i <= pdf.numPages; i++) {
+  //       const page = await pdf.getPage(i);
+  //       const vp = page.getViewport({ scale: 1 });
+  //       _natural.push({ w: vp.width, h: vp.height });
+  //       _pages.push({ index: i, page, canvasRef: React.createRef() });
+  //     }
+
+  //     setPages(_pages);
+  //     setNaturalSizes(_natural);
+  //   })();
+
+  //   return () => { cancelled = true; };
+  // }, [activeUrl]);
+
   React.useEffect(() => {
     let cancelled = false;
     if (!activeUrl) return;
-    (async () => {
-      const loadingTask = pdfjsLib.getDocument(activeUrl);
-      const pdf = await loadingTask.promise;
-      if (cancelled) return;
-      setDoc(pdf); setPageCount(pdf.numPages);
 
-      const _pages = [], _natural = [];
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const vp1 = page.getViewport({ scale: 1 });
-        _natural.push({ w: vp1.width, h: vp1.height });
-        _pages.push({ index: i, page, canvasRef: React.createRef() });
+    setLoading(true);
+    setLoadingMsg('Loading PDF…');
+
+    (async () => {
+      try {
+        const loadingTask = pdfjsLib.getDocument(activeUrl);
+
+        loadingTask.onProgress = ({ loaded, total }) => {
+          if (total) {
+            const pct = Math.round((loaded / total) * 100);
+            setLoadingMsg(`Loading PDF… ${pct}%`);
+          }
+        };
+
+        const pdf = await loadingTask.promise;
+        if (cancelled) return;
+
+        setDoc(pdf);
+        setLoadingMsg('Preparing pages…');
+
+        const _pages = [];
+        const _natural = [];
+
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const vp = page.getViewport({ scale: 1 });
+          _natural.push({ w: vp.width, h: vp.height });
+          _pages.push({ index: i, page, canvasRef: React.createRef() });
+        }
+
+        setPages(_pages);
+        setNaturalSizes(_natural);
+      } catch (err) {
+        console.error('PDF load failed', err);
+        setToast({ severity: 'error', msg: 'Failed to load PDF.' });
       }
-      setPages(_pages); setNaturalSizes(_natural);
     })();
-    return () => { cancelled = true; };
+
+    return () => {
+      cancelled = true;
+    };
   }, [activeUrl]);
 
-  // viewports @ scale
+  /* ---------------- VIEWPORTS ---------------- */
   React.useEffect(() => {
     if (!pages.length) return;
     setViewports(pages.map(p => p.page.getViewport({ scale: currentScale })));
   }, [pages, currentScale]);
 
-  // render canvases
+  /* ---------------- RENDER PAGES ---------------- */
+  // React.useEffect(() => {
+  //   if (!doc || !pages.length || !viewports.length) return;
+  //   (async () => {
+  //     for (let i = 0; i < pages.length; i++) {
+  //       const { page, canvasRef } = pages[i];
+  //       const vp = viewports[i];
+  //       if (!canvasRef.current) continue;
+  //       const ctx = canvasRef.current.getContext('2d');
+  //       canvasRef.current.width = vp.width;
+  //       canvasRef.current.height = vp.height;
+  //       await page.render({ canvasContext: ctx, viewport: vp }).promise;
+  //     }
+  //   })();
+  // }, [doc, pages, viewports]);
   React.useEffect(() => {
+    if (!doc || !pages.length || !viewports.length) return;
+
     (async () => {
-      if (!doc || !pages.length || !viewports.length) return;
-      for (let i = 0; i < pages.length; i++) {
-        const p = pages[i], vp = viewports[i];
-        if (!vp || !p.canvasRef.current) continue;
-        const ctx = p.canvasRef.current.getContext('2d');
-        p.canvasRef.current.width = vp.width;
-        p.canvasRef.current.height = vp.height;
-        await p.page.render({ canvasContext: ctx, viewport: vp }).promise;
+      try {
+        setLoadingMsg('Rendering pages…');
+
+        for (let i = 0; i < pages.length; i++) {
+          const { page, canvasRef } = pages[i];
+          const vp = viewports[i];
+          if (!canvasRef.current) continue;
+
+          const ctx = canvasRef.current.getContext('2d');
+          canvasRef.current.width = vp.width;
+          canvasRef.current.height = vp.height;
+
+          await page.render({ canvasContext: ctx, viewport: vp }).promise;
+        }
+      } finally {
+        setLoading(false);
       }
     })();
   }, [doc, pages, viewports]);
 
-  // add rect (px -> points)
-  const addHighlight = (pageIndex, rectPx) => {
+  /* ---------------- ADD RECT ---------------- */
+  const addRect = (page, rPx) => {
     const s = currentScale;
-    const toPts = v => v / s;
-    const rectPts = {
-      id: `${pageIndex}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      x: toPts(rectPx.x), y: toPts(rectPx.y), w: toPts(rectPx.w), h: toPts(rectPx.h)
+    const rect = {
+      id: crypto.randomUUID(),
+      x: rPx.x / s,
+      y: rPx.y / s,
+      w: rPx.w / s,
+      h: rPx.h / s,
     };
-    setHlPoints(prev => {
-      const arr = prev[pageIndex] ? [...prev[pageIndex]] : [];
-      arr.push(rectPts);
-      const next = { ...prev, [pageIndex]: arr };
+
+    setHlRects(prev => {
+      const next = { ...prev, [page]: [...(prev[page] || []), rect] };
       onHighlightsChange?.(next);
       return next;
     });
   };
 
-  // draw rects (points -> px)
-  const highlightsForPagePx = (pageIndex) => {
+  /* ---------------- ADD BRUSH ---------------- */
+  const addBrush = (page, strokePx) => {
     const s = currentScale;
-    return (hlPoints[pageIndex] || []).map(r => ({ id: r.id, x: r.x * s, y: r.y * s, w: r.w * s, h: r.h * s }));
+    const stroke = {
+      id: crypto.randomUUID(),
+      size: strokePx.size / s,
+      points: strokePx.points.map(p => ({ x: p.x / s, y: p.y / s })),
+    };
+
+    setHlBrushes(prev => ({
+      ...prev,
+      [page]: [...(prev[page] || []), stroke],
+    }));
   };
 
-  // undo / clear
-  const canUndo = React.useMemo(() => Object.values(hlPoints).some(arr => (arr || []).length > 0), [hlPoints]);
+  /* ---------------- PX CONVERSION ---------------- */
+  const rectsPx = page =>
+    (hlRects[page] || []).map(r => ({
+      ...r,
+      x: r.x * currentScale,
+      y: r.y * currentScale,
+      w: r.w * currentScale,
+      h: r.h * currentScale,
+    }));
+
+  const brushesPx = page =>
+    (hlBrushes[page] || []).map(b => ({
+      ...b,
+      size: b.size * currentScale,
+      points: b.points.map(p => ({ x: p.x * currentScale, y: p.y * currentScale })),
+    }));
+
+  /* ---------------- UNDO / CLEAR ---------------- */
+  const canUndo = React.useMemo(
+    () =>
+      Object.values(hlRects).some(a => a.length) ||
+      Object.values(hlBrushes).some(a => a.length),
+    [hlRects, hlBrushes]
+  );
+
+
   const onUndo = () => {
-    setHlPoints(prev => {
-      const pagesWithData = Object.keys(prev).map(Number).sort((a, b) => b - a); // last page first
-      for (const p of pagesWithData) {
-        const arr = prev[p] || [];
-        if (arr.length) {
+    setHlRects(prev => {
+      const pages = Object.keys(prev).map(Number).sort((a, b) => b - a);
+      for (const p of pages) {
+        const arr = prev[p];
+        if (arr?.length) {
           const next = { ...prev, [p]: arr.slice(0, -1) };
           if (!next[p].length) delete next[p];
           return next;
@@ -131,75 +255,162 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
       return prev;
     });
   };
-  const onClear = () => setHlPoints({});
 
-  // zoom helpers
+  const onClear = () => {
+    setHlRects({});
+    setHlBrushes({});
+  };
+
+  /* ---------------- ZOOM HELPERS ---------------- */
   const onZoomChange = (delta) => {
     const next = delta > 0 ? currentScale * ZOOM_STEP : currentScale / ZOOM_STEP;
     scaleRef.current = next;
     setCurrentScale(next);
   };
+
   const onFitWidth = () => {
-    const container = paneRef.current, n0 = naturalSizes[0];
-    if (!container || !n0) return;
-    const inner = container.clientWidth - 16;
-    const s = Math.max(0.5, Math.min(3, inner / n0.w));
-    scaleRef.current = s; setCurrentScale(s);
+    const el = paneRef.current;
+    const n0 = naturalSizes[0];
+    if (!el || !n0) return;
+    const s = Math.min(3, (el.clientWidth - 16) / n0.w);
+    scaleRef.current = s;
+    setCurrentScale(s);
   };
-  const onReset = () => { scaleRef.current = initialScale; setCurrentScale(initialScale); };
 
-  React.useEffect(() => {
-    const onResize = () => {
-      const container = paneRef.current, vp0 = viewports[0];
-      if (!container || !vp0) return;
-      if (vp0.width > container.clientWidth) onFitWidth();
-    };
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, [viewports.length, naturalSizes.length]);
+  const onReset = () => {
+    scaleRef.current = initialScale;
+    setCurrentScale(initialScale);
+  };
 
-  // save (group by page, normalized)
+  /* ---------------- SAVE ---------------- */
   const handleSave = async () => {
-    if (!paperId) return;
-    const highlights = Object.entries(hlPoints).map(([pageStr, rects]) => {
-      const page = Number(pageStr), nat = naturalSizes[page - 1];
-      const norm = r => ({ x: +(r.x / nat.w).toFixed(6), y: +(r.y / nat.h).toFixed(6), w: +(r.w / nat.w).toFixed(6), h: +(r.h / nat.h).toFixed(6) });
-      return { page, rects: rects.map(norm) };
-    });
-    if (!highlights.length) return;
+    if (!paperId) {
+      setToast({ severity: 'error', msg: 'Invalid paper.' });
+      return;
+    }
+
+    // ---------- build rect payload ----------
+    const rectPayload = Object.entries(hlRects).map(([p, rs]) => {
+      const nat = naturalSizes[p - 1];
+      if (!nat) return null;
+
+      const rects = rs
+        .map(r => ({
+          x: +(r.x / nat.w).toFixed(6),
+          y: +(r.y / nat.h).toFixed(6),
+          w: +(r.w / nat.w).toFixed(6),
+          h: +(r.h / nat.h).toFixed(6),
+        }))
+        .filter(r => r.w > 0 && r.h > 0);
+
+      return rects.length ? { page: +p, rects } : null;
+    }).filter(Boolean);
+
+    // ---------- build brush payload ----------
+    const brushPayload = Object.entries(hlBrushes).map(([p, bs]) => {
+      const nat = naturalSizes[p - 1];
+      if (!nat) return null;
+
+      const strokes = bs
+        .map(s => ({
+          size: +(s.size / nat.w).toFixed(6),
+          points: s.points
+            .map(pt => ({
+              x: +(pt.x / nat.w).toFixed(6),
+              y: +(pt.y / nat.h).toFixed(6),
+            }))
+            .filter(pt => pt.x >= 0 && pt.x <= 1 && pt.y >= 0 && pt.y <= 1),
+        }))
+        .filter(s => s.points.length >= 2);
+
+      return strokes.length ? { page: +p, strokes } : null;
+    }).filter(Boolean);
+
+    // ---------- HARD GUARD ----------
+    if (rectPayload.length === 0 && brushPayload.length === 0) {
+      setToast({ severity: 'warning', msg: 'No highlights to save.' });
+      return;
+    }
+
+    // ---------- final payload ----------
+    const payload = {
+      paperId,
+      replace: true,
+      sourceUrl: activeUrl,
+      style: { color: colorHex, alpha },
+    };
+
+    if (rectPayload.length > 0) {
+      payload.highlights = rectPayload;
+    }
+
+    if (brushPayload.length > 0) {
+      payload.brushHighlights = brushPayload;
+    }
 
     try {
       setSaving(true);
-      await dispatch(saveHighlights({
-        paperId, replace: true, sourceUrl: activeUrl, mode: 'rect',
-        highlights, style: { color: colorHex, alpha }
-      })).unwrap?.();
+      await dispatch(saveHighlights(payload)).unwrap();
       setToast({ severity: 'success', msg: 'Highlights saved.' });
-    } catch (e) {
-      setToast({ severity: 'error', msg: e?.message || 'Save failed' });
+    } catch (err) {
+      console.error('Save highlights failed', err);
+      setToast({
+        severity: 'error',
+        msg: err?.message || 'Save failed.',
+      });
     } finally {
       setSaving(false);
     }
-
   };
 
+
+  /* ---------------- RENDER ---------------- */
   return (
     <div className="pdf-wrapper">
-      {/* MUI toolbar */}
-      <div style={{ padding: 8, border: '1px solid var(--mui-palette-divider,#e5e7eb)', borderRadius: 10, background: 'var(--mui-palette-background-paper,#fff)', marginBottom: 12 }}>
-        <HighlightToolbar
-          enabled={enabled} setEnabled={setEnabled}
-          mode={mode} setMode={setMode}
-          canUndo={canUndo} onUndo={onUndo}
-          canClear={canUndo} onClear={onClear}
-          onSave={handleSave}
-          color={colorHex} setColor={setColorHex}
-          alpha={alpha} setAlpha={setAlpha}
-          onZoomChange={onZoomChange} zoom={currentScale}
-          onFitWidth={onFitWidth} onReset={onReset}
-          saving={saving}
-        />
-      </div>
+      <HighlightToolbar
+        enabled={enabled} setEnabled={setEnabled}
+        mode={mode} setMode={setMode}
+        canUndo={canUndo} onUndo={onUndo}
+        canClear={canUndo} onClear={onClear}
+        onSave={handleSave}
+        color={colorHex} setColor={setColorHex}
+        alpha={alpha} setAlpha={setAlpha}
+        brushSize={DEFAULT_BRUSH_SIZE}
+        onZoomChange={onZoomChange}
+        onFitWidth={onFitWidth}
+        onReset={onReset}
+        saving={saving}
+      />
+
+      {/* -------- PDF Loading Overlay -------- */}
+      {loading && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 10,
+            background: 'rgba(255,255,255,0.85)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexDirection: 'column',
+            backdropFilter: 'blur(2px)',
+          }}
+        >
+          <div className="pdf-loader" />
+          <div
+            style={{
+              marginTop: 12,
+              fontSize: 14,
+              color: '#444',
+              fontWeight: 500,
+            }}
+          >
+            {loadingMsg}
+          </div>
+        </div>
+      )}
+
 
       <div className="pdf-pane" ref={paneRef}>
         {pages.map((p, i) => (
@@ -208,28 +419,39 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
             pageIndex={p.index}
             canvasRef={p.canvasRef}
             viewport={viewports[i]}
-            pageHighlights={highlightsForPagePx(p.index)}
-            onAddHighlight={addHighlight}
-            enabled={enabled && mode === 'rect'}
+            pageHighlights={rectsPx(p.index)}
+            pageBrushes={brushesPx(p.index)}
+            onAddHighlight={addRect}
+            onAddBrush={addBrush}
+            enabled={enabled}
+            mode={mode}
             colorHex={colorHex}
             alpha={alpha}
+            brushSize={DEFAULT_BRUSH_SIZE}
           />
         ))}
       </div>
 
-
-      {/* toast */}
-     <Snackbar
+      <Snackbar
         open={!!toast}
         autoHideDuration={3000}
         onClose={() => setToast(null)}
         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-        // optional: nudge it away from the edges / under a fixed header
-        sx={{ top: { xs: 8, sm: 16 }, right: 16 }}
+        sx={{
+          top: { xs: 8, sm: 16 },
+          right: { xs: 8, sm: 16 },
+        }}
       >
-        {toast && <Alert severity={toast.severity}>{toast.msg}</Alert>}
+        {toast && (
+          <Alert
+            severity={toast.severity}
+            variant="filled"
+            sx={{ minWidth: 280 }}
+          >
+            {toast.msg}
+          </Alert>
+        )}
       </Snackbar>
-
 
     </div>
   );
@@ -237,6 +459,7 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
 
 const PdfPane = React.memo(
   PdfPaneInner,
-  (prev, next) => prev.fileUrl === next.fileUrl && prev.paperId === next.paperId
+  (a, b) => a.fileUrl === b.fileUrl && a.paperId === b.paperId
 );
+
 export default PdfPane;

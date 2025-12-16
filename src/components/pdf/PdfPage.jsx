@@ -1,68 +1,115 @@
 import React from 'react';
 import HighlightLayer from './HighlightLayer';
 
+const MIN_BRUSH_DIST = 2;
+
+function distance(a, b) {
+  const dx = a.x - b.x;
+  const dy = a.y - b.y;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
 export default function PdfPage({
   pageIndex,
   canvasRef,
   viewport,
-  pageHighlights = [],
+  pageHighlights = [],   // rects (px)
+  pageBrushes = [],      // brushes (px)
   onAddHighlight,
+  onAddBrush,
   enabled = true,
-  colorHex = '#FFEB3B',
-  alpha = 0.35,
+  mode = 'rect',
+  colorHex,
+  alpha,
+  brushSize = 12,
 }) {
   const containerRef = React.useRef(null);
-  const [draftRect, setDraftRect] = React.useState(null);
-  const dragRef = React.useRef({ dragging: false, start: null });
 
-  // cursor position for the + badge
+  // ----- RECT STATE -----
+  const [draftRect, setDraftRect] = React.useState(null);
+  const rectDrag = React.useRef({ dragging: false, start: null });
   const [cursor, setCursor] = React.useState({ x: 0, y: 0 });
 
-  const toLocal = React.useCallback((evt) => {
-    const el = containerRef.current;
-    if (!el) return { x: 0, y: 0 };
-    const b = el.getBoundingClientRect();
-    const x = evt.clientX - b.left;
-    const y = evt.clientY - b.top;
-    return {
-      x: Math.max(0, Math.min(x, b.width)),
-      y: Math.max(0, Math.min(y, b.height)),
-    };
-  }, []);
+  // ----- BRUSH STATE -----
+  const brushRef = React.useRef({ drawing: false, points: [] });
 
+  // ----- UTILS -----
+  const toLocal = (evt) => {
+    const b = containerRef.current.getBoundingClientRect();
+    return {
+      x: evt.clientX - b.left,
+      y: evt.clientY - b.top,
+    };
+  };
+
+  // ----- MOUSE DOWN -----
   const onMouseDown = (e) => {
     if (!enabled || e.button !== 0) return;
-    dragRef.current.dragging = true;
-    const start = toLocal(e);
-    dragRef.current.start = start;
-    setDraftRect({ x: start.x, y: start.y, w: 0, h: 0 });
+    const p = toLocal(e);
+
+    if (mode === 'rect') {
+      rectDrag.current.dragging = true;
+      rectDrag.current.start = p;
+      setDraftRect({ x: p.x, y: p.y, w: 0, h: 0 });
+    }
+
+    if (mode === 'brush') {
+      brushRef.current.drawing = true;
+      brushRef.current.points = [p];
+    }
   };
 
+  // ----- MOUSE MOVE -----
   const onMouseMove = (e) => {
     if (!enabled) return;
-    const cur = toLocal(e);
-    setCursor(cur); // move the + badge
+    const p = toLocal(e);
 
-    if (!dragRef.current.dragging) return;
-    const s = dragRef.current.start;
-    setDraftRect({
-      x: Math.min(s.x, cur.x),
-      y: Math.min(s.y, cur.y),
-      w: Math.abs(cur.x - s.x),
-      h: Math.abs(cur.y - s.y),
-    });
+    // RECT update
+    if (mode === 'rect' && rectDrag.current.dragging) {
+      const s = rectDrag.current.start;
+      setDraftRect({
+        x: Math.min(s.x, p.x),
+        y: Math.min(s.y, p.y),
+        w: Math.abs(p.x - s.x),
+        h: Math.abs(p.y - s.y),
+      });
+    }
+
+    // BRUSH update (optimized)
+    if (mode === 'brush' && brushRef.current.drawing) {
+      const pts = brushRef.current.points;
+      if (!pts.length || distance(pts[pts.length - 1], p) > MIN_BRUSH_DIST) {
+        pts.push(p);
+      }
+    }
+
+    setCursor(p);
+
   };
 
-  const onMouseUp = () => {
-    if (!enabled || !dragRef.current.dragging) return;
-    dragRef.current.dragging = false;
-    if (draftRect && draftRect.w > 4 && draftRect.h > 4) onAddHighlight(pageIndex, draftRect);
-    setDraftRect(null);
+  // ----- MOUSE UP / LEAVE -----
+  const finishInteraction = () => {
+    // RECT commit
+    if (mode === 'rect' && rectDrag.current.dragging) {
+      rectDrag.current.dragging = false;
+      if (draftRect && draftRect.w > 4 && draftRect.h > 4) {
+        onAddHighlight(pageIndex, draftRect);
+      }
+      setDraftRect(null);
+    }
+
+    // BRUSH commit
+    if (mode === 'brush' && brushRef.current.drawing) {
+      onAddBrush(pageIndex, {
+        points: brushRef.current.points,
+        size: brushSize,
+      });
+      brushRef.current.drawing = false;
+      brushRef.current.points = [];
+    }
   };
 
-  if (!viewport) return <div className="pdf-page-skeleton" />;
-
-  const isDragging = dragRef.current.dragging;
+  if (!viewport) return null;
 
   return (
     <div
@@ -71,15 +118,37 @@ export default function PdfPage({
       style={{
         width: viewport.width,
         height: viewport.height,
-        cursor: enabled ? 'crosshair' : 'default',
+        cursor: enabled
+          ? (mode === 'rect' ? 'crosshair' : 'none')
+          : 'default',
+
       }}
       onMouseDown={onMouseDown}
       onMouseMove={onMouseMove}
-      onMouseLeave={onMouseUp}
-      onMouseUp={onMouseUp}
+      onMouseUp={finishInteraction}
+      onMouseLeave={finishInteraction}
     >
       <canvas ref={canvasRef} className="pdf-canvas" />
 
+      {enabled && mode === 'brush' && (
+        <div
+          style={{
+            position: 'absolute',
+            left: cursor.x - brushSize / 2,
+            top: cursor.y - brushSize / 2,
+            width: brushSize,
+            height: brushSize,
+            borderRadius: '50%',
+            border: `2px solid ${colorHex}`,
+            background: `rgba(255,255,255,0.2)`,
+            pointerEvents: 'none',
+            boxSizing: 'border-box',
+          }}
+        />
+      )}
+
+
+      {/* Existing rectangles */}
       <HighlightLayer
         pageWidth={viewport.width}
         pageHeight={viewport.height}
@@ -88,7 +157,7 @@ export default function PdfPage({
         alpha={alpha}
       />
 
-      {/* Draft rubber-band */}
+      {/* Draft rectangle */}
       {draftRect && (
         <div
           className="hl-draft"
@@ -101,20 +170,25 @@ export default function PdfPage({
         />
       )}
 
-      {/* Plus indicator that follows the mouse when enabled */}
-      {enabled && (
-        <div
-          className={`cursor-plus ${isDragging ? 'dragging' : ''}`}
-          style={{
-            left: cursor.x,
-            top: cursor.y,
-            // during drag, tint to highlight color
-            ...(isDragging ? { ['--cursor-plus-bg']: colorHex } : null),
-          }}
-        >
-          +
-        </div>
-      )}
+      {/* Brush strokes */}
+      <svg
+        width={viewport.width}
+        height={viewport.height}
+        style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
+      >
+        {pageBrushes.map((s) => (
+          <polyline
+            key={s.id}
+            points={s.points.map(p => `${p.x},${p.y}`).join(' ')}
+            fill="none"
+            stroke={colorHex}
+            strokeOpacity={alpha}
+            strokeWidth={s.size}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        ))}
+      </svg>
     </div>
   );
 }

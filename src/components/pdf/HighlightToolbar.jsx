@@ -114,7 +114,17 @@ export default function HighlightToolbar({
       )}
 
       {/* right actions */}
-      <Stack direction="row" spacing={1} sx={{ ml: 'auto' }}>
+        <Tooltip title="Save (⌘/Ctrl+S)" direction="row" spacing={1} sx={{ ml: 'auto' }}>
+        <IconButton 
+        variant={smDown ? 'outlined' : 'contained'}
+          size="small" 
+          onClick={onSave}
+          disabled={!canClear || saving}
+        >
+          <SaveIcon fontSize="small" /></IconButton>
+      </Tooltip>
+
+      {/* <Stack direction="row" spacing={1} sx={{ ml: 'auto' }}>
         <Button
           variant={smDown ? 'outlined' : 'contained'}
           size="small"
@@ -123,10 +133,11 @@ export default function HighlightToolbar({
         >
           <SaveIcon fontSize="small" />
         </Button>
+      
         <IconButton size="small" onClick={(e) => setMenuEl(e.currentTarget)}>
           <MoreVertIcon fontSize="small" />
         </IconButton>
-      </Stack>
+      </Stack> */}
 
       {/* menu (mobile extras) */}
       <Menu open={!!menuEl} anchorEl={menuEl} onClose={() => setMenuEl(null)}>
@@ -153,9 +164,9 @@ export default function HighlightToolbar({
             <Divider />
           </>
         )}
-        <MenuItem onClick={() => { setMenuEl(null); onSave?.(); }}>
+        {/* <MenuItem onClick={() => { setMenuEl(null); onSave?.(); }}>
           Save & Overwrite
-        </MenuItem>
+        </MenuItem> */}
       </Menu>
 
       {/* color popover */}

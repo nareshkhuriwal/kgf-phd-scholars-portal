@@ -139,21 +139,21 @@ export default function ReviewEditor() {
   // }, []);
 
   const onEditorChange = React.useCallback((label, editor) => {
-  const data = editor.getData();
+    const data = editor.getData();
 
-  // Strip HTML to count characters only
-  const text = data.replace(/<[^>]*>/g, '').trim();
-  setCharCount(text.length);
+    // Strip HTML to count characters only
+    const text = data.replace(/<[^>]*>/g, '').trim();
+    setCharCount(text.length);
 
-  debouncedSetSectionsRef.current(label, data);
-}, []);
+    debouncedSetSectionsRef.current(label, data);
+  }, []);
 
-React.useEffect(() => {
-  const activeLabel = EDITOR_ORDER[tab];
-  const html = sections[activeLabel] || '';
-  const text = html.replace(/<[^>]*>/g, '').trim();
-  setCharCount(text.length);
-}, [tab, sections]);
+  React.useEffect(() => {
+    const activeLabel = EDITOR_ORDER[tab];
+    const html = sections[activeLabel] || '';
+    const text = html.replace(/<[^>]*>/g, '').trim();
+    setCharCount(text.length);
+  }, [tab, sections]);
 
 
 
@@ -282,11 +282,11 @@ React.useEffect(() => {
                           data={sections[label] || ''}
                           onChange={(_, ed) => onEditorChange(label, ed)}
                         />
-                        
+
                       )}
                       <Typography variant="caption" color="text.secondary">
-    Characters: {charCount}
-  </Typography>
+                        Characters: {charCount}
+                      </Typography>
                     </Box>
                   </Box>
                 ))}
@@ -296,7 +296,7 @@ React.useEffect(() => {
 
           {/* RIGHT: Metadata sidebar – hidden completely when closed */}
           {sidebarOpen && (
-   
+
             <Grid item xs={12} lg={2}>
               <ReviewSidebar
                 paper={current}
