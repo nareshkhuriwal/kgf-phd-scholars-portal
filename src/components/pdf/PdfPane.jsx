@@ -12,7 +12,7 @@ import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
-const isDev = import.meta.env.VITE_APP_ENV || 'DEV';
+const isDev = import.meta.env.VITE_APP_ENV === 'DEV';
 const ZOOM_STEP = 1.15;
 const DEFAULT_BRUSH_SIZE = 12;
 
@@ -29,6 +29,7 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
   React.useEffect(() => {
     setActiveUrl(fileUrl ? (isDev ? toRelative(fileUrl) : fileUrl) : '');
   }, [fileUrl]);
+
 
   /* ---------------- PDF STATE ---------------- */
   const [doc, setDoc] = React.useState(null);
