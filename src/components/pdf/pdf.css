@@ -147,3 +147,36 @@
 .cursor-plus.dragging {
   background: var(--cursor-plus-bg, rgba(255, 235, 59, 0.95)); /* falls back to yellow */
 }
+
+
+.pdf-pane {
+  overflow: auto;
+  height: 100%;
+}
+
+.textLayer {
+  pointer-events: auto;
+}
+
+.textLayer span {
+  cursor: text;
+}
+
+.pdf-page {
+  user-select: none;
+}
+
+.pdf-loader {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 4px solid rgba(0, 0, 0, 0.1);
+  border-top-color: #1976d2;
+  animation: pdf-spin 0.9s linear infinite;
+}
+
+@keyframes pdf-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

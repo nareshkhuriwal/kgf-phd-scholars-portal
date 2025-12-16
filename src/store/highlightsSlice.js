@@ -3,24 +3,64 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { apiFetch } from '../services/api';
 
 /**
- * ORIGINAL: Server-side apply (JSON -> /papers/:id/highlights/apply)
- * Keeps your existing behavior intact.
+ * UPDATED: Server-side apply (JSON -> /papers/:id/highlights/apply)
+ * Supports RECT + BRUSH highlights (backward compatible)
  */
 export const saveHighlights = createAsyncThunk(
   'highlights/save',
   /**
-   * payload: { paperId: number|string, highlights: Array<{page:number, rects:Array<...>}>,
-   *           replace?: boolean }
+   * payload:
+   * {
+   *   paperId: number|string,
+   *   highlights?: Array<{ page:number, rects:Array<{x,y,w,h}> }>,
+   *   brushHighlights?: Array<{ page:number, strokes:Array<{points,size}> }>,
+   *   replace?: boolean,
+   *   sourceUrl?: string,
+   *   style?: { color?: string, alpha?: number }
+   * }
    */
-  async ({ paperId, highlights, replace = false }, { rejectWithValue }) => {
+  async (
+    {
+      paperId,
+      highlights,
+      brushHighlights,
+      replace = false,
+      sourceUrl,
+      style,
+    },
+    { rejectWithValue }
+  ) => {
     try {
-      if (!paperId) throw new Error('paperId is required');
-      if (!highlights?.length) throw new Error('No highlights to save');
+      if (!paperId) {
+        throw new Error('paperId is required');
+      }
 
-      const res = await apiFetch(`/papers/${paperId}/highlights/apply`, {
-        method: 'POST',
-        body: { replace, highlights },
-      });
+      const hasRects =
+        Array.isArray(highlights) && highlights.length > 0;
+
+      const hasBrushes =
+        Array.isArray(brushHighlights) && brushHighlights.length > 0;
+
+      // ✅ IMPORTANT: allow rect-only OR brush-only
+      if (!hasRects && !hasBrushes) {
+        throw new Error('No highlights to save');
+      }
+
+      // Build payload conditionally (do NOT send empty arrays)
+      const body = { replace };
+
+      if (sourceUrl) body.sourceUrl = sourceUrl;
+      if (style) body.style = style;
+      if (hasRects) body.highlights = highlights;
+      if (hasBrushes) body.brushHighlights = brushHighlights;
+
+      const res = await apiFetch(
+        `/papers/${paperId}/highlights/apply`,
+        {
+          method: 'POST',
+          body,
+        }
+      );
 
       const fileUrl =
         res?.file_url ??
@@ -28,11 +68,15 @@ export const saveHighlights = createAsyncThunk(
         res?.url ??
         res?.data?.url;
 
-      if (!fileUrl) throw new Error('Server did not return file_url');
+      if (!fileUrl) {
+        throw new Error('Server did not return file_url');
+      }
 
       return { fileUrl };
     } catch (err) {
-      return rejectWithValue(err?.message || 'Save highlights failed');
+      return rejectWithValue(
+        err?.message || 'Save highlights failed'
+      );
     }
   }
 );
@@ -71,16 +115,16 @@ export const uploadHighlightedPdf = createAsyncThunk(
 
       const fd = new FormData();
       fd.append('file', blob, 'highlighted.pdf');
-      if (destUrl)   fd.append('dest_url', destUrl);
-      if (destPath)  fd.append('dest_path', destPath);
+      if (destUrl) fd.append('dest_url', destUrl);
+      if (destPath) fd.append('dest_path', destPath);
       if (overwrite) fd.append('overwrite', '1');
-      if (keepName)  fd.append('keep_name', '1');
-      if (label)     fd.append('label', label);
+      if (keepName) fd.append('keep_name', '1');
+      if (label) fd.append('label', label);
 
       // IMPORTANT: apiFetch returns parsed JSON (or throws on !ok)
       const data = await apiFetch(uploadUrl, { method: 'POST', body: fd });
 
-      const url  = data?.url  ?? data?.file_url ?? null;
+      const url = data?.url ?? data?.file_url ?? null;
       const path = data?.path ?? data?.file_path ?? null;
       if (!url) throw new Error('Server did not return url');
 
