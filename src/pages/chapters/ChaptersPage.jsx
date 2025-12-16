@@ -22,6 +22,8 @@ import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import AddIcon from '@mui/icons-material/Add';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import { Snackbar, Alert } from '@mui/material';
+
 
 
 const copyText = async (t) => { try { await navigator.clipboard.writeText(t || ''); } catch { } };
@@ -39,6 +41,12 @@ export default function ChaptersPage({ userId: userIdProp }) {
   const [open, setOpen] = React.useState(false);
   const [title, setTitle] = React.useState('');
   const [reorderMode, setReorderMode] = React.useState(false);
+  const [toast, setToast] = React.useState(null);
+
+  const [dragIndex, setDragIndex] = React.useState(null);
+  const [hoverIndex, setHoverIndex] = React.useState(null);
+
+
   const nav = useNavigate();
 
   React.useEffect(() => {
@@ -88,6 +96,52 @@ export default function ChaptersPage({ userId: userIdProp }) {
     dispatch(reorderChapters(newOrder.map((c) => c.id)));
   };
 
+  const handleDragStart = (index) => {
+    setDragIndex(index);
+  };
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault(); // REQUIRED
+    setHoverIndex(index);
+  };
+
+  const handleDrop = async () => {
+    if (dragIndex === null || hoverIndex === null) return;
+
+    const items = [...normalized];
+    const [moved] = items.splice(dragIndex, 1);
+    items.splice(hoverIndex, 0, moved);
+
+    setDragIndex(null);
+    setHoverIndex(null);
+
+    try {
+      const res = await dispatch(
+        reorderChapters(items.map(c => c.id))
+      ).unwrap();
+
+      setToast({
+        severity: 'success',
+        msg: res?.message || 'Chapter order updated',
+      });
+
+      // setReorderMode(false);
+    } catch (err) {
+      setToast({
+        severity: 'error',
+        msg: err || 'Failed to reorder chapters',
+      });
+    }
+  };
+
+
+  const handleDragEnd = () => {
+    setDragIndex(null);
+    setHoverIndex(null);
+  };
+
+
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <PageHeader
@@ -95,9 +149,19 @@ export default function ChaptersPage({ userId: userIdProp }) {
         subtitle="Create, edit and organize your chapters"
         actions={
           <Stack direction="row" spacing={1}>
-            <Button variant={reorderMode ? 'outlined' : 'text'} onClick={() => setReorderMode(v => !v)}>
+            {/* <Button variant={reorderMode ? 'outlined' : 'text'} onClick={() => setReorderMode(v => !v)}>
               {reorderMode ? 'Done Reordering' : 'Reorder'}
+            </Button> */}
+
+            <Button
+              variant={reorderMode ? 'contained' : 'text'}
+              color={reorderMode ? 'warning' : 'primary'}
+              onClick={() => setReorderMode(v => !v)}
+            >
+              {reorderMode ? 'Save Order' : 'Reorder'}
             </Button>
+
+
             <Button startIcon={<AddIcon />} variant="contained" onClick={() => setOpen(true)}>
               Add Chapter
             </Button>
@@ -107,7 +171,7 @@ export default function ChaptersPage({ userId: userIdProp }) {
 
       <Paper sx={{ p: 1.5, border: '1px solid #eee', borderRadius: 2, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
         <Box sx={{ mb: 1.5 }}>
-          <SearchBar value={query} onChange={setQuery} placeholder="Search chapters…" />
+          <SearchBar disabled={reorderMode} value={query} onChange={setQuery} placeholder="Search chapters…" />
         </Box>
 
         {loading ? (
@@ -127,7 +191,7 @@ export default function ChaptersPage({ userId: userIdProp }) {
                           <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 140 }}>Actions</TableCell>
                         </TableRow>
                       </TableHead>
-                      <TableBody>
+                      {/* <TableBody>
                         {normalized.map((c, idx) => (
                           <Draggable key={c.id} draggableId={String(c.id)} index={idx}>
                             {(p) => (
@@ -144,7 +208,52 @@ export default function ChaptersPage({ userId: userIdProp }) {
                             )}
                           </Draggable>
                         ))}
+                      </TableBody> */}
+
+                      <TableBody>
+                        {normalized.map((c, idx) => (
+                          <TableRow
+                            key={c.id}
+                            hover
+                            draggable
+                            onDragStart={() => handleDragStart(idx)}
+                            onDragOver={(e) => handleDragOver(e, idx)}
+                            onDrop={handleDrop}
+                            onDragEnd={handleDragEnd}
+                            sx={{
+                              cursor: 'grab',
+                              opacity: dragIndex === idx ? 0.5 : 1,
+                              backgroundColor:
+                                hoverIndex === idx && dragIndex !== idx
+                                  ? 'rgba(25, 118, 210, 0.08)'
+                                  : 'inherit',
+                            }}
+                          >
+                            <TableCell width={60}>
+                              <DragIndicatorIcon fontSize="small" />
+                            </TableCell>
+
+                            <TableCell>{c.title || '—'}</TableCell>
+
+                            <TableCell width={200}>
+                              {(c.updated_at || c.created_at || '')
+                                .toString()
+                                .replace('T', ' ')
+                                .replace('.000000Z', '')}
+                            </TableCell>
+
+                            <TableCell width={140}>
+                              <IconButton size="small" disabled>
+                                <EditIcon fontSize="inherit" />
+                              </IconButton>
+                              <IconButton size="small" disabled>
+                                <DeleteIcon fontSize="inherit" />
+                              </IconButton>
+                            </TableCell>
+                          </TableRow>
+                        ))}
                       </TableBody>
+
                     </Table>
                   )}
                 </Droppable>
@@ -200,7 +309,7 @@ export default function ChaptersPage({ userId: userIdProp }) {
         )}
 
         <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <TablePagination
+          {!reorderMode && <TablePagination
             component="div"
             count={filtered.length}
             page={page}
@@ -209,7 +318,7 @@ export default function ChaptersPage({ userId: userIdProp }) {
             onRowsPerPageChange={(e) => { setRpp(parseInt(e.target.value, 10)); setPage(0); }}
             rowsPerPageOptions={[10, 25, 50, 100]}
             showFirstButton showLastButton
-          />
+          />}
         </Box>
       </Paper>
 
@@ -224,6 +333,23 @@ export default function ChaptersPage({ userId: userIdProp }) {
           <Button variant="contained" onClick={handleCreate}>Create</Button>
         </DialogActions>
       </Dialog>
+
+
+      <Snackbar
+        open={!!toast}
+        autoHideDuration={3000}
+        onClose={() => setToast(null)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        sx={{ mt: 6 }}
+      >
+        {toast && (
+          <Alert severity={toast.severity} variant="filled">
+            {toast.msg}
+          </Alert>
+        )}
+      </Snackbar>
+
+
     </Box>
   );
 }
