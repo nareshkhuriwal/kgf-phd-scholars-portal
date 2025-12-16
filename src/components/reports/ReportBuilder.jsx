@@ -23,7 +23,7 @@ const REPORT_TEMPLATES = [
   { value: 'presentation', label: 'Presentation' }
 ];
 const FORMATS = [
-  { value: 'pdf',  label: 'PDF' },
+  { value: 'pdf', label: 'PDF' },
   { value: 'docx', label: 'Word (.docx)' },
   { value: 'xlsx', label: 'Excel (.xlsx)' },
   { value: 'pptx', label: 'PowerPoint (.pptx)' }
@@ -33,6 +33,7 @@ const EDITOR_ORDER = [
   'Input Parameters used', 'Hardware / Software / Technology Used', 'Results',
   'Key advantages', 'Limitations', 'Citations', 'Remarks'
 ];
+const ALL_OPTION = { id: '__ALL__', label: 'Select All Chapters' };
 
 // Utility: make a full include map from partial include (ensures every key exists)
 const normalizeInclude = (maybeInclude) => {
@@ -47,21 +48,21 @@ const normalizeInclude = (maybeInclude) => {
 // Utility: coerce server saved report into UI shape (defensive)
 const coerceSaved = (r) => {
   const filters = {
-    areas:   Array.isArray(r?.filters?.areas)   ? r.filters.areas   : [],
-    years:   Array.isArray(r?.filters?.years)   ? r.filters.years   : [],
-    venues:  Array.isArray(r?.filters?.venues)  ? r.filters.venues  : [],
+    areas: Array.isArray(r?.filters?.areas) ? r.filters.areas : [],
+    years: Array.isArray(r?.filters?.years) ? r.filters.years : [],
+    venues: Array.isArray(r?.filters?.venues) ? r.filters.venues : [],
     userIds: Array.isArray(r?.filters?.userIds) ? r.filters.userIds : [],
   };
   const selections = {
-    include:      normalizeInclude(r?.selections?.include),
+    include: normalizeInclude(r?.selections?.include),
     includeOrder: Array.isArray(r?.selections?.includeOrder) ? r.selections.includeOrder : [...EDITOR_ORDER],
-    chapters:     Array.isArray(r?.selections?.chapters) ? r.selections.chapters : [],
+    chapters: Array.isArray(r?.selections?.chapters) ? r.selections.chapters : [],
   };
   return {
-    name:      r?.name ?? '',
-    template:  r?.template ?? 'rol',
-    format:    r?.format ?? 'pdf',
-    filename:  r?.filename ?? 'report',
+    name: r?.name ?? '',
+    template: r?.template ?? 'rol',
+    format: r?.format ?? 'pdf',
+    filename: r?.filename ?? 'report',
     filters,
     selections,
   };
@@ -118,6 +119,24 @@ export default function ReportBuilder() {
     selections: { include, includeOrder: EDITOR_ORDER, chapters: chapterIds }
   };
 
+  const chapterOptions = React.useMemo(() => {
+    const base = (chapters || []).map(ch => ({
+      id: String(ch.id),
+      label: ch.title,
+    }));
+
+    return base.length > 0 ? [ALL_OPTION, ...base] : [];
+  }, [chapters]);
+
+  const selectedChapterObjects = React.useMemo(() => {
+    return (chapterIds || []).map(id => {
+      const ch = (chapters || []).find(c => String(c.id) === String(id));
+      return { id: String(id), label: ch?.title || `Chapter ${id}` };
+    });
+  }, [chapterIds, chapters]);
+
+
+
   const onSave = async () => {
     const action = editingId
       ? await dispatch(updateSavedReport({ id: editingId, ...payloadBase }))
@@ -158,7 +177,7 @@ export default function ReportBuilder() {
   // helpers
   const parseCsv = (val) => val.split(',').map(s => s.trim()).filter(Boolean);
   const selectAllSections = () => setInclude(Object.fromEntries(EDITOR_ORDER.map(k => [k, true])));
-  const clearAllSections  = () => setInclude(Object.fromEntries(EDITOR_ORDER.map(k => [k, false])));
+  const clearAllSections = () => setInclude(Object.fromEntries(EDITOR_ORDER.map(k => [k, false])));
   const clearFilters = () => setFilters({ areas: [], years: [], venues: [], userIds: [] });
 
   return (
@@ -199,8 +218,8 @@ export default function ReportBuilder() {
       <Paper variant="outlined" sx={{ p: 2 }}>
         <Typography variant="subtitle1">Filters Applied</Typography>
         <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', mt: 1 }}>
-          {filters.areas.length  > 0 && <Chip label={`Areas: ${filters.areas.join(', ')}`} />}
-          {filters.years.length  > 0 && <Chip label={`Years: ${filters.years.join(', ')}`} />}
+          {filters.areas.length > 0 && <Chip label={`Areas: ${filters.areas.join(', ')}`} />}
+          {filters.years.length > 0 && <Chip label={`Years: ${filters.years.join(', ')}`} />}
           {filters.venues.length > 0 && <Chip label={`Venues: ${filters.venues.join(', ')}`} />}
           {filters.userIds.length > 0 && (
             <Chip
@@ -282,16 +301,70 @@ export default function ReportBuilder() {
         </Stack>
 
         <Box sx={{ mt: 2 }}>
+
+          <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ mb: 0.5 }}>
+            <Button
+              size="small"
+              onClick={() => setChapterIds((chapters || []).map(c => String(c.id)))}
+            >
+              Select All
+            </Button>
+            <Button
+              size="small"
+              onClick={() => setChapterIds([])}
+            >
+              Clear
+            </Button>
+          </Stack>
+
+
           <Autocomplete
             multiple
-            options={(chapters || []).map(ch => ({ id: String(ch.id), label: ch.title }))}
-            value={(chapterIds || []).map(id => {
-              const ch = (chapters || []).find(x => String(x.id) === String(id));
-              return { id: String(id), label: ch?.title || `Chapter ${id}` };
-            })}
-            onChange={(_, vals) => setChapterIds(vals.map(v => v.id))}
-            renderInput={(params) => <TextField {...params} label={`Chapters (${chapterIds.length})`} size="small" />}
+            disableCloseOnSelect
+            options={chapterOptions}
+            value={selectedChapterObjects}
+            isOptionEqualToValue={(o, v) => o.id === v.id}
+            getOptionLabel={(o) => o.label}
+            onChange={(_, values) => {
+              const hasAll = values.some(v => v.id === ALL_OPTION.id);
+
+              if (hasAll) {
+                // Toggle select all
+                if (chapterIds.length === (chapters || []).length) {
+                  setChapterIds([]); // clear all
+                } else {
+                  setChapterIds((chapters || []).map(c => String(c.id))); // select all
+                }
+                return;
+              }
+
+              setChapterIds(values.map(v => v.id));
+            }}
+            renderOption={(props, option, { selected }) => (
+              <li {...props} key={option.id}>
+                <Checkbox
+                  checked={
+                    option.id === ALL_OPTION.id
+                      ? chapterIds.length === (chapters || []).length && chapterIds.length > 0
+                      : selected
+                  }
+                  size="small"
+                  sx={{ mr: 1 }}
+                />
+                {option.label}
+              </li>
+            )}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label={`Chapters (${chapterIds.length}/${chapters?.length || 0})`}
+                size="small"
+                placeholder="Select chapters"
+              />
+            )}
+            sx={{ minWidth: 400 }}
           />
+
         </Box>
       </Paper>
 
@@ -331,9 +404,16 @@ export default function ReportBuilder() {
         </Alert>
       )}
       {error && <Alert severity="error">{String(error)}</Alert>}
-      <Snackbar open={!!snack} autoHideDuration={3500} onClose={() => setSnack(null)}>
+
+      <Snackbar open={!!snack} autoHideDuration={3500} onClose={() => setSnack(null)}
+
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        sx={{ mt: 6 }}
+      >
         {snack && <Alert severity={snack.severity}>{snack.msg}</Alert>}
       </Snackbar>
+
+
     </Stack>
   );
 }
