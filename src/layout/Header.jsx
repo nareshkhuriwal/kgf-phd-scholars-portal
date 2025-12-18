@@ -64,9 +64,6 @@ export default function Header({ onToggleSidebar }) {
     .join('')
     .toUpperCase();
 
-    const avatarSrc = user?.avatar || null;  
-
-  // Normalize role -> "super_admin", "admin", "supervisor", "researcher", etc.
   const normalizedRole = role
     ? role.toLowerCase().replace(/\s+/g, '_')
     : null;
@@ -186,68 +183,62 @@ export default function Header({ onToggleSidebar }) {
 
           {/* ================= DESKTOP NAV ================= */}
           {(isDesktop || isTablet) && (
-  <Box
-    sx={{
-      flexGrow: 1,
-      overflowX: 'auto',
-      whiteSpace: 'nowrap',
-      '&::-webkit-scrollbar': { height: 6 },
-      '&::-webkit-scrollbar-thumb': {
-        backgroundColor: '#c1c1c1',
-        borderRadius: 8,
-      },
-    }}
-  >
-    <Stack direction="row" spacing={1}>
-      {visibleSections.map((sec) => {
-        const Icon = sec.Icon;
-        const active = location.pathname.startsWith(sec.base);
-        const target = sec.items?.[0]?.to || sec.base || '/';
+            <Box
+              sx={{
+                flexGrow: 1,
+                overflowX: 'auto',
+                whiteSpace: 'nowrap',
+                '&::-webkit-scrollbar': { height: 6 },
+                '&::-webkit-scrollbar-thumb': {
+                  backgroundColor: '#c1c1c1',
+                  borderRadius: 8,
+                },
+              }}
+            >
+              <Stack direction="row" spacing={1}>
+                {visibleSections.map((sec) => {
+                  const Icon = sec.Icon;
+                  const active = location.pathname.startsWith(sec.base);
+                  const target = sec.items?.[0]?.to || sec.base || '/';
 
-        return (
-          <Chip
-            key={sec.key}
-            icon={<Icon />}
-            label={sec.label}
-            color={active ? 'primary' : 'default'}
-            variant={active ? 'filled' : 'outlined'}
-            onClick={() => navigate(target)}
-            sx={{
-              height: 32,
-              flexShrink: 0,
-              '& .MuiChip-label': {
-                px: 1.25,
-                fontWeight: active ? 600 : 500,
-              },
-            }}
-          />
-        );
-      })}
-    </Stack>
-  </Box>
-)}
+                  return (
+                    <Chip
+                      key={sec.key}
+                      icon={<Icon />}
+                      label={sec.label}
+                      color={active ? 'primary' : 'default'}
+                      variant={active ? 'filled' : 'outlined'}
+                      onClick={() => navigate(target)}
+                      sx={{
+                        height: 32,
+                        flexShrink: 0,
+                        '& .MuiChip-label': {
+                          px: 1.25,
+                          fontWeight: active ? 600 : 500,
+                        },
+                      }}
+                    />
+                  );
+                })}
+              </Stack>
+            </Box>
+          )}
 
 
           {/* -------- Right side -------- */}
           <Stack direction="row" spacing={1.5} alignItems="center">
             <NotificationBell />
 
-            {/* User menu */}
-            <Box>
-              <IconButton
-                onClick={handleOpen}
-                size="small"
-                sx={{ ml: 1, p: 0.5, border: '1px solid #e6e6e6', borderRadius: '24px' }}
-              >
-                <Avatar sx={{ width: 28, height: 28, fontSize: 13 }} src={avatarSrc}>{initials}</Avatar>
-                <Typography
-                  sx={{
-                    ml: 1,
-                    mr: 0.5,
-                    display: { xs: 'none', sm: 'inline' },
-                    fontWeight: 500
-                  }}
-                >
+            <IconButton
+              onClick={openUserMenu}
+              size="small"
+              sx={{ border: '1px solid #e6e6e6', borderRadius: '24px' }}
+            >
+              <Avatar sx={{ width: 28, height: 28, fontSize: 13 }}>
+                {initials}
+              </Avatar>
+              {!isMobile && (
+                <Typography sx={{ ml: 1, fontWeight: 500 }}>
                   {firstName}
                 </Typography>
               )}
