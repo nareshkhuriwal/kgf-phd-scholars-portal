@@ -19,8 +19,10 @@ import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 // ⬇️ NEW icons
 import FitScreenIcon from '@mui/icons-material/FitScreen';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import FullscreenIcon from '@mui/icons-material/Fullscreen';
+import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
 
-const SWATCHES = ['#FFEB3B','#FFF59D','#A5D6A7','#90CAF9','#F48FB1','#FFCC80'];
+const SWATCHES = ['#FFEB3B', '#FFF59D', '#A5D6A7', '#90CAF9', '#F48FB1', '#FFCC80'];
 
 export default function HighlightToolbar({
   enabled, setEnabled,
@@ -33,6 +35,8 @@ export default function HighlightToolbar({
   alpha, setAlpha,
   brushSize = 12, setBrushSize,
   onZoomChange, zoom,
+  onToggleFullscreen,
+  isFullscreen,
   onFitWidth, onReset,
   saving
 }) {
@@ -110,14 +114,20 @@ export default function HighlightToolbar({
           <Tooltip title="Reset zoom">
             <span><IconButton size="small" onClick={onReset} disabled={!onReset}><RestartAltIcon fontSize="small" /></IconButton></span>
           </Tooltip>
+          <Tooltip title={isFullscreen ? 'Exit Full Screen' : 'Full Screen'}>
+            <IconButton size="small" onClick={onToggleFullscreen}>
+              {isFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
+            </IconButton>
+          </Tooltip>
+
         </>
       )}
 
       {/* right actions */}
-        <Tooltip title="Save (⌘/Ctrl+S)" direction="row" spacing={1} sx={{ ml: 'auto' }}>
-        <IconButton 
-        variant={smDown ? 'outlined' : 'contained'}
-          size="small" 
+      <Tooltip title="Save (⌘/Ctrl+S)" direction="row" spacing={1} sx={{ ml: 'auto' }}>
+        <IconButton
+          variant={smDown ? 'outlined' : 'contained'}
+          size="small"
           onClick={onSave}
           disabled={!canClear || saving}
         >
@@ -171,33 +181,35 @@ export default function HighlightToolbar({
 
       {/* color popover */}
       <Popover open={!!colorEl} anchorEl={colorEl} onClose={() => setColorEl(null)}
-               anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}>
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}>
         <Box sx={{ p: 1, display: 'flex', gap: 1 }}>
           {SWATCHES.map((c) => (
             <Box key={c} onClick={() => { setColor?.(c); setColorEl(null); }}
-              sx={{ width: 24, height: 24, borderRadius: '50%', bgcolor: c,
-                    border: '1px solid rgba(0,0,0,0.2)', cursor: 'pointer' }} />
+              sx={{
+                width: 24, height: 24, borderRadius: '50%', bgcolor: c,
+                border: '1px solid rgba(0,0,0,0.2)', cursor: 'pointer'
+              }} />
           ))}
         </Box>
       </Popover>
 
       {/* opacity popover */}
       <Popover open={!!alphaEl} anchorEl={alphaEl} onClose={() => setAlphaEl(null)}
-               anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}>
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}>
         <Box sx={{ p: 2, width: 220 }}>
           <Slider value={Math.round(curAlpha * 100)}
-                  onChange={(_, v) => setAlpha?.((Array.isArray(v) ? v[0] : v)/100)}
-                  valueLabelDisplay="auto" />
+            onChange={(_, v) => setAlpha?.((Array.isArray(v) ? v[0] : v) / 100)}
+            valueLabelDisplay="auto" />
         </Box>
       </Popover>
 
       {/* brush size (reserved) */}
       <Popover open={!!brushEl} anchorEl={brushEl} onClose={() => setBrushEl(null)}
-               anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}>
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}>
         <Box sx={{ p: 2, width: 220 }}>
           <Slider min={2} max={48} step={1} value={brushSize}
-                  onChange={(_, v) => setBrushSize?.(Array.isArray(v) ? v[0] : v)}
-                  valueLabelDisplay="auto" />
+            onChange={(_, v) => setBrushSize?.(Array.isArray(v) ? v[0] : v)}
+            valueLabelDisplay="auto" />
         </Box>
       </Popover>
     </Stack>
