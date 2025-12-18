@@ -1,4 +1,3 @@
-import { apiFetch } from '../../services/api';
 
 /**
  * CKEditor upload adapter
@@ -13,36 +12,43 @@ class EditorUploadAdapter {
   upload() {
     return this.loader.file.then(async (file) => {
       const formData = new FormData();
-
-      // Laravel-compatible field name
       formData.append('upload', file);
 
       if (this.paperId) {
         formData.append('paper_id', this.paperId);
       }
 
-      try {
-        const res = await apiFetch('/editor/upload-image', {
+      // 🔐 JWT token (same token you already use)
+      const token = localStorage.getItem('auth_token');
+
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/editor/upload-image`,
+        {
           method: 'POST',
           body: formData,
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/json',
+          },
           signal: this.abortController.signal,
-        });
-
-        const url = res?.url || res?.data?.url;
-
-        if (!url) {
-          throw new Error('Upload API did not return image URL');
         }
+      );
 
-        // CKEditor REQUIRED response shape
-        console.log('Image uploaded:', url);
-        return {
-          default: url,
-        };
-      } catch (err) {
-        console.error('Image upload failed', err);
-        throw err;
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Image upload failed');
       }
+
+      const data = await response.json();
+
+      if (!data?.url) {
+        throw new Error('Upload API did not return image URL');
+      }
+
+      // ✅ CKEditor REQUIRED response shape
+      return {
+        default: data.url,
+      };
     });
   }
 
@@ -50,6 +56,7 @@ class EditorUploadAdapter {
     this.abortController.abort();
   }
 }
+
 
 /**
  * Upload plugin factory (per paper)
