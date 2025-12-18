@@ -15,7 +15,7 @@ import { downloadSynopsisDocx } from '../../utils/docx/synopsisDocx';
 import { cleanRich } from '../../utils/text/cleanRich';
 import { exportSynopsisDocx } from '../../utils/docx/exportSynopsisDocx';
 import { exportReportPptx } from '../../utils/pptx/exportReportPptx';
-
+import { htmlToExcelText } from '../../utils/exporters/htmlToExcelText';
 
 export default function ReportPreviewDialog({ open, loading, onClose, data }) {
   // Merge nested selectedReport if present
@@ -49,7 +49,7 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
   const isHtml = fmt === 'html';
   const isText = ['txt', 'md'].includes(fmt);
   const isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(fmt);
-  const isSynopsis = tpl === 'synopsis';
+  const isSynopsis = tpl === 'synopsis' || tpl === 'presentation';
   const hasSynopsisContent = (chapters?.length || 0) > 0 || (literature?.length || 0) > 0;
 
   const effectiveDownload = downloadUrl || url || null;
@@ -97,19 +97,50 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
   };
 
   // Client-side Excel download (for dataset)
-  const onDownloadExcel = () => {
-    const ordered = rows.map(r => {
-      const obj = {};
-      columns.forEach(c => { obj[c.label || c.key] = r[c.key]; });
-      return obj;
+const onDownloadExcel = () => {
+  const metaKeys = new Set([
+    'paper_id',
+    'doi',
+    'authors',
+    'title',
+    'year',
+    'category',
+  ]);
+
+  const ordered = rows.map(r => {
+    const obj = {};
+
+    columns.forEach(c => {
+      let val = r[c.key];
+
+      if (val == null || val === '') {
+        obj[c.label || c.key] = '';
+        return;
+      }
+
+      // Convert review sections to Excel-friendly text
+      if (!metaKeys.has(c.key)) {
+        val = htmlToExcelText(val);
+      }
+
+      obj[c.label || c.key] = val;
     });
-    const ws = XLSX.utils.json_to_sheet(ordered);
-    const wb = XLSX.utils.book_new();
-    const sheetName = (template || 'Report').toUpperCase().slice(0, 31);
-    XLSX.utils.book_append_sheet(wb, ws, sheetName);
-    const safeName = String(name || 'Report').replace(/[^A-Za-z0-9._-]+/g, '_');
-    XLSX.writeFile(wb, `${safeName || 'Report'}.xlsx`);
-  };
+
+    return obj;
+  });
+
+  const ws = XLSX.utils.json_to_sheet(ordered);
+  const wb = XLSX.utils.book_new();
+  const sheetName = (template || 'Report').toUpperCase().slice(0, 31);
+
+  XLSX.utils.book_append_sheet(wb, ws, sheetName);
+
+  const safeName = String(name || 'Report')
+    .replace(/[^A-Za-z0-9._-]+/g, '_');
+
+  XLSX.writeFile(wb, `${safeName}.xlsx`);
+};
+
 
   // Client-side DOCX download (for Synopsis)
   const onDownloadSynopsis = () => {
@@ -218,9 +249,10 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
           {name}
           {template && (
             <Typography component="span" sx={{ ml: 1, color: 'text.secondary', fontWeight: 400 }}>
-              · {String(template).toUpperCase()}
+              · {tpl === 'presentation' ? 'PPT PREVIEW' : String(template).toUpperCase()}
             </Typography>
           )}
+
           {meta?.totalPapers != null && (
             <Typography component="span" sx={{ ml: 1, color: 'text.secondary', fontWeight: 400 }}>
               · {meta.totalPapers} rows
@@ -338,8 +370,17 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
                         <TableRow hover key={String((page * rpp) + idx)}>
                           {columns.map(col => (
                             <TableCell key={col.key}>
-                              {row[col.key] == null || row[col.key] === '' ? '—' : String(row[col.key])}
+                              {row[col.key] == null || row[col.key] === '' ? (
+                                '—'
+                              ) : (
+                                <Box
+                                  className="ck-content"
+                                  sx={{ '& p': { m: 0 }, '& ol, & ul': { pl: 2 } }}
+                                  dangerouslySetInnerHTML={{ __html: row[col.key] }}
+                                />
+                              )}
                             </TableCell>
+
                           ))}
                         </TableRow>
                       ))}
