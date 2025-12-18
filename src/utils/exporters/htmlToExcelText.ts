@@ -1,35 +1,38 @@
 import { cleanRich } from '../text/cleanRich';
 
-export const htmlToExcelText = (html) => {
+export function htmlToExcelText(html: string): string {
   if (!html || typeof html !== 'string') return '';
+
+  let text = '';
 
   // Ordered list → numbered points
   if (html.includes('<ol')) {
-    let index = 1;
-
-    return html
+    let i = 1;
+    text = html
       .replace(/<\/?ol[^>]*>/gi, '')
-      .replace(/<li[^>]*>/gi, () => `${index++}. `)
+      .replace(/<li[^>]*>/gi, () => `${i++}. `)
       .replace(/<\/li>/gi, '\n')
       .replace(/<[^>]+>/g, '')
-      .replace(/&nbsp;/g, ' ')
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
       .trim();
   }
-
   // Unordered list → dash bullets
-  if (html.includes('<ul')) {
-    return html
+  else if (html.includes('<ul')) {
+    text = html
       .replace(/<\/?ul[^>]*>/gi, '')
       .replace(/<li[^>]*>/gi, '- ')
       .replace(/<\/li>/gi, '\n')
       .replace(/<[^>]+>/g, '')
-      .replace(/&nbsp;/g, ' ')
       .trim();
   }
+  // Plain text
+  else {
+    text = cleanRich(html);
+  }
 
-  // Fallback
-  return cleanRich(html);
-};
+  // 🔒 CRITICAL: prevent Excel formula parsing
+  if (/^[=+\-@]/.test(text)) {
+    text = `'${text}`;
+  }
+
+  return text;
+}
