@@ -49,7 +49,7 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
   const isHtml = fmt === 'html';
   const isText = ['txt', 'md'].includes(fmt);
   const isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(fmt);
-  const isSynopsis = tpl === 'synopsis';
+  const isSynopsis = tpl === 'synopsis' || tpl === 'presentation';
   const hasSynopsisContent = (chapters?.length || 0) > 0 || (literature?.length || 0) > 0;
 
   const effectiveDownload = downloadUrl || url || null;
@@ -249,9 +249,10 @@ const onDownloadExcel = () => {
           {name}
           {template && (
             <Typography component="span" sx={{ ml: 1, color: 'text.secondary', fontWeight: 400 }}>
-              · {String(template).toUpperCase()}
+              · {tpl === 'presentation' ? 'PPT PREVIEW' : String(template).toUpperCase()}
             </Typography>
           )}
+
           {meta?.totalPapers != null && (
             <Typography component="span" sx={{ ml: 1, color: 'text.secondary', fontWeight: 400 }}>
               · {meta.totalPapers} rows
