@@ -11,7 +11,10 @@ export default function ReviewToolbar({ onSave, saving }) {
   React.useEffect(() => {
     const onKey = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
-        e.preventDefault(); onSave?.();
+        e.preventDefault();
+        e.stopPropagation();
+        onSave?.();
+
       }
     };
     window.addEventListener('keydown', onKey);
@@ -21,7 +24,22 @@ export default function ReviewToolbar({ onSave, saving }) {
   return (
     <Box sx={{ px: 1, py: 0.5, display: 'flex', alignItems: 'center', gap: 0.5, borderBottom: '1px solid #eee' }}>
       <Tooltip title="Save (⌘/Ctrl+S)">
-        <span><IconButton size="small" onClick={onSave} disabled={saving}><SaveIcon fontSize="small" /></IconButton></span>
+        <span>
+          {/* <IconButton size="small" onClick={onSave} disabled={saving}><SaveIcon fontSize="small" /></IconButton> */}
+          <IconButton
+            type="button"
+            size="small"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onSave();
+            }}
+            disabled={saving}
+          >
+            <SaveIcon fontSize="small" />
+          </IconButton>
+
+        </span>
       </Tooltip>
       <Divider orientation="vertical" flexItem />
       <Tooltip title="Undo (Editor)">
