@@ -2,26 +2,80 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { apiFetch } from '../services/api';
 
 async function tryEndpoints(form) {
-  // 1) preferred
   try {
     return await apiFetch('/library/import', { method: 'POST', body: form });
   } catch (e) {
     if (e.status !== 404) throw e;
   }
-  // 2) fallback (if your backend exposes this)
   return await apiFetch('/papers/import', { method: 'POST', body: form });
 }
 
 export const importFiles = createAsyncThunk(
   'import/files',
-  async (files, { rejectWithValue }) => {
+  async (payload, { rejectWithValue }) => {
     try {
       const form = new FormData();
-      files.forEach((f) => form.append('files[]', f, f.name));
-      // you can append optional flags: form.append('parse', 'bibtex|ris|csv|pdf')
+
+      let files = [];
+      let sources = {};
+      let options = {};
+
+      // -------------------------------
+      // ✅ NORMALIZE PAYLOAD
+      // -------------------------------
+      if (Array.isArray(payload)) {
+        files = payload;
+      } else if (payload && typeof payload === 'object') {
+        files = payload.files || [];
+        sources = payload.sources || {};
+        options = payload.options || {};
+      }
+
+      if (!Array.isArray(files)) {
+        throw new Error('Invalid import payload');
+      }
+
+      // -------------------------------
+      // Files
+      // -------------------------------
+      files.forEach(f => {
+        if (f instanceof File) {
+          form.append('files[]', f, f.name);
+        }
+      });
+
+      // -------------------------------
+      // CSV
+      // -------------------------------
+      if (sources.csv instanceof File) {
+        form.append('csv', sources.csv, sources.csv.name);
+      }
+
+      // -------------------------------
+      // URLs
+      // -------------------------------
+      if (Array.isArray(sources.urls) && sources.urls.length) {
+        form.append('urls', JSON.stringify(sources.urls));
+      }
+
+      // -------------------------------
+      // BibTeX / RIS
+      // -------------------------------
+      if (typeof sources.bibtex === 'string' && sources.bibtex.trim()) {
+        form.append('bibtex', sources.bibtex);
+      }
+
+      // -------------------------------
+      // Options (future-proof)
+      // -------------------------------
+      Object.entries(options).forEach(([k, v]) => {
+        if (v != null) form.append(k, String(v));
+      });
+
       const res = await tryEndpoints(form);
-      // Normalize a bit: { created: [], skipped: [], errors: [] }
+
       const data = res?.data ?? res ?? {};
+
       return {
         created: data.created ?? data.papers ?? [],
         skipped: data.skipped ?? [],
@@ -32,6 +86,7 @@ export const importFiles = createAsyncThunk(
     }
   }
 );
+
 
 const slice = createSlice({
   name: 'importer',

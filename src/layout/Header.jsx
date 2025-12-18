@@ -119,14 +119,29 @@ export default function Header({ onToggleSidebar }) {
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [pwdOpen, setPwdOpen] = React.useState(false);
 
+  const [menuEl, setMenuEl] = React.useState(null); 
+  const openMenu = Boolean(menuEl); 
+  const handleOpen = (e) => setMenuEl(e.currentTarget); 
+  const handleClose = () => setMenuEl(null);
+
+  const openUpgrade = () => { handleClose(); navigate('/price'); };
+
   const openUserMenu = (e) => setUserMenuEl(e.currentTarget);
   const closeUserMenu = () => setUserMenuEl(null);
+
 
   const handleLogout = async () => {
     closeUserMenu();
     await dispatch(logoutThunk());
     navigate('/login', { replace: true });
   };
+
+
+  // const [changePwdOpen, setChangePwdOpen] = React.useState(false); 
+  // const openProfile = () => { handleClose(); setProfileOpen(true); }; 
+  // const openSettings = () => { handleClose(); setSettingsOpen(true); }; 
+  // const openChangePassword = () => { handleClose(); setChangePwdOpen(true); }; 
+
 
   /* ======================================================= */
   return (
@@ -295,6 +310,8 @@ export default function Header({ onToggleSidebar }) {
         <MenuItem onClick={() => setProfileOpen(true)}>
           <PersonIcon sx={{ mr: 1 }} /> Profile
         </MenuItem>
+        <MenuItem onClick={openUpgrade}> <UpgradeIcon fontSize="small" style={{ marginRight: 8 }} /> Upgrade plan </MenuItem>
+
         <MenuItem onClick={() => setPwdOpen(true)}>
           <LockResetIcon sx={{ mr: 1 }} /> Change password
         </MenuItem>
