@@ -23,6 +23,7 @@ import AddIcon from '@mui/icons-material/Add';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { Snackbar, Alert } from '@mui/material';
+import { useTheme, useMediaQuery } from '@mui/material';
 
 
 
@@ -45,6 +46,10 @@ export default function ChaptersPage({ userId: userIdProp }) {
 
   const [dragIndex, setDragIndex] = React.useState(null);
   const [hoverIndex, setHoverIndex] = React.useState(null);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
+const canReorder = !isMobile && !query && filtered.length === normalized.length;
 
 
   const nav = useNavigate();
@@ -148,25 +153,31 @@ export default function ChaptersPage({ userId: userIdProp }) {
         title="Chapters"
         subtitle="Create, edit and organize your chapters"
         actions={
-          <Stack direction="row" spacing={1}>
-            {/* <Button variant={reorderMode ? 'outlined' : 'text'} onClick={() => setReorderMode(v => !v)}>
-              {reorderMode ? 'Done Reordering' : 'Reorder'}
-            </Button> */}
-
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={1}
+            alignItems={{ xs: 'stretch', sm: 'center' }}
+          >
             <Button
               variant={reorderMode ? 'contained' : 'text'}
               color={reorderMode ? 'warning' : 'primary'}
               onClick={() => setReorderMode(v => !v)}
+              fullWidth={isMobile}
             >
               {reorderMode ? 'Save Order' : 'Reorder'}
             </Button>
 
-
-            <Button startIcon={<AddIcon />} variant="contained" onClick={() => setOpen(true)}>
+            <Button
+              startIcon={<AddIcon />}
+              variant="contained"
+              onClick={() => setOpen(true)}
+              fullWidth={isMobile}
+            >
               Add Chapter
             </Button>
           </Stack>
         }
+
       />
 
       <Paper sx={{ p: 1.5, border: '1px solid #eee', borderRadius: 2, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
@@ -177,8 +188,15 @@ export default function ChaptersPage({ userId: userIdProp }) {
         {loading ? (
           <Stack alignItems="center" sx={{ py: 6 }}><CircularProgress /></Stack>
         ) : (
-          <TableContainer sx={{ flex: 1, maxHeight: 'calc(100vh - 230px)', overflow: 'auto' }}>
-            {reorderMode && !query && (filtered.length === normalized.length) ? (
+          <TableContainer
+            sx={{
+              flex: 1,
+              overflowX: 'auto',
+              maxHeight: isMobile ? 'none' : 'calc(100vh - 230px)',
+            }}
+          >
+
+            {reorderMode && canReorder && !query && (filtered.length === normalized.length) ? (
               <DragDropContext onDragEnd={onDragEnd}>
                 <Droppable droppableId="chapters-dd">
                   {(provided) => (
@@ -187,7 +205,12 @@ export default function ChaptersPage({ userId: userIdProp }) {
                         <TableRow>
                           <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 60 }} />
                           <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>Title</TableCell>
-                          <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 200 }}>Updated</TableCell>
+                          {!isMobile && (
+                            <TableCell sx={{ fontWeight: 600, width: 200 }}>
+                              Updated
+                            </TableCell>
+                          )}
+
                           <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 140 }}>Actions</TableCell>
                         </TableRow>
                       </TableHead>
@@ -235,12 +258,15 @@ export default function ChaptersPage({ userId: userIdProp }) {
 
                             <TableCell>{c.title || '—'}</TableCell>
 
-                            <TableCell width={200}>
-                              {(c.updated_at || c.created_at || '')
-                                .toString()
-                                .replace('T', ' ')
-                                .replace('.000000Z', '')}
-                            </TableCell>
+                            {!isMobile && (
+                              <TableCell>
+                                {(c.updated_at || c.created_at || '')
+                                  .toString()
+                                  .replace('T', ' ')
+                                  .replace('.000000Z', '')}
+                              </TableCell>
+                            )}
+
 
                             <TableCell width={140}>
                               <IconButton size="small" disabled>
