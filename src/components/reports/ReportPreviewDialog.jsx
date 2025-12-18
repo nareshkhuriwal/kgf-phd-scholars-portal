@@ -184,6 +184,11 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
     return btns;
   };
 
+  const validChapters = Array.isArray(chapters)
+    ? chapters.filter(ch => ch.body_html && ch.body_html.trim() !== '')
+    : [];
+
+
   return (
     <Dialog
       open={open}
@@ -257,17 +262,20 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
                 )}
 
                 {/* Chapters */}
-                {Array.isArray(chapters) && chapters.length > 0 && (
+                {validChapters.length > 0 && (
                   <Box sx={{ mb: 3 }}>
-                    <Typography variant="h6" sx={{ mb: 1 }}></Typography>
-                    {chapters.map((ch) => (
-                      <Box key={ch.id} className="card" sx={{ mb: 1.5, p: 1.5, bgcolor: '#fff', borderRadius: 1, border: '1px solid #eee' }}>
-                        {/* <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: .5 }}>
-                          {ch.title || `Chapter #${ch.id}`}
-                        </Typography> */}
-                        {/* <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                          {cleanRich(ch.body_html) || ''}
-                        </Typography> */}
+                    {validChapters.map((ch) => (
+                      <Box
+                        key={ch.id}
+                        className="card"
+                        sx={{
+                          mb: 1.5,
+                          p: 1.5,
+                          bgcolor: '#fff',
+                          borderRadius: 1,
+                          border: '1px solid #eee',
+                        }}
+                      >
                         <Box
                           className="ck-content"
                           sx={{
@@ -280,6 +288,7 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
                     ))}
                   </Box>
                 )}
+
 
                 {/* Literature Review */}
                 {Array.isArray(literature) && literature.length > 0 && (
