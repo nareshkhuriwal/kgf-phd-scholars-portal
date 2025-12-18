@@ -18,7 +18,6 @@ import Tooltip from '@mui/material/Tooltip';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 
-
 export default function ReviewQueue() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -29,51 +28,172 @@ export default function ReviewQueue() {
   const [rpp, setRpp] = React.useState(10);
   const [confirm, setConfirm] = React.useState(null);
 
-  React.useEffect(() => { dispatch(loadReviewQueue()); }, [dispatch]);
+  // 🔽 SORT STATE
+  const [sortBy, setSortBy] = React.useState(null);   // column key
+  const [sortDir, setSortDir] = React.useState('asc'); // asc | desc
 
+  React.useEffect(() => {
+    dispatch(loadReviewQueue());
+  }, [dispatch]);
+
+  // 🔽 SORT HANDLER
+  const onSort = (col) => {
+    if (sortBy !== col) {
+      setSortBy(col);
+      setSortDir('asc');
+    } else if (sortDir === 'asc') {
+      setSortDir('desc');
+    } else {
+      setSortBy(null);
+      setSortDir('asc');
+    }
+    setPage(0);
+  };
+
+  // 🔽 SORT FUNCTION
+  const sortRows = React.useCallback((rows) => {
+    if (!sortBy) return rows;
+
+    const dir = sortDir === 'asc' ? 1 : -1;
+
+    return [...rows].sort((a, b) => {
+      let av = a?.[sortBy];
+      let bv = b?.[sortBy];
+
+      // handle dates (updated_at)
+      if (sortBy === 'updated_at') {
+        av = av ? new Date(av).getTime() : 0;
+        bv = bv ? new Date(bv).getTime() : 0;
+        return (av - bv) * dir;
+      }
+
+      // numbers
+      if (typeof av === 'number' && typeof bv === 'number') {
+        return (av - bv) * dir;
+      }
+
+      // strings
+      return String(av ?? '').localeCompare(String(bv ?? '')) * dir;
+    });
+
+
+  }, [sortBy, sortDir]);
+
+  // 🔽 SEARCH + SORT (existing behavior preserved)
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return queue || [];
-    return (queue || []).filter(p =>
-      [p?.title, p?.authors, p?.doi, p?.year].join(' ').toLowerCase().includes(q)
-    );
-  }, [queue, query]);
+    let rows = queue || [];
+
+    if (q) {
+      rows = rows.filter(p =>
+        [p?.title, p?.authors, p?.doi, p?.year]
+          .join(' ')
+          .toLowerCase()
+          .includes(q)
+      );
+    }
+
+    return sortRows(rows);
+  }, [queue, query, sortRows]);
 
   const start = page * rpp;
   const rows = filtered.slice(start, start + rpp);
+
+  const sortIcon = (col) =>
+    sortBy === col ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <PageHeader
         title="Reviews — Queue"
         subtitle="Papers you’ve queued up to review"
-        actions={<Stack direction="row" spacing={1}>
-          <Button variant="outlined" onClick={() => dispatch(loadReviewQueue())}>Refresh</Button>
-        </Stack>}
+        actions={
+          <Stack direction="row" spacing={1}>
+            <Button variant="outlined" onClick={() => dispatch(loadReviewQueue())}>
+              Refresh
+            </Button>
+          </Stack>
+        }
       />
 
-      <Paper sx={{ p: 1.5, border: '1px solid #eee', borderRadius: 2, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      <Paper
+        sx={{
+          p: 1.5,
+          border: '1px solid #eee',
+          borderRadius: 2,
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: 0,
+        }}
+      >
         <Box sx={{ mb: 1.5 }}>
-          <SearchBar value={query} onChange={setQuery} placeholder="Search title, authors, DOI…" />
+          <SearchBar
+            value={query}
+            onChange={setQuery}
+            placeholder="Search title, authors, DOI…"
+          />
         </Box>
 
         {loading ? (
           <Typography sx={{ p: 2 }}>Loading…</Typography>
         ) : error ? (
-          <Typography color="error" sx={{ p: 2 }}>{String(error)}</Typography>
+          <Typography color="error" sx={{ p: 2 }}>
+            {String(error)}
+          </Typography>
         ) : (
           <TableContainer sx={{ flex: 1, maxHeight: 'calc(100vh - 230px)', overflow: 'auto' }}>
             <Table stickyHeader size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>Paper</TableCell>
-                  <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>Authors</TableCell>
-                  <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 90 }}>Year</TableCell>
-                  <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>DOI</TableCell>
-                  <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 160 }}>Status</TableCell>
-                  <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 220 }}>Actions</TableCell>
+                  <TableCell
+                    sx={{ fontWeight: 600, bgcolor: '#f7f7f9', cursor: 'pointer' }}
+                    onClick={() => onSort('title')}
+                  >
+                    Paper{sortIcon('title')}
+                  </TableCell>
+
+                  <TableCell
+                    sx={{ fontWeight: 600, bgcolor: '#f7f7f9', cursor: 'pointer' }}
+                    onClick={() => onSort('authors')}
+                  >
+                    Authors{sortIcon('authors')}
+                  </TableCell>
+
+                  <TableCell
+                    sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 90, cursor: 'pointer' }}
+                    onClick={() => onSort('year')}
+                  >
+                    Year{sortIcon('year')}
+                  </TableCell>
+
+                  <TableCell
+                    sx={{ fontWeight: 600, bgcolor: '#f7f7f9', cursor: 'pointer' }}
+                    onClick={() => onSort('doi')}
+                  >
+                    DOI{sortIcon('doi')}
+                  </TableCell>
+
+                  <TableCell
+                    sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 160, cursor: 'pointer' }}
+                    onClick={() => onSort('review_status')}
+                  >
+                    Status{sortIcon('review_status')}
+                  </TableCell>
+
+                  <TableCell
+                    sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 180, cursor: 'pointer' }}
+                    onClick={() => onSort('updated_at')}
+                  >
+                    Updated At{sortIcon('updated_at')}
+                  </TableCell>
+
+
+                  <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 220 }}>
+                    Actions
+                  </TableCell>
                 </TableRow>
               </TableHead>
+
               <TableBody>
                 {rows.length === 0 ? (
                   <TableRow>
@@ -81,47 +201,39 @@ export default function ReviewQueue() {
                       <EmptyState hint="Add papers to the review queue from Library or Collections." />
                     </TableCell>
                   </TableRow>
-                ) : rows.map(r => (
-                  <TableRow hover key={r.id}>
-                    <TableCell><ReviewCard paper={r} compact /></TableCell>
-                    <TableCell>{r.authors || '-'}</TableCell>
-                    <TableCell>{r.year || '-'}</TableCell>
-                    <TableCell>{r.doi || '-'}</TableCell>
-                    <TableCell>
-                      {(() => {
-                        const status = r.review_status || 'draft';
+                ) : (
+                  rows.map(r => (
+                    <TableRow hover key={r.id}>
+                      <TableCell>
+                        <ReviewCard paper={r} compact />
+                      </TableCell>
+                      <TableCell>{r.authors || '-'}</TableCell>
+                      <TableCell>{r.year || '-'}</TableCell>
+                      <TableCell>{r.doi || '-'}</TableCell>
+                      <TableCell>
+                        {(() => {
+                          const status = r.review_status || 'draft';
+                          let label = 'Draft';
+                          let color = 'default';
 
-                        let label = 'Draft';
-                        let color = 'default'; // MUI Chip color
+                          if (status === 'in_progress') { label = 'In Progress'; color = 'warning'; }
+                          else if (status === 'done') { label = 'Reviewed'; color = 'success'; }
+                          else if (status === 'archived') { label = 'Archived'; }
 
-                        switch (status) {
-                          case 'in_progress':
-                            label = 'In Progress';
-                            color = 'warning';
-                            break;
-                          case 'done':
-                            label = 'Reviewed';
-                            color = 'success';
-                            break;
-                          case 'archived':
-                            label = 'Archived';
-                            color = 'default';
-                            break;
-                          case 'draft':
-                          default:
-                            label = 'Draft';
-                            color = 'default';
-                            break;
-                        }
+                          return <Chip label={label} color={color} size="small" />;
+                        })()}
+                      </TableCell>
 
-                        return <Chip label={label} color={color} size="small" />;
-                      })()}
-                    </TableCell>
+                      <TableCell>
+                        {r.updated_at
+                          ? new Date(r.updated_at).toLocaleString()
+                          : '-'}
+                      </TableCell>
 
-                    <TableCell>
-                      <Stack direction="row" spacing={1}>
-                        <Tooltip title="Open review">
-                          <span>
+
+                      <TableCell>
+                        <Stack direction="row" spacing={1}>
+                          <Tooltip title="Open review">
                             <IconButton
                               size="small"
                               color="primary"
@@ -129,11 +241,9 @@ export default function ReviewQueue() {
                             >
                               <VisibilityIcon fontSize="inherit" />
                             </IconButton>
-                          </span>
-                        </Tooltip>
+                          </Tooltip>
 
-                        <Tooltip title="Remove from queue">
-                          <span>
+                          <Tooltip title="Remove from queue">
                             <IconButton
                               size="small"
                               color="error"
@@ -141,13 +251,12 @@ export default function ReviewQueue() {
                             >
                               <DeleteOutlineIcon fontSize="inherit" />
                             </IconButton>
-                          </span>
-                        </Tooltip>
-                      </Stack>
-                    </TableCell>
-
-                  </TableRow>
-                ))}
+                          </Tooltip>
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </TableContainer>
@@ -158,11 +267,15 @@ export default function ReviewQueue() {
             component="div"
             count={filtered.length}
             page={page}
-            onPageChange={(_e, p) => setPage(p)}
+            onPageChange={(_, p) => setPage(p)}
             rowsPerPage={rpp}
-            onRowsPerPageChange={e => { setRpp(parseInt(e.target.value, 10)); setPage(0); }}
+            onRowsPerPageChange={e => {
+              setRpp(parseInt(e.target.value, 10));
+              setPage(0);
+            }}
             rowsPerPageOptions={[10, 25, 50, 100]}
-            showFirstButton showLastButton
+            showFirstButton
+            showLastButton
           />
         </Box>
       </Paper>
@@ -172,7 +285,10 @@ export default function ReviewQueue() {
         title="Remove from queue?"
         content={`"${confirm?.title}" will be removed from your review queue.`}
         onCancel={() => setConfirm(null)}
-        onConfirm={() => { dispatch(removeFromQueue(confirm.id)); setConfirm(null); }}
+        onConfirm={() => {
+          dispatch(removeFromQueue(confirm.id));
+          setConfirm(null);
+        }}
         confirmText="Remove"
       />
     </Box>

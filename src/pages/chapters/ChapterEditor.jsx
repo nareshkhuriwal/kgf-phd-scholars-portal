@@ -12,13 +12,16 @@ import {
 import SaveIcon from '@mui/icons-material/Save';
 import DeleteIcon from '@mui/icons-material/DeleteOutline';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import makeEditorConfig from '../reviews/EditorConfig';
 
 import { Snackbar, Alert } from '@mui/material';
 
 
 // CKEditor
 import { CKEditor } from '@ckeditor/ckeditor5-react';
-import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
+// import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
+import DecoupledEditor from '@ckeditor/ckeditor5-build-decoupled-document';
+
 
 export default function ChapterEditor() {
   const { id } = useParams();
@@ -29,6 +32,7 @@ export default function ChapterEditor() {
   // ---- hooks are always called, in the same order ----
   const chapters = useSelector(selectAllChapters);
   const chapter = chapters.find((c) => c.id === cid);
+  const toolbarRef = React.useRef(null);
 
   const [title, setTitle] = React.useState('');
   const [body, setBody] = React.useState('');
@@ -71,6 +75,11 @@ export default function ChapterEditor() {
   const isDirty =
     (title !== (chapter?.title || '')) || (body !== (chapter?.body_html || ''));
 
+  const editorConfig = React.useMemo(
+    () => makeEditorConfig(cid),
+    [cid]
+  );
+
   // replace your handleSave with this version
   const handleSave = async () => {
     if (!isLoaded) return;
@@ -84,6 +93,7 @@ export default function ChapterEditor() {
       setSaving(false);
     }
   };
+
 
 
   const handleCancel = () => {
@@ -189,23 +199,53 @@ export default function ChapterEditor() {
           sx={{
             p: 2,
             // ⬇️ increase editor height
-            '& .ck-editor__editable_inline': {
-              minHeight: 400,         // was default ~200
-              maxHeight: '70vh',
-              overflowY: 'auto',
+            '& .ck-editor': {
+              border: '1px solid #e0e0e0',
+              borderRadius: 6,
             },
+            '& .ck-editor__editable': {
+              minHeight: 400,
+              padding: '16px',
+            }
+
           }}
         >
           <Typography variant="subtitle1" sx={{ mb: 1.5 }}>Body</Typography>
           <Divider sx={{ mb: 2 }} />
           {isLoaded ? (
             <>
+              <Box
+                ref={toolbarRef}
+                sx={{
+                  borderBottom: '1px solid #eee',
+                  backgroundColor: '#fafafa',
+                  px: 1,
+                  py: 0.5,
+                  '& .ck-toolbar': {
+                    border: 'none'
+                  }
+                }}
+              />
+
               <CKEditor
                 key={cid}
-                editor={ClassicEditor}
-                data={body}
-                onChange={(_, editor) => setBody(editor.getData())}
+                editor={DecoupledEditor}
+                data={body || ''}
+                config={editorConfig}   //  REQUIRED
+                onReady={(editor) => {
+                  if (toolbarRef.current) {
+                    toolbarRef.current.innerHTML = '';
+                    toolbarRef.current.appendChild(editor.ui.view.toolbar.element);
+                  }
+                }}
+                onChange={(_, editor) => {
+                  const data = editor.getData();
+                  setBody(data);
+                }}
               />
+
+
+
               <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
                 Tip: Press <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>S</kbd> to save.
               </Typography>
