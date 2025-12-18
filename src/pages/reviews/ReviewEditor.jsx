@@ -68,6 +68,33 @@ const pickFirst = (obj, keys) => {
 const WORKPANE_VH = 50;   // fixed work area height (viewport-based)
 const WORKPANE_MIN = 600; // absolute minimum height
 
+const CHAR_WARN = 150;
+const CHAR_GOOD = 300;
+
+const getCharMeta = (count) => {
+  if (count > CHAR_GOOD) {
+    return {
+      color: '#2e7d32', // MUI success.main (professional green)
+      label: `Characters: ${count} ✓`
+    };
+  }
+
+  if (count > CHAR_WARN) {
+    return {
+      color: '#ed6c02', // MUI warning.main
+      label: `Characters: ${count} / ${CHAR_GOOD}`
+    };
+  }
+
+  return {
+    color: '#6b7280', // text.secondary
+    label: `Characters: ${count}`
+  };
+};
+
+
+
+
 export default function ReviewEditor() {
   const { paperId } = useParams();
   const dispatch = useDispatch();
@@ -100,15 +127,15 @@ export default function ReviewEditor() {
     [paperId, current]
   );
 
-React.useEffect(() => {
-  const blockEnterSubmit = (e) => {
-    if (e.key === 'Enter' && e.target?.closest('.ck')) {
-      e.stopPropagation();
-    }
-  };
-  document.addEventListener('keydown', blockEnterSubmit, true);
-  return () => document.removeEventListener('keydown', blockEnterSubmit, true);
-}, []);
+  React.useEffect(() => {
+    const blockEnterSubmit = (e) => {
+      if (e.key === 'Enter' && e.target?.closest('.ck')) {
+        e.stopPropagation();
+      }
+    };
+    document.addEventListener('keydown', blockEnterSubmit, true);
+    return () => document.removeEventListener('keydown', blockEnterSubmit, true);
+  }, []);
 
 
   const editorConfig = React.useMemo(
@@ -176,7 +203,7 @@ React.useEffect(() => {
     setSaving(true);
     try {
       await dispatch(
-        saveReviewSection({ paperId, section_key: activeLabel, html: btoa(unescape(encodeURIComponent(activeHtml)))  })
+        saveReviewSection({ paperId, section_key: activeLabel, html: btoa(unescape(encodeURIComponent(activeHtml))) })
       ).unwrap();
       setSavedOnce(true);
     } finally { setSaving(false); }
@@ -291,43 +318,68 @@ React.useEffect(() => {
                         height: '100%',
                         display: 'flex',
                         flexDirection: 'column',
-                        '& .ck-editor__editable': {
-                          minHeight: '300px',
-                          padding: '16px',
-                          borderRadius: 6
-                        },
-                        '& .ck.ck-editor': {
-                          height: '100%'
-                        }
-
                       }}
                     >
+
                       {tab === i && (
-                        <CKEditor
-                          key={editorKeys[label]}   // forces clean remount per tab
-                          editor={DecoupledEditor}
-                          data={sections[label] || ''}
-                          config={editorConfig}
-                          onReady={(editor) => {
-                            if (toolbarRef.current) {
-                              toolbarRef.current.innerHTML = '';
-                              toolbarRef.current.appendChild(editor.ui.view.toolbar.element);
-                            }
+                        <Box
+                          sx={{
+                            flex: 1,
+                            minHeight: 0,
+                            overflow: 'auto',
+                            '& .ck-editor__editable': {
+                              minHeight: '300px',
+                              padding: '16px',
+                              borderRadius: 6,
+                            },
                           }}
-                          onChange={(_, editor) => {
-                            const data = editor.getData();
+                        >
+                          <CKEditor
+                            key={editorKeys[label]}
+                            editor={DecoupledEditor}
+                            data={sections[label] || ''}
+                            config={editorConfig}
+                            onReady={(editor) => {
+                              if (toolbarRef.current) {
+                                toolbarRef.current.innerHTML = '';
+                                toolbarRef.current.appendChild(editor.ui.view.toolbar.element);
+                              }
+                            }}
+                            onChange={(_, editor) => {
+                              const data = editor.getData();
+                              const text = data.replace(/<[^>]*>/g, '').trim();
+                              setCharCount(text.length);
+                              debouncedSetSectionsRef.current(label, data);
+                            }}
+                          />
+                        </Box>
 
-                            // character count
-                            const text = data.replace(/<[^>]*>/g, '').trim();
-                            setCharCount(text.length);
-
-                            debouncedSetSectionsRef.current(label, data);
-                          }}
-                        />
                       )}
-                      <Typography variant="caption" color="text.secondary">
-                        Characters: {charCount}
-                      </Typography>
+                      {(() => {
+                        const meta = getCharMeta(charCount);
+
+                        return (
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              mt: 0.5,
+                              px: 1,
+                              py: 0.25,
+                              textAlign: 'right',
+                              color: meta.color,                 // ← FORCE color
+                              backgroundColor: '#fafafa',
+                              borderTop: '1px solid #eee',
+                              fontWeight: charCount > CHAR_WARN ? 600 : 400,
+                              display: 'block'
+                            }}
+                          >
+                            {meta.label}
+                          </Typography>
+                        );
+                      })()}
+
+
+
                     </Box>
                   </Box>
                 ))}

@@ -22,6 +22,29 @@ import { CKEditor } from '@ckeditor/ckeditor5-react';
 // import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
 import DecoupledEditor from '@ckeditor/ckeditor5-build-decoupled-document';
 
+const CHAR_WARN = 150;
+const CHAR_GOOD = 300;
+
+const getCharMeta = (count) => {
+  if (count > CHAR_GOOD) {
+    return {
+      color: '#2e7d32', // MUI success green
+      label: `Characters: ${count} ✓`
+    };
+  }
+
+  if (count > CHAR_WARN) {
+    return {
+      color: '#ed6c02', // warning amber
+      label: `Characters: ${count} / ${CHAR_GOOD}`
+    };
+  }
+
+  return {
+    color: '#6b7280', // text.secondary gray
+    label: `Characters: ${count}`
+  };
+};
 
 export default function ChapterEditor() {
   const { id } = useParams();
@@ -42,12 +65,21 @@ export default function ChapterEditor() {
   const [toast, setToast] = React.useState({ open: false, severity: 'success', msg: '' });
   const openToast = (severity, msg) => setToast({ open: true, severity, msg });
   const closeToast = () => setToast((t) => ({ ...t, open: false }));
+  const [charCount, setCharCount] = React.useState(0);
 
 
   // Fetch once if needed (unconditional hook)
   React.useEffect(() => {
     if (!chapters.length) dispatch(fetchChapters());
   }, [chapters.length, dispatch]);
+
+  React.useEffect(() => {
+    if (chapter?.body_html) {
+      const text = chapter.body_html.replace(/<[^>]*>/g, '').trim();
+      setCharCount(text.length);
+    }
+  }, [chapter?.id]);
+
 
   // Initialize local state when chapter becomes available (unconditional hook, guarded inside)
   React.useEffect(() => {
@@ -198,18 +230,60 @@ export default function ChapterEditor() {
         <Paper
           sx={{
             p: 2,
-            // ⬇️ increase editor height
-            '& .ck-editor': {
-              border: '1px solid #e0e0e0',
-              borderRadius: 6,
-            },
-            '& .ck-editor__editable': {
-              minHeight: 400,
-              padding: '16px',
-            }
+            display: 'flex',
+            flexDirection: 'column',
+            height: 520,
+            maxWidth: '100%',           // 🔒 CRITICAL
+            overflow: 'hidden',         // 🔒 stop page overflow
+            borderRadius: 2,
 
+            /* CKEditor root */
+            '& .ck-editor': {
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              maxWidth: '100%',
+              overflow: 'hidden',       // 🔒 contain overflow
+              border: '1px solid #e0e0e0',
+              borderRadius: 1,
+            },
+
+            /* Editable area */
+            '& .ck-editor__editable': {
+              flex: 1,
+              minHeight: 0,
+              padding: '16px',
+              maxWidth: '100%',         // 🔒 HARD STOP WIDTH
+              overflowY: 'auto',
+              overflowX: 'auto',        // ✅ horizontal scrollbar
+              whiteSpace: 'normal',
+              wordBreak: 'break-word',  // 🔥 handles long strings
+              boxSizing: 'border-box',
+            },
+
+            /* Ensure CK content respects width */
+            '& .ck-content': {
+              maxWidth: '100%',
+              overflowX: 'auto',
+            },
+
+            /* Tables must scroll, not expand */
+            '& .ck-content table': {
+              display: 'block',
+              maxWidth: '100%',
+              overflowX: 'auto',
+            },
+
+            /* Images never expand container */
+            '& .ck-content img': {
+              maxWidth: '100%',
+              height: 'auto',
+            },
           }}
         >
+
+
+
           <Typography variant="subtitle1" sx={{ mb: 1.5 }}>Body</Typography>
           <Divider sx={{ mb: 2 }} />
           {isLoaded ? (
@@ -221,11 +295,15 @@ export default function ChapterEditor() {
                   backgroundColor: '#fafafa',
                   px: 1,
                   py: 0.5,
+                  position: 'sticky',
+                  top: 0,
+                  zIndex: 1,
                   '& .ck-toolbar': {
-                    border: 'none'
-                  }
+                    border: 'none',
+                  },
                 }}
               />
+
 
               <CKEditor
                 key={cid}
@@ -241,8 +319,47 @@ export default function ChapterEditor() {
                 onChange={(_, editor) => {
                   const data = editor.getData();
                   setBody(data);
+
+                  const text = data.replace(/<[^>]*>/g, '').trim();
+                  setCharCount(text.length);
                 }}
+
               />
+
+              {(() => {
+                const meta = getCharMeta(charCount);
+
+                return (
+                  <Box
+                    sx={{
+                      mt: 1,
+                      px: 1,
+                      py: 0.75,
+                      borderTop: '1px solid #eee',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      backgroundColor: '#fafafa',
+                      position: 'sticky',
+                      bottom: 0,               // ✅ stays visible
+                    }}
+                  >
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: meta.color,
+                        fontWeight: charCount > 150 ? 600 : 400,
+                      }}
+                    >
+                      {meta.label}
+                    </Typography>
+
+                    <Typography variant="caption" color="text.secondary">
+                      Recommended: 300+
+                    </Typography>
+                  </Box>
+                );
+              })()}
 
 
 
