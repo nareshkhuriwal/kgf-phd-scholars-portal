@@ -36,6 +36,7 @@ import Tooltip from '@mui/material/Tooltip';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import RateReviewIcon from '@mui/icons-material/RateReview';
+import { useTheme, useMediaQuery } from '@mui/material';
 
 // --- helpers to read fields regardless of API casing ---
 const val = (row, keys) => {
@@ -98,6 +99,8 @@ export default function Papers() {
   const [confirm, setConfirm] = React.useState(null);
   const [bulkCfm, setBulkCfm] = React.useState(null);
   const [selected, setSelected] = React.useState([]);
+const theme = useTheme();
+const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   // sorting state
   const [sortBy, setSortBy] = React.useState('id');     // use backend field names (id, title, authors, year, doi)
@@ -268,8 +271,6 @@ export default function Papers() {
     }));
   };
 
-  // debug
-  // console.log('meta:', meta, 'rowsPerPage:', rowsPerPage, 'page:', page, 'sortBy:', sortBy, 'sortDir:', sortDir);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -277,15 +278,20 @@ export default function Papers() {
         title="Library — Papers"
         subtitle="Your master library (imported, uploaded, or synced)"
         actions={
-          <Stack direction="row" spacing={1}>
-            <Button variant="outlined" onClick={() => window.open('/api/papers/export?format=csv', '_blank')}>
-              Export CSV
-            </Button>
-            <Button variant="contained" onClick={() => navigate('/library/papers/new')}>
-              Add Paper
-            </Button>
-          </Stack>
-        }
+  <Stack
+    direction={{ xs: 'column', sm: 'row' }}
+    spacing={1}
+    sx={{ width: { xs: '100%', sm: 'auto' } }}
+  >
+    <Button fullWidth={isMobile} variant="outlined" onClick={() => window.open('/api/papers/export?format=csv', '_blank')}>
+      Export CSV
+    </Button>
+    <Button fullWidth={isMobile} variant="contained" onClick={() => navigate('/library/papers/new')}>
+      Add Paper
+    </Button>
+  </Stack>
+}
+
       />
 
       {/* Bulk selection toolbar */}
