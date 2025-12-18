@@ -19,7 +19,8 @@ import CommentsPanel from '../../components/comments/CommentsPanel';
 
 
 import { CKEditor } from '@ckeditor/ckeditor5-react';
-import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
+// import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
+import DecoupledEditor from '@ckeditor/ckeditor5-build-decoupled-document';
 
 import {
   loadReview,
@@ -74,6 +75,7 @@ export default function ReviewEditor() {
   const { current, error } = useSelector((s) => s.reviews || {});
   const [sidebarOpen, setSidebarOpen] = React.useState(true);
   const [charCount, setCharCount] = React.useState(0);
+  const toolbarRef = React.useRef(null);
 
 
   console.log("current: ", current)
@@ -259,6 +261,18 @@ export default function ReviewEditor() {
 
               <Divider />
 
+              <Box
+                ref={toolbarRef}
+                sx={{
+                  borderBottom: '1px solid #eee',
+                  backgroundColor: '#fafafa',
+                  px: 1,
+                  py: 0.5,
+                  '& .ck-toolbar': { border: 'none' }
+                }}
+              />
+
+
               <Box sx={{ flex: 1, minHeight: 0, p: 1.5 }}>
                 {EDITOR_ORDER.map((label, i) => (
                   <Box key={editorKeys[label]} role="tabpanel" hidden={tab !== i} sx={{ height: '100%' }}>
@@ -267,23 +281,42 @@ export default function ReviewEditor() {
                         height: '100%',
                         display: 'flex',
                         flexDirection: 'column',
-                        '& .ck.ck-editor': { display: 'flex', flexDirection: 'column', height: '100%' },
-                        '& .ck.ck-editor__main': { flex: 1, minHeight: 0, display: 'flex' },
-                        '& .ck-editor__editable_inline': { flex: 1, minHeight: 0 },
-                        '& .ck.ck-toolbar': { borderTopLeftRadius: 6, borderTopRightRadius: 6 },
-                        '& .ck.ck-editor__editable': { borderBottomLeftRadius: 6, borderBottomRightRadius: 6 },
+                        '& .ck-editor__editable': {
+                          minHeight: '300px',
+                          padding: '16px',
+                          borderRadius: 6
+                        },
+                        '& .ck.ck-editor': {
+                          height: '100%'
+                        }
+
                       }}
                     >
+
                       {tab === i && (
                         <CKEditor
-                          key={editorKeys[label]}
-                          editor={ClassicEditor}
-                          config={editorConfig}
+                          key={editorKeys[label]}   // forces clean remount per tab
+                          editor={DecoupledEditor}
                           data={sections[label] || ''}
-                          onChange={(_, ed) => onEditorChange(label, ed)}
-                        />
+                          config={editorConfig}
+                          onReady={(editor) => {
+                            if (toolbarRef.current) {
+                              toolbarRef.current.innerHTML = '';
+                              toolbarRef.current.appendChild(editor.ui.view.toolbar.element);
+                            }
+                          }}
+                          onChange={(_, editor) => {
+                            const data = editor.getData();
 
+                            // character count
+                            const text = data.replace(/<[^>]*>/g, '').trim();
+                            setCharCount(text.length);
+
+                            debouncedSetSectionsRef.current(label, data);
+                          }}
+                        />
                       )}
+
                       <Typography variant="caption" color="text.secondary">
                         Characters: {charCount}
                       </Typography>
