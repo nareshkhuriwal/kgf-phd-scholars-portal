@@ -165,10 +165,14 @@ export default function Header({ onToggleSidebar }) {
               display: 'flex',
               alignItems: 'center',
               mr: 2,
-              textDecoration: 'none',
+              textDecoration: 'none',   // removes underline
               color: 'inherit',
+              '&:hover': {
+                textDecoration: 'none',
+              },
             }}
           >
+
             <Box sx={{ width: 30, height: 30, mr: 1 }}>
               <img
                 src={logoUrl}
