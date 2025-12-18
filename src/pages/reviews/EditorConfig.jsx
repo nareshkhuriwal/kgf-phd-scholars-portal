@@ -71,26 +71,26 @@ export default function makeEditorConfig(paperId) {
 
     toolbar: {
       items: [
+        'undo', 'redo',
+        '|',
         'heading',
         '|',
-        'bold',
-        'italic',
-        'underline',
-        'strikethrough',
-        'link',
+        'fontFamily', 'fontSize', 'fontColor', 'fontBackgroundColor',
         '|',
-        'bulletedList',
-        'numberedList',
-        'outdent',
-        'indent',
+        'bold', 'italic', 'underline', 'strikethrough',
+        'subscript', 'superscript',
         '|',
-        'blockQuote',
-        'insertTable',
-        'imageUpload',          // ✅ REQUIRED
-        'horizontalLine',
+        'alignment',
         '|',
-        'undo',
-        'redo',
+        'bulletedList', 'numberedList', 'todoList',
+        '|',
+        'outdent', 'indent',
+        '|',
+        'link', 'imageUpload', 'mediaEmbed',
+        '|',
+        'insertTable', 'blockQuote', 'codeBlock', 'horizontalLine',
+        '|',
+        'highlight', 'removeFormat', 'specialCharacters'
       ],
       shouldNotGroupWhenFull: true,
     },
@@ -98,6 +98,7 @@ export default function makeEditorConfig(paperId) {
     image: {
       toolbar: [
         'imageTextAlternative',
+        'toggleImageCaption',
         'imageStyle:inline',
         'imageStyle:block',
         'imageStyle:side',
@@ -127,7 +128,6 @@ export default function makeEditorConfig(paperId) {
       },
     },
 
-    // THIS WAS MISSING
     extraPlugins: [makeUploadPlugin(paperId)],
   };
 }
