@@ -269,7 +269,13 @@ export default function ReviewEditor() {
             item
             xs={12}
             lg={sidebarOpen ? 4 : 6}
-            sx={{ height: '100%', minHeight: 320, display: 'flex', flexDirection: 'column' }}
+            sx={{
+              height: '100%',
+              minHeight: 320,
+              display: 'flex',
+              flexDirection: 'column',
+              transition: 'all 0.25s ease-in-out', // smooth resize
+            }}
           >
             <Paper
               sx={{
@@ -281,7 +287,12 @@ export default function ReviewEditor() {
                 flexDirection: 'column',
               }}
             >
-              <ReviewToolbar onSave={onSaveCurrentTab} saving={saving} />
+              <ReviewToolbar
+                onSave={onSaveCurrentTab}
+                saving={saving}
+                sidebarOpen={sidebarOpen}
+                onToggleSidebar={() => setSidebarOpen(v => !v)}
+              />
 
               <Tabs
                 value={tab}

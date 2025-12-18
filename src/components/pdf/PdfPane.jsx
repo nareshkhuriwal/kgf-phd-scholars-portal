@@ -15,6 +15,9 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 const isDev = import.meta.env.VITE_APP_ENV === 'DEV';
 const ZOOM_STEP = 1.15;
 const DEFAULT_BRUSH_SIZE = 12;
+const MIN_SCALE = 0.5;
+const MAX_SCALE = 4.0;
+
 
 function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange }) {
   const dispatch = useDispatch();
@@ -53,6 +56,9 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
   const [currentScale, setCurrentScale] = React.useState(initialScale);
   const scaleRef = React.useRef(initialScale);
   const paneRef = React.useRef(null);
+
+  const containerRef = React.useRef(null);
+  const [isFullscreen, setIsFullscreen] = React.useState(false);
 
   /* ---------------- RESET ON URL CHANGE ---------------- */
   React.useEffect(() => {
@@ -183,6 +189,30 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
     })();
   }, [doc, pages, viewports]);
 
+
+  const toggleFullscreen = async () => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    if (!document.fullscreenElement) {
+      await el.requestFullscreen?.();
+    } else {
+      await document.exitFullscreen?.();
+    }
+  };
+
+
+  React.useEffect(() => {
+    const onChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, []);
+
+
+
   /* ---------------- ADD RECT ---------------- */
   const addRect = (page, rPx) => {
     const s = currentScale;
@@ -262,11 +292,91 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
     setHlBrushes({});
   };
 
+  React.useEffect(() => {
+    const el = paneRef.current;
+    if (!el) return;
+
+    const onWheel = (e) => {
+      if (!e.ctrlKey) return;       // ⛔ normal scroll untouched
+
+      e.preventDefault();           // ⛔ stop page zoom / scroll
+
+      const delta = e.deltaY < 0 ? 1 : -1;
+      const next =
+        delta > 0
+          ? scaleRef.current * ZOOM_STEP
+          : scaleRef.current / ZOOM_STEP;
+
+      setScaleSafe(next);
+    };
+
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
+
+
+
+  const pinchRef = React.useRef({
+    dist: null,
+    scale: currentScale,
+  });
+
+  React.useEffect(() => {
+    const el = paneRef.current;
+    if (!el) return;
+
+    const distance = (t1, t2) =>
+      Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+
+    const onTouchStart = (e) => {
+      if (e.touches.length === 2) {
+        pinchRef.current.dist = distance(e.touches[0], e.touches[1]);
+        pinchRef.current.scale = scaleRef.current;
+      }
+    };
+
+    const onTouchMove = (e) => {
+      if (e.touches.length !== 2 || pinchRef.current.dist == null) return;
+
+      e.preventDefault();
+
+      const newDist = distance(e.touches[0], e.touches[1]);
+      const ratio = newDist / pinchRef.current.dist;
+      const next = pinchRef.current.scale * ratio;
+
+      setScaleSafe(next);
+    };
+
+    const onTouchEnd = () => {
+      pinchRef.current.dist = null;
+    };
+
+    el.addEventListener('touchstart', onTouchStart, { passive: false });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    el.addEventListener('touchend', onTouchEnd);
+
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', onTouchEnd);
+    };
+  }, []);
+
+
   /* ---------------- ZOOM HELPERS ---------------- */
+
+  const setScaleSafe = (next) => {
+    const clamped = Math.min(MAX_SCALE, Math.max(MIN_SCALE, next));
+    scaleRef.current = clamped;
+    setCurrentScale(clamped);
+  };
+
+
   const onZoomChange = (delta) => {
     const next = delta > 0 ? currentScale * ZOOM_STEP : currentScale / ZOOM_STEP;
     scaleRef.current = next;
     setCurrentScale(next);
+    setScaleSafe(next);
   };
 
   const onFitWidth = () => {
@@ -281,6 +391,7 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
   const onReset = () => {
     scaleRef.current = initialScale;
     setCurrentScale(initialScale);
+    setScaleSafe(initialScale);
   };
 
   /* ---------------- SAVE ---------------- */
@@ -367,7 +478,12 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
 
   /* ---------------- RENDER ---------------- */
   return (
-    <div className="pdf-wrapper">
+    // <div className="pdf-wrapper">
+    <div
+      ref={containerRef}
+      className={`pdf-wrapper ${isFullscreen ? 'fullscreen' : ''}`}
+    >
+
       <HighlightToolbar
         enabled={enabled} setEnabled={setEnabled}
         mode={mode} setMode={setMode}
@@ -379,6 +495,8 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
         brushSize={DEFAULT_BRUSH_SIZE}
         onZoomChange={onZoomChange}
         onFitWidth={onFitWidth}
+        onToggleFullscreen={toggleFullscreen}
+        isFullscreen={isFullscreen}
         onReset={onReset}
         saving={saving}
       />
