@@ -302,12 +302,6 @@ React.useEffect(() => {
 
                       }}
                     >
-                      <Box
-  onSubmit={(e) => {
-    e.preventDefault();
-    e.stopPropagation();
-  }}
->
                       {tab === i && (
                         <CKEditor
                           key={editorKeys[label]}   // forces clean remount per tab
@@ -331,8 +325,6 @@ React.useEffect(() => {
                           }}
                         />
                       )}
-                      </Box>
-
                       <Typography variant="caption" color="text.secondary">
                         Characters: {charCount}
                       </Typography>

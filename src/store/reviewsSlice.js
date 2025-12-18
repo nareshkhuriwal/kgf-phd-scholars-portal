@@ -39,14 +39,13 @@ export const saveReview = createAsyncThunk(
 export const saveReviewSection = createAsyncThunk(
   'reviews/saveReviewSection',
   async ({ paperId, section_key, html }) => {
-    const res = await apiFetch(`/reviews/${paperId}/sections`, {
+    return await apiFetch(`/reviews/${paperId}/sections`, {
       method: 'PUT',
-      body: { section_key, html }
+      body: { section_key, html }   // html may be base64 here (OK)
     });
-    // keep both server response and request data for reducer merge
-    return { server: res, paperId, section_key, html };
   }
 );
+
 
 // NEW: mark complete / change status
 export const setReviewStatus = createAsyncThunk(
@@ -120,17 +119,27 @@ const slice = createSlice({
       })
 
       /* Partial (per-tab) save */
-      .addCase(saveReviewSection.pending, (s) => { s.error = null; })
+      /* Partial (per-tab) save */
+      .addCase(saveReviewSection.pending, (s) => {
+        s.error = null;
+      })
       .addCase(saveReviewSection.fulfilled, (s, a) => {
-        const { section_key, html } = a.payload;
+        const resp = a.payload?.data ?? a.payload;
+
         if (!s.current) s.current = {};
-        if (!s.current.review_sections) s.current.review_sections = {};
-        s.current.review_sections[section_key] = html;
-        // Optionally: do not touch legacy s.current.html here (we only update that on full save)
+
+        if (resp?.review_sections) {
+          s.current.review_sections = resp.review_sections;
+        }
+
+        if (resp?.status) {
+          s.current.status = resp.status;
+        }
       })
       .addCase(saveReviewSection.rejected, (s, a) => {
         s.error = a.error?.message || 'Failed to save section';
       })
+
 
       // …in extraReducers:
       .addCase(setReviewStatus.fulfilled, (s, a) => {
