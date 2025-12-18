@@ -100,6 +100,16 @@ export default function ReviewEditor() {
     [paperId, current]
   );
 
+React.useEffect(() => {
+  const blockEnterSubmit = (e) => {
+    if (e.key === 'Enter' && e.target?.closest('.ck')) {
+      e.stopPropagation();
+    }
+  };
+  document.addEventListener('keydown', blockEnterSubmit, true);
+  return () => document.removeEventListener('keydown', blockEnterSubmit, true);
+}, []);
+
 
   const editorConfig = React.useMemo(
     () => makeEditorConfig(pid),
@@ -166,7 +176,7 @@ export default function ReviewEditor() {
     setSaving(true);
     try {
       await dispatch(
-        saveReviewSection({ paperId, section_key: activeLabel, html: activeHtml })
+        saveReviewSection({ paperId, section_key: activeLabel, html: btoa(unescape(encodeURIComponent(activeHtml)))  })
       ).unwrap();
       setSavedOnce(true);
     } finally { setSaving(false); }
@@ -292,7 +302,12 @@ export default function ReviewEditor() {
 
                       }}
                     >
-
+                      <Box
+  onSubmit={(e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }}
+>
                       {tab === i && (
                         <CKEditor
                           key={editorKeys[label]}   // forces clean remount per tab
@@ -316,6 +331,7 @@ export default function ReviewEditor() {
                           }}
                         />
                       )}
+                      </Box>
 
                       <Typography variant="caption" color="text.secondary">
                         Characters: {charCount}
