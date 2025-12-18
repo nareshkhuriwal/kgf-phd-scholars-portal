@@ -5,8 +5,15 @@ import SaveIcon from '@mui/icons-material/Save';
 import UndoIcon from '@mui/icons-material/Undo';
 import RedoIcon from '@mui/icons-material/Redo';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 
-export default function ReviewToolbar({ onSave, saving }) {
+export default function ReviewToolbar({
+  onSave,
+  saving,
+  sidebarOpen,
+  onToggleSidebar
+}) {
   // example keyboard shortcut: ⌘/Ctrl + S
   React.useEffect(() => {
     const onKey = (e) => {
@@ -51,6 +58,17 @@ export default function ReviewToolbar({ onSave, saving }) {
       <Tooltip title="Copy selection (Editor)">
         <span><IconButton size="small" onClick={() => document.execCommand('copy')}><ContentCopyIcon fontSize="small" /></IconButton></span>
       </Tooltip>
+
+      <Tooltip title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}>
+        <IconButton
+          size="small"
+          onClick={onToggleSidebar}
+          aria-label="toggle sidebar"
+        >
+          {sidebarOpen ? <ChevronRightIcon /> : <ChevronLeftIcon />}
+        </IconButton>
+      </Tooltip>
+
     </Box>
   );
 }

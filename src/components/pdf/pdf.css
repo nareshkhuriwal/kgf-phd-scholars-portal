@@ -153,6 +153,27 @@
   overflow: auto;
   height: 100%;
 }
+.pdf-pane {
+  overflow: auto;
+  touch-action: pan-x pan-y; /* allow scroll but block browser zoom */
+  overscroll-behavior: contain;
+}
+
+.pdf-wrapper.fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+}
+
+.pdf-wrapper.fullscreen .pdf-pane {
+  flex: 1;
+  overflow: auto;
+}
+
+
 
 .textLayer {
   pointer-events: auto;
