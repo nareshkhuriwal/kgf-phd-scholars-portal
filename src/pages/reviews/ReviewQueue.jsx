@@ -17,6 +17,7 @@ import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import { useTheme, useMediaQuery } from '@mui/material';
 
 export default function ReviewQueue() {
   const dispatch = useDispatch();
@@ -31,6 +32,9 @@ export default function ReviewQueue() {
   // 🔽 SORT STATE
   const [sortBy, setSortBy] = React.useState(null);   // column key
   const [sortDir, setSortDir] = React.useState('asc'); // asc | desc
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
 
   React.useEffect(() => {
     dispatch(loadReviewQueue());
@@ -108,12 +112,21 @@ export default function ReviewQueue() {
         title="Reviews — Queue"
         subtitle="Papers you’ve queued up to review"
         actions={
-          <Stack direction="row" spacing={1}>
-            <Button variant="outlined" onClick={() => dispatch(loadReviewQueue())}>
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={1}
+            alignItems={{ xs: 'stretch', sm: 'center' }}
+          >
+            <Button
+              variant="outlined"
+              onClick={() => dispatch(loadReviewQueue())}
+              fullWidth={isMobile}
+            >
               Refresh
             </Button>
           </Stack>
         }
+
       />
 
       <Paper
@@ -141,7 +154,13 @@ export default function ReviewQueue() {
             {String(error)}
           </Typography>
         ) : (
-          <TableContainer sx={{ flex: 1, maxHeight: 'calc(100vh - 230px)', overflow: 'auto' }}>
+          <TableContainer
+            sx={{
+              flex: 1,
+              overflowX: 'auto',
+              maxHeight: isMobile ? 'none' : 'calc(100vh - 230px)',
+            }}
+          >
             <Table stickyHeader size="small">
               <TableHead>
                 <TableRow>
@@ -152,12 +171,11 @@ export default function ReviewQueue() {
                     Paper{sortIcon('title')}
                   </TableCell>
 
-                  <TableCell
-                    sx={{ fontWeight: 600, bgcolor: '#f7f7f9', cursor: 'pointer' }}
-                    onClick={() => onSort('authors')}
-                  >
-                    Authors{sortIcon('authors')}
-                  </TableCell>
+                  {!isMobile && (
+                    <TableCell sx={{ fontWeight: 600 }} onClick={() => onSort('authors')}>
+                      Authors{sortIcon('authors')}
+                    </TableCell>
+                  )}
 
                   <TableCell
                     sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 90, cursor: 'pointer' }}
@@ -166,12 +184,11 @@ export default function ReviewQueue() {
                     Year{sortIcon('year')}
                   </TableCell>
 
-                  <TableCell
-                    sx={{ fontWeight: 600, bgcolor: '#f7f7f9', cursor: 'pointer' }}
-                    onClick={() => onSort('doi')}
-                  >
-                    DOI{sortIcon('doi')}
-                  </TableCell>
+                  {!isTablet && !isMobile && (
+                    <TableCell sx={{ fontWeight: 600 }} onClick={() => onSort('doi')}>
+                      DOI{sortIcon('doi')}
+                    </TableCell>
+                  )}
 
                   <TableCell
                     sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 160, cursor: 'pointer' }}
@@ -180,12 +197,11 @@ export default function ReviewQueue() {
                     Status{sortIcon('review_status')}
                   </TableCell>
 
-                  <TableCell
-                    sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 180, cursor: 'pointer' }}
-                    onClick={() => onSort('updated_at')}
-                  >
-                    Updated At{sortIcon('updated_at')}
-                  </TableCell>
+                  {!isMobile && (
+                    <TableCell sx={{ fontWeight: 600 }} onClick={() => onSort('updated_at')}>
+                      Updated At{sortIcon('updated_at')}
+                    </TableCell>
+                  )}
 
 
                   <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 220 }}>
@@ -207,9 +223,9 @@ export default function ReviewQueue() {
                       <TableCell>
                         <ReviewCard paper={r} compact />
                       </TableCell>
-                      <TableCell>{r.authors || '-'}</TableCell>
+                      {!isMobile && <TableCell>{r.authors || '-'}</TableCell>}
                       <TableCell>{r.year || '-'}</TableCell>
-                      <TableCell>{r.doi || '-'}</TableCell>
+                      {!isTablet && !isMobile && <TableCell>{r.doi || '-'}</TableCell>}
                       <TableCell>
                         {(() => {
                           const status = r.review_status || 'draft';
@@ -224,11 +240,12 @@ export default function ReviewQueue() {
                         })()}
                       </TableCell>
 
-                      <TableCell>
-                        {r.updated_at
-                          ? new Date(r.updated_at).toLocaleString()
-                          : '-'}
-                      </TableCell>
+                      {!isMobile && (
+                        <TableCell>
+                          {r.updated_at ? new Date(r.updated_at).toLocaleString() : '-'}
+                        </TableCell>
+                      )}
+
 
 
                       <TableCell>
