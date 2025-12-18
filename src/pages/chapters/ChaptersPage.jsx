@@ -49,7 +49,6 @@ export default function ChaptersPage({ userId: userIdProp }) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
-const canReorder = !isMobile && !query && filtered.length === normalized.length;
 
 
   const nav = useNavigate();
@@ -64,17 +63,24 @@ const canReorder = !isMobile && !query && filtered.length === normalized.length;
     [chapters]
   );
 
-  const filtered = React.useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return normalized;
-    return normalized.filter(c =>
-      [c.title, (c.updated_at || c.created_at || '')]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase()
-        .includes(q)
-    );
-  }, [normalized, query]);
+const filtered = React.useMemo(() => {
+  const q = query.trim().toLowerCase();
+  if (!q) return normalized;
+  return normalized.filter(c =>
+    [c.title, (c.updated_at || c.created_at || '')]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+      .includes(q)
+  );
+}, [normalized, query]);
+
+// ✅ SAFE PLACE — filtered is initialized
+const canReorder =
+  !isMobile &&
+  !query &&
+  filtered.length === normalized.length;
+
 
   const start = page * rowsPerPage;
   const rows = filtered.slice(start, start + rowsPerPage);
