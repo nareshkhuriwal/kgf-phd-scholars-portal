@@ -263,7 +263,6 @@ export default function ProfileDialog({ open, onClose }) {
       onClose={onClose} 
       maxWidth="sm" 
       fullWidth
-      scroll="paper"
     >
       <input
         type="file"
@@ -326,8 +325,8 @@ export default function ProfileDialog({ open, onClose }) {
           </Tooltip>
         </Box>
 
-        <DialogContent sx={{ p: 0, mt: 2 }}>
-          <Stack spacing={2.5}>
+        <DialogContent sx={{ p: 0, mt: 2, overflow: 'visible' }}>
+          <Stack spacing={2.5} sx={{ overflow: 'visible' }}>
             {error && <Alert severity="error" variant="filled" sx={{ borderRadius: 2 }}>{String(error)}</Alert>}
             <Grid container spacing={2}>
               {FIELDS.map(({ key, label, Icon, placeholder, cols }) => (

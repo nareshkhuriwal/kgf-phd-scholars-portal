@@ -64,6 +64,9 @@ export default function Header({ onToggleSidebar }) {
     .join('')
     .toUpperCase();
 
+    const avatarSrc = user?.avatar || null;  
+
+  // Normalize role -> "super_admin", "admin", "supervisor", "researcher", etc.
   const normalizedRole = role
     ? role.toLowerCase().replace(/\s+/g, '_')
     : null;
@@ -229,16 +232,22 @@ export default function Header({ onToggleSidebar }) {
           <Stack direction="row" spacing={1.5} alignItems="center">
             <NotificationBell />
 
-            <IconButton
-              onClick={openUserMenu}
-              size="small"
-              sx={{ border: '1px solid #e6e6e6', borderRadius: '24px' }}
-            >
-              <Avatar sx={{ width: 28, height: 28, fontSize: 13 }}>
-                {initials}
-              </Avatar>
-              {!isMobile && (
-                <Typography sx={{ ml: 1, fontWeight: 500 }}>
+            {/* User menu */}
+            <Box>
+              <IconButton
+                onClick={handleOpen}
+                size="small"
+                sx={{ ml: 1, p: 0.5, border: '1px solid #e6e6e6', borderRadius: '24px' }}
+              >
+                <Avatar sx={{ width: 28, height: 28, fontSize: 13 }} src={avatarSrc}>{initials}</Avatar>
+                <Typography
+                  sx={{
+                    ml: 1,
+                    mr: 0.5,
+                    display: { xs: 'none', sm: 'inline' },
+                    fontWeight: 500
+                  }}
+                >
                   {firstName}
                 </Typography>
               )}
