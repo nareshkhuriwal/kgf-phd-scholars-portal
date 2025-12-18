@@ -339,7 +339,13 @@ const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
           </Box>
         ) : (
           <>
-            <TableContainer sx={{ flex: 1, maxHeight: 'calc(100vh - 280px)', overflow: 'auto' }}>
+<TableContainer
+  sx={{
+    flex: 1,
+    overflowX: 'auto',
+    maxHeight: isMobile ? 'none' : 'calc(100vh - 230px)',
+  }}
+>
               <Table stickyHeader size="small">
                 <TableHead>
                   <TableRow>
