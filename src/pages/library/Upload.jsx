@@ -30,7 +30,7 @@ export default function Upload() {
   // buckets
   const [files, setFiles] = React.useState([]);           // PDFs, RIS, BibTeX, CSV, ZIP…
   const [urls, setUrls] = React.useState('');             // newline-separated
-  const [bibtex, setBibtex] = React.useState('');         // pasted .bib or RIS
+  // const [bibtex, setBibtex] = React.useState('');         // pasted .bib or RIS
   const [csvFile, setCsvFile] = React.useState(null);     // single CSV mapping file
 
   const { uploading, result, error, progress } = useSelector(s => s.importer || {});
@@ -38,7 +38,7 @@ export default function Upload() {
   const hasAny =
     files.length > 0 ||
     urls.trim().length > 0 ||
-    bibtex.trim().length > 0 ||
+    // bibtex.trim().length > 0 ||
     !!csvFile;
 
   const onDrop = (newFiles) => {
@@ -55,14 +55,14 @@ export default function Upload() {
 
   const buildPayload = () => {
     // Keep backward compatibility with your thunk: if only files, send array.
-    if (files.length && !urls.trim() && !bibtex.trim() && !csvFile) return files;
+    if (files.length && !urls.trim() && !csvFile) return files;
 
     // Otherwise send a structured payload (update backend as needed).
     return {
       files,                               // File[]
       sources: {
         urls: urls.split('\n').map(s => s.trim()).filter(Boolean), // string[]
-        bibtex,                            // string (can also accept RIS)
+        // bibtex,                            // string (can also accept RIS)
         csv: csvFile || null               // File (schema mapping)
       },
       options: {
@@ -90,7 +90,7 @@ export default function Upload() {
     const e = ext(name);
     if (['pdf'].includes(e)) return <Chip size="small" label="PDF" />;
     if (['ris'].includes(e)) return <Chip size="small" label="RIS" />;
-    if (['bib','bibtex'].includes(e)) return <Chip size="small" label="BibTeX" />;
+    // if (['bib','bibtex'].includes(e)) return <Chip size="small" label="BibTeX" />;
     if (['csv'].includes(e)) return <Chip size="small" label="CSV" />;
     if (['zip'].includes(e)) return <Chip size="small" label="ZIP" />;
     return <Chip size="small" label={e || 'file'} />;
@@ -129,7 +129,7 @@ export default function Upload() {
           >
             <Tab label="Files / Folders" icon={<UploadFileIcon />} iconPosition="start" />
             <Tab label="URLs" icon={<LinkIcon />} iconPosition="start" />
-            <Tab label="BibTeX / RIS" icon={<DescriptionIcon />} iconPosition="start" />
+            {/* <Tab label="BibTeX / RIS" icon={<DescriptionIcon />} iconPosition="start" /> */}
             <Tab label="CSV" icon={<TableViewIcon />} iconPosition="start" />
           </Tabs>
 
@@ -185,7 +185,7 @@ export default function Upload() {
           )}
 
           {/* BibTeX / RIS */}
-          {tab === 2 && (
+          {/* {tab === 2 && (
             <Stack spacing={1}>
               <Typography variant="body2" color="text.secondary">
                 Paste BibTeX entries or RIS content. We’ll try to fetch PDFs when possible.
@@ -197,10 +197,10 @@ export default function Upload() {
                 fullWidth multiline minRows={8}
               />
             </Stack>
-          )}
+          )} */}
 
           {/* CSV */}
-          {tab === 3 && (
+          {tab === 2 && (
             <Stack spacing={1}>
               <Typography variant="body2" color="text.secondary">
                 Upload a CSV with columns like: <code>title, authors, year, doi, url</code>. (Optional: <code>pdf_url</code>)
