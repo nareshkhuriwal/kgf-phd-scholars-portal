@@ -45,10 +45,10 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
     `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(fileUrl)}`;
 
   const canOfficeEmbed = ['docx', 'pptx', 'xlsx'].includes(fmt);
-  const isPdf   = fmt === 'pdf';
-  const isHtml  = fmt === 'html';
-  const isText  = ['txt','md'].includes(fmt);
-  const isImage = ['png','jpg','jpeg','gif','webp'].includes(fmt);
+  const isPdf = fmt === 'pdf';
+  const isHtml = fmt === 'html';
+  const isText = ['txt', 'md'].includes(fmt);
+  const isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(fmt);
   const isSynopsis = tpl === 'synopsis';
   const hasSynopsisContent = (chapters?.length || 0) > 0 || (literature?.length || 0) > 0;
 
@@ -127,7 +127,7 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
     if (effectiveDownload) {
       btns.push(
         <Button key="dl-file" size="small" variant="contained" startIcon={<DownloadIcon />}
-                onClick={() => window.open(effectiveDownload, '_blank')}>
+          onClick={() => window.open(effectiveDownload, '_blank')}>
           Download
         </Button>
       );
@@ -259,15 +259,23 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
                 {/* Chapters */}
                 {Array.isArray(chapters) && chapters.length > 0 && (
                   <Box sx={{ mb: 3 }}>
-                    <Typography variant="h6" sx={{ mb: 1 }}>Chapters</Typography>
+                    <Typography variant="h6" sx={{ mb: 1 }}></Typography>
                     {chapters.map((ch) => (
-                      <Box key={ch.id} className="card" sx={{ mb: 2, p: 1.5, bgcolor: '#fff', borderRadius: 1, border: '1px solid #eee' }}>
-                        <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: .5 }}>
+                      <Box key={ch.id} className="card" sx={{ mb: 1.5, p: 1.5, bgcolor: '#fff', borderRadius: 1, border: '1px solid #eee' }}>
+                        {/* <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: .5 }}>
                           {ch.title || `Chapter #${ch.id}`}
-                        </Typography>
-                        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                        </Typography> */}
+                        {/* <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
                           {cleanRich(ch.body_html) || ''}
-                        </Typography>
+                        </Typography> */}
+                        <Box
+                          className="ck-content"
+                          sx={{
+                            backgroundColor: '#fff',
+                            padding: 2,
+                          }}
+                          dangerouslySetInnerHTML={{ __html: ch.body_html }}
+                        />
                       </Box>
                     ))}
                   </Box>
