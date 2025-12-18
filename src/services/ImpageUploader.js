@@ -15,7 +15,7 @@ class EditorUploadAdapter {
       if (this.paperId) {
         formData.append('paper_id', this.paperId);
       }
-
+      
       // apiFetch should already know BASE_URL, auth headers, etc.
       const res = await apiFetch('/editor/upload-image', {
         method: 'POST',
