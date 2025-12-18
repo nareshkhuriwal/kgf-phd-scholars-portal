@@ -35,8 +35,14 @@ export const createChapter = createAsyncThunk(
 
 export const updateChapter = createAsyncThunk(
   'chapters/update',
-  async ({ id, changes }) => await apiFetch(`/chapters/${id}`, { method: 'PUT', body: changes })
+  async ({ id, changes }) => {
+    return await apiFetch(`/chapters/${id}`, {
+      method: 'PUT',
+      body: changes,
+    });
+  }
 );
+
 
 export const deleteChapter = createAsyncThunk(
   'chapters/delete',
@@ -88,8 +94,14 @@ const chaptersSlice = createSlice({
         chaptersAdapter.addOne(state, action.payload);
       })
       .addCase(updateChapter.fulfilled, (state, action) => {
-        chaptersAdapter.upsertOne(state, action.payload);
+        const resp = action.payload?.data ?? action.payload;
+
+        if (!resp?.id) return;
+
+        // Store ONLY server-returned decoded content
+        chaptersAdapter.upsertOne(state, resp);
       })
+
       .addCase(deleteChapter.fulfilled, (state, action) => {
         chaptersAdapter.removeOne(state, action.payload);
       })
