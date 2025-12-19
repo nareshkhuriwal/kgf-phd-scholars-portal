@@ -11,34 +11,32 @@ import {
 import AttachmentIcon from '@mui/icons-material/Attachment';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 
-const SINGLE_LINE_ORDER = [
-  'Paper ID','DOI','Author(s)','Year','Title','Name of Journal/Conference',
-  'ISSN / ISBN','Name of Publisher / Organization','Place of Conference','Area / Sub Area',
-  'Volume','Issue','Page No','Category of Paper'
+
+const SINGLE_LINE_FIELDS = [
+  { key: 'paper_code', label: 'Paper ID' },
+  { key: 'doi', label: 'DOI' },
+  { key: 'authors', label: 'Author(s)' },
+  { key: 'year', label: 'Year' },
+  { key: 'title', label: 'Title' },
+  { key: 'journal', label: 'Name of Journal/Conference' },
+  { key: 'issn_isbn', label: 'ISSN / ISBN' },
+  { key: 'publisher', label: 'Name of Publisher / Organization' },
+
+  // ✅ FIXED MAPPINGS
+  { key: 'place', label: 'Place of Conference' },
+  { key: 'area', label: 'Area / Sub Area' },
+
+  { key: 'volume', label: 'Volume' },
+  { key: 'issue', label: 'Issue' },
+  { key: 'page_no', label: 'Page No' },
+  { key: 'category', label: 'Category of Paper' },
 ];
 
-const KEY_MAP = {
-  'Paper ID': ['Paper ID','paper_id','paperId','id'],
-  DOI: ['DOI','doi'],
-  'Author(s)': ['Author(s)','authors','author'],
-  Year: ['Year','year'],
-  Title: ['Title','title'],
-  'Name of Journal/Conference': ['Name of Journal/Conference','journal','journal_name','conference','journal_or_conference'],
-  'ISSN / ISBN': ['ISSN / ISBN','issn_isbn','issn','isbn'],
-  'Name of Publisher / Organization': ['Name of Publisher / Organization','publisher','organization','organization_name'],
-  'Place of Conference': ['Place of Conference','place_of_conference','conference_place','location'],
-  'Area / Sub Area': ['Area / Sub Area','area','sub_area','area_subarea'],
-  Volume: ['Volume','volume'],
-  Issue: ['Issue','issue'],
-  'Page No': ['Page No','pages','page','page_no'],
-  'Category of Paper': ['Category of Paper','category','paper_category']
-};
+
 
 const pick = (obj, cands) => { for (const k of cands) if (obj?.[k] != null) return obj[k]; return ''; };
-const mapToDefaults = (entity) => {
-  const out = {}; SINGLE_LINE_ORDER.forEach(lbl => { out[lbl] = pick(entity, KEY_MAP[lbl] || [lbl]); }); return out;
-};
-const prettyBytes = (b=0)=>{const u=['B','KB','MB','GB'];let i=0,n=+b;while(n>=1024&&i<u.length-1){n/=1024;i++;}return `${n.toFixed(1)} ${u[i]}`;};
+
+const prettyBytes = (b = 0) => { const u = ['B', 'KB', 'MB', 'GB']; let i = 0, n = +b; while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; } return `${n.toFixed(1)} ${u[i]}`; };
 
 export default function PaperForm({ mode = 'create' }) {
   const dispatch = useDispatch();
@@ -64,17 +62,44 @@ export default function PaperForm({ mode = 'create' }) {
     return () => dispatch(clearCurrent());
   }, [dispatch, mode, paperId]);
 
+  // 🔹 THIS WAS MISSING — populate form
   React.useEffect(() => {
     if (mode === 'edit' && current) {
-      reset(mapToDefaults(current)); // ← prefill all fields from API response
+      reset({
+        paper_code: current.paper_code ?? '',
+        doi: current.doi ?? '',
+        authors: current.authors ?? '',
+        year: current.year ?? '',
+        title: current.title ?? '',
+        journal: current.journal ?? '',
+        issn_isbn: current.issn_isbn ?? '',
+        publisher: current.publisher ?? '',
+        place: current.place ?? '',
+        area: current.area ?? '',
+        volume: current.volume ?? '',
+        issue: current.issue ?? '',
+        page_no: current.page_no ?? '',
+        category: current.category ?? '',
+      });
     }
   }, [current, mode, reset]);
 
-  const onSubmit = async (values) => {
-    if (values.Year) values.Year = String(values.Year).trim();
 
+  const onSubmit = async (values) => {
+    console.log('RHF values:', values); // 👈 THIS MUST SHOW DATA
+
+    if (values.Year) values.Year = String(values.Year).trim();
+    const payload = {
+      ...values,
+    };
     // If a PDF is selected, include it so service builds FormData
-    const payload = file ? { ...values, file } : values;
+    // const payload = file ? { ...values, file } : values;
+    // If a PDF is selected
+    if (file) {
+      payload.file = file;
+    }
+
+    console.log('Payload to submit:', payload); // 👈 THIS MUST SHOW DATA
 
     try {
       if (mode === 'create') {
@@ -102,14 +127,19 @@ export default function PaperForm({ mode = 'create' }) {
             <Chip size="small" color="primary" variant="outlined" label="PDF attached" />
           )}
           <Button variant="outlined" onClick={onCancel} disabled={isSubmitting || loading}>Cancel</Button>
-          <Button variant="contained" onClick={handleSubmit(onSubmit)} disabled={isSubmitting || loading || uploading}>
-            {(isSubmitting || uploading) ? `Saving${typeof progress==='number' ? ` ${progress}%` : '…'}` : 'Submit'}
+          <Button
+            variant="contained"
+            onClick={handleSubmit(onSubmit)}
+            disabled={isSubmitting || loading || uploading}
+          >
+            {(isSubmitting || uploading) ? 'Saving…' : 'Submit'}
           </Button>
+
         </Toolbar>
       </AppBar>
 
       <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate
-           sx={{ flex: 1, minHeight: 0, overflow: 'auto', p: 2 }}>
+        sx={{ flex: 1, minHeight: 0, overflow: 'auto', p: 2 }}>
         <MUIPaper variant="outlined" sx={{ p: 2, mb: 2 }}>
           {(loading && mode === 'edit') ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
@@ -117,20 +147,23 @@ export default function PaperForm({ mode = 'create' }) {
             </Box>
           ) : (
             <Grid container spacing={2}>
-              {SINGLE_LINE_ORDER.map((f) => {
-                const rules = f === 'Title' ? { required: 'Title is required' } : {};
+              {SINGLE_LINE_FIELDS.map(({ key, label }) => {
+                const rules = key === 'title' ? { required: 'Title is required' } : {};
+
                 return (
-                  <Grid item xs={12} md={6} key={f}>
+                  <Grid item xs={12} md={6} key={key}>
                     <TextField
-                      label={f}
+                      label={label}
                       fullWidth
-                      error={!!errors[f]}
-                      helperText={errors[f]?.message || ''}
-                      {...register(f, rules)}
+                      error={!!errors[key]}
+                      helperText={errors[key]?.message || ''}
+                      {...register(key, rules)}
+                      InputLabelProps={{ shrink: true }}
                     />
                   </Grid>
                 );
               })}
+
             </Grid>
           )}
         </MUIPaper>
@@ -206,7 +239,7 @@ export default function PaperForm({ mode = 'create' }) {
           <Toolbar sx={{ justifyContent: 'flex-end', gap: 1 }}>
             <Button variant="outlined" onClick={onCancel} disabled={isSubmitting || loading}>Cancel</Button>
             <Button variant="contained" type="submit" disabled={isSubmitting || loading || uploading}>
-              {(isSubmitting || uploading) ? `Saving${typeof progress==='number' ? ` ${progress}%` : '…'}` : 'Submit'}
+              {(isSubmitting || uploading) ? `Saving${typeof progress === 'number' ? ` ${progress}%` : '…'}` : 'Submit'}
             </Button>
           </Toolbar>
         </Box>
