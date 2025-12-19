@@ -30,7 +30,7 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
 
 
   React.useEffect(() => {
-    setActiveUrl(fileUrl ? (isDev ? toRelative(fileUrl) : fileUrl) : '');
+    setActiveUrl(fileUrl ? (isDev ? fileUrl : fileUrl) : '');
   }, [fileUrl]);
 
 
@@ -103,6 +103,7 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
 
     setLoading(true);
     setLoadingMsg('Loading PDF…');
+    console.log('Loading PDF from', activeUrl);
 
     (async () => {
       try {
