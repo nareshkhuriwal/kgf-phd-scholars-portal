@@ -48,7 +48,7 @@ export default function Reports() {
     const arr = Array.isArray(list) ? list : (list?.data ?? [])
     return arr
       .map(p => {
-        const txt = typeof p?.['Litracture Review'] === 'string' ? p['Litracture Review'].trim() : ''
+        const txt = typeof p?.['Literature Review'] === 'string' ? p['Literature Review'].trim() : ''
         if (!txt) return null
         return {
           id: p?.id ?? p?.['Paper ID'],

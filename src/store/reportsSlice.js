@@ -4,7 +4,7 @@ import { apiFetch } from '../services/api';
 
 /** ───── Existing endpoints (kept as-is) ───── **/
 
-// All "Litracture Review" fields (normalized list for Reports page)
+// All "Literature Review" fields (normalized list for Reports page)
 export const loadLiteratureReviews = createAsyncThunk('reports/loadLit', async () => {
   return await apiFetch('/reports/literature', { method: 'GET' });
 });

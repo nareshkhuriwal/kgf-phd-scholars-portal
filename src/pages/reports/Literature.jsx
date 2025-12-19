@@ -42,7 +42,7 @@ export default function Literature() {
 
   return (
     <Box sx={{ display:'flex', flexDirection:'column', height:'100%' }}>
-      <PageHeader title="Reports — Literature Reviews" subtitle="Pulls text from the 'Litracture Review' field of each reviewed paper"
+      <PageHeader title="Reports — Literature Reviews" subtitle="Pulls text from the 'Literature Review' field of each reviewed paper"
         actions={<Button variant="contained" onClick={downloadDocx} disabled={!filtered.length}>Download .docx</Button>}
       />
       <Paper sx={{ p:1.5, border:'1px solid #eee', borderRadius:2, display:'flex', flexDirection:'column', minHeight:0 }}>
