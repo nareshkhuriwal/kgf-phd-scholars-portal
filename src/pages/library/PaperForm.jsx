@@ -10,6 +10,7 @@ import {
 } from '@mui/material';
 import AttachmentIcon from '@mui/icons-material/Attachment';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import { attachPaperFile } from '../../store/papersSlice';
 
 
 const SINGLE_LINE_FIELDS = [
@@ -86,30 +87,41 @@ export default function PaperForm({ mode = 'create' }) {
 
 
   const onSubmit = async (values) => {
-    console.log('RHF values:', values); // 👈 THIS MUST SHOW DATA
-
-    if (values.Year) values.Year = String(values.Year).trim();
-    const payload = {
-      ...values,
-    };
-    // If a PDF is selected, include it so service builds FormData
-    // const payload = file ? { ...values, file } : values;
-    // If a PDF is selected
-    if (file) {
-      payload.file = file;
-    }
-
-    console.log('Payload to submit:', payload); // 👈 THIS MUST SHOW DATA
-
     try {
+      // 1️⃣ Update paper metadata (JSON only)
+      let saved;
+
       if (mode === 'create') {
-        await dispatch(addPaper(payload)).unwrap();
+        // If a PDF is selected, include it so service builds FormData // 
+        const payload = file ? { ...values, file } : values; // If a PDF is selected if (file) { payload.file = file; }
+        saved = await dispatch(addPaper(payload)).unwrap();
       } else {
-        await dispatch(editPaper({ id: Number(paperId), data: payload })).unwrap();
+        saved = await dispatch(
+          editPaper({
+            id: Number(paperId),
+            data: values
+          })
+        ).unwrap();
       }
+
+      const paperIdToUse = saved?.id || Number(paperId);
+
+      // 2️⃣ Upload / replace file separately (FormData)
+      if (file && paperIdToUse) {
+        await dispatch(
+          attachPaperFile({
+            id: paperIdToUse,
+            file,
+          })
+        ).unwrap();
+      }
+
       navigate('/papers');
     } catch (err) {
-      setError('root', { type: 'server', message: err?.message || 'Save failed' });
+      setError('root', {
+        type: 'server',
+        message: err?.message || 'Save failed',
+      });
     }
   };
 
