@@ -42,6 +42,8 @@ import {
   Pie,
   Cell,
 } from 'recharts';
+import { hasRoleAccess } from '../../utils/rbac';
+
 
 const StatCard = ({ label, value }) => (
   <Paper sx={{ p: 2, border: '1px solid #eee', borderRadius: 2 }}>
@@ -64,6 +66,7 @@ export default function Overview() {
 
   const { user } = useSelector((s) => s.auth || {});
   const role = user?.role; // 'researcher' | 'supervisor' | 'admin'
+  console.log('Dashboard mode:', mode, 'for role:', role);
 
   const {
     loadingSummary,
@@ -90,11 +93,17 @@ export default function Overview() {
   // Secondary dropdown: specific user id
   const [selectedUserId, setSelectedUserId] = React.useState('');
 
+
+  const canManageSupervisors = hasRoleAccess(user?.role, 'admin');
+
   // -------- Load filters whenever we might need specific users --------
   React.useEffect(() => {
-    if (role === 'admin' || role === 'supervisor') {
+
+
+    if (hasRoleAccess(role, 'admin')) {
       dispatch(loadDashboardFilters());
     }
+
   }, [dispatch, role]);
 
   // -------- Initial primary option based on mode + role --------
@@ -102,21 +111,22 @@ export default function Overview() {
     if (!role) return;
 
     if (mode === 'overview') {
-      if (role === 'admin') {
-        setPrimaryKey('OV_ALL'); // org overview
+      if (hasRoleAccess(role, 'admin')) {
+        setPrimaryKey('OV_ALL');
       } else {
-        setPrimaryKey('OV_SELF'); // own dashboard
+        setPrimaryKey('OV_SELF');
       }
-    } else if (mode === 'researchers') {
-      if (role === 'supervisor') {
+    }
+    else if (mode === 'researchers') {
+      if (hasRoleAccess(role, 'supervisor')) {
         setPrimaryKey('RES_ALL_MY'); // all my researchers
-      } else if (role === 'admin') {
+      } else if (hasRoleAccess(role, 'admin')) {
         setPrimaryKey('RES_ALL'); // all researchers
       } else {
         setPrimaryKey('OV_SELF');
       }
     } else if (mode === 'supervisors') {
-      if (role === 'admin') {
+      if (hasRoleAccess(role, 'admin')) {
         setPrimaryKey('SUP_ALL'); // all supervisors
       } else {
         setPrimaryKey('OV_SELF');
@@ -128,17 +138,19 @@ export default function Overview() {
 
   // -------- Primary dropdown options per (mode, role) --------
   const primaryOptions = React.useMemo(() => {
-    if (role === 'researcher') return [];
+
+
+    if (hasRoleAccess(role, 'researcher')) return [];
 
     if (mode === 'overview') {
-      if (role === 'admin') {
+      if (hasRoleAccess(role, 'admin')) {
         return [
           { value: 'OV_ALL', label: 'All supervisors & researchers' },
           { value: 'OV_SPEC_SUP', label: 'Specific supervisor' },
           { value: 'OV_SPEC_RES', label: 'Specific researcher' },
         ];
       }
-      if (role === 'supervisor') {
+      if (hasRoleAccess(role, 'supervisor')) {
         return [
           { value: 'OV_SELF', label: 'My own activity' },
           { value: 'OV_MY_RESEARCHERS', label: 'All my researchers' },
@@ -147,13 +159,13 @@ export default function Overview() {
     }
 
     if (mode === 'researchers') {
-      if (role === 'supervisor') {
+      if (hasRoleAccess(role, 'supervisor')) {
         return [
           { value: 'RES_ALL_MY', label: 'All my researchers' },
           { value: 'RES_SPEC', label: 'Specific researcher' },
         ];
       }
-      if (role === 'admin') {
+      if (hasRoleAccess(role, 'admin')) {
         return [
           { value: 'RES_ALL', label: 'All researchers' },
           { value: 'RES_SPEC', label: 'Specific researcher' },
@@ -162,7 +174,7 @@ export default function Overview() {
     }
 
     if (mode === 'supervisors') {
-      if (role === 'admin') {
+      if (hasRoleAccess(role, 'admin')) {
         return [
           { value: 'SUP_ALL', label: 'All supervisors' },
           { value: 'SUP_SPEC', label: 'Specific supervisor' },
@@ -182,12 +194,14 @@ export default function Overview() {
     let label = '';
     let options = [];
 
-    if (role === 'researcher') {
+    if (hasRoleAccess(role, 'researcher')) {
       return { showUserDropdown: false, userDropdownLabel: '', userOptions: [] };
     }
 
+
+
     // overview: only admin can pick specific
-    if (mode === 'overview' && role === 'admin') {
+    if (mode === 'overview' && hasRoleAccess(role, 'admin')) {
       if (primaryKey === 'OV_SPEC_SUP') {
         show = true;
         label = 'Supervisor';
@@ -243,7 +257,7 @@ export default function Overview() {
     let targetUserId = null;
 
     // researcher: always self
-    if (role === 'researcher') {
+    if (hasRoleAccess(role, 'researcher')) {
       if (mode === 'researchers') {
         title = 'Researchers Dashboard';
         subtitle = 'Your own research activity';
@@ -256,7 +270,7 @@ export default function Overview() {
     // OVERVIEW mode
     if (mode === 'overview') {
       title = 'Dashboard';
-      if (role === 'admin') {
+      if (hasRoleAccess(role, 'admin')) {
         title = 'Dashboard – Overview';
         subtitle = 'Organisation-wide activity at a glance';
 
@@ -286,7 +300,7 @@ export default function Overview() {
             chip = r ? `Researcher – ${labelUser(r)}` : `Researcher #${id}`;
           }
         }
-      } else if (role === 'supervisor') {
+      } else if (hasRoleAccess(role, 'supervisor')) {
         subtitle = 'Your research activity and your team at a glance';
         if (primaryKey === 'OV_SELF' || !primaryKey) {
           scope = 'self';
@@ -306,7 +320,7 @@ export default function Overview() {
       title = 'Researchers Dashboard';
       subtitle = 'Monitor and compare researcher performance';
 
-      if (role === 'supervisor') {
+      if (hasRoleAccess(role, 'supervisor')) {
         if (primaryKey === 'RES_ALL_MY' || !primaryKey) {
           scope = 'my_researchers';
           targetUserId = user?.id || null;
@@ -323,7 +337,7 @@ export default function Overview() {
             chip = r ? `Researcher – ${labelUser(r)}` : `Researcher #${id}`;
           }
         }
-      } else if (role === 'admin') {
+      } else if (hasRoleAccess(role, 'admin')) {
         if (primaryKey === 'RES_ALL' || !primaryKey) {
           scope = 'all_researchers';
           chip = 'All researchers';
@@ -349,7 +363,7 @@ export default function Overview() {
       title = 'Supervisors Dashboard';
       subtitle = 'Monitor supervisor activity and coverage';
 
-      if (role === 'admin') {
+      if (hasRoleAccess(role, 'admin')) {
         if (primaryKey === 'SUP_ALL' || !primaryKey) {
           scope = 'all_supervisors';
           chip = 'All supervisors';
@@ -431,7 +445,7 @@ export default function Overview() {
     '#A78BFA',
   ];
 
-  const showPrimaryDropdown = role !== 'researcher' && primaryOptions.length > 0;
+  const showPrimaryDropdown = !hasRoleAccess(role, 'researcher') && primaryOptions.length > 0;
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>

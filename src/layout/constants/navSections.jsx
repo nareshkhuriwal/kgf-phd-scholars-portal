@@ -31,14 +31,14 @@ export const SECTIONS = [
         to: '/dashboard/researchers',
         label: 'Researchers',
         Icon: GroupAddIcon,
-        roles: ['admin', 'supervisor'],
+        roles: ['admin', 'supervisor', 'super_admin'],
       },
       // visible for admin only
       {
         to: '/dashboard/supervisors',
         label: 'Supervisors',
         Icon: GroupAddIcon,
-        roles: ['admin'],
+        roles: ['admin', 'super_admin'],
       },
     ],
   },
