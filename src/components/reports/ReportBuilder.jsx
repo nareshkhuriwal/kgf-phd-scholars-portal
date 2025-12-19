@@ -29,7 +29,7 @@ const FORMATS = [
   { value: 'pptx', label: 'PowerPoint (.pptx)' }
 ];
 const EDITOR_ORDER = [
-  'Litracture Review', 'Key Issue', 'Solution Approach / Methodology used', 'Related Work',
+  'Literature Review', 'Key Issue', 'Solution Approach / Methodology used', 'Related Work',
   'Input Parameters used', 'Hardware / Software / Technology Used', 'Results',
   'Key advantages', 'Limitations', 'Citations', 'Remarks'
 ];
