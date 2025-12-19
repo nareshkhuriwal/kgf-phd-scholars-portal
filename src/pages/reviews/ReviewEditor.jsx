@@ -32,7 +32,7 @@ import { debounce } from '../../utils/debounce';
 
 // ---- Tabs / mapping ----
 const EDITOR_ORDER = [
-  'Litracture Review',
+  'Literature Review',
   'Key Issue',
   'Solution Approach / Methodology used',
   'Related Work',
@@ -46,7 +46,7 @@ const EDITOR_ORDER = [
 ];
 
 const LEGACY_KEY_MAP = {
-  'Litracture Review': ['literature_review', 'litracture_review', 'review', 'html'],
+  'Literature Review': ['literature_review', 'litracture_review', 'review', 'html'],
   'Key Issue': ['key_issue', 'key_issues'],
   'Solution Approach / Methodology used': ['solution_approach', 'methodology', 'methodology_used'],
   'Related Work': ['related_work'],
