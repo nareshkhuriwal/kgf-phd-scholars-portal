@@ -177,9 +177,13 @@ export async function exportSynopsisDocx(synopsisData) {
         );
       }
 
-      const paras = await htmlToDocxParagraphs(
+      const paras_old = await htmlToDocxParagraphs(
         item.reviewHtml || item.body_html || ""
       );
+      const paras = await htmlToDocxParagraphs(
+        item.html || item.reviewHtml || item.body_html || item.text || ""
+      );
+
       paras.forEach((p) => docChildren.push(p));
     }
   }
