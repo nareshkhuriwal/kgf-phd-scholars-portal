@@ -97,49 +97,49 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
   };
 
   // Client-side Excel download (for dataset)
-const onDownloadExcel = () => {
-  const metaKeys = new Set([
-    'paper_id',
-    'doi',
-    'authors',
-    'title',
-    'year',
-    'category',
-  ]);
+  const onDownloadExcel = () => {
+    const metaKeys = new Set([
+      'paper_id',
+      'doi',
+      'authors',
+      'title',
+      'year',
+      'category',
+    ]);
 
-  const ordered = rows.map(r => {
-    const obj = {};
+    const ordered = rows.map(r => {
+      const obj = {};
 
-    columns.forEach(c => {
-      let val = r[c.key];
+      columns.forEach(c => {
+        let val = r[c.key];
 
-      if (val == null || val === '') {
-        obj[c.label || c.key] = '';
-        return;
-      }
+        if (val == null || val === '') {
+          obj[c.label || c.key] = '';
+          return;
+        }
 
-      // Convert review sections to Excel-friendly text
-      if (!metaKeys.has(c.key)) {
-        val = htmlToExcelText(val);
-      }
+        // Convert review sections to Excel-friendly text
+        if (!metaKeys.has(c.key)) {
+          val = htmlToExcelText(val);
+        }
 
-      obj[c.label || c.key] = val;
+        obj[c.label || c.key] = val;
+      });
+
+      return obj;
     });
 
-    return obj;
-  });
+    const ws = XLSX.utils.json_to_sheet(ordered);
+    const wb = XLSX.utils.book_new();
+    const sheetName = (template || 'Report').toUpperCase().slice(0, 31);
 
-  const ws = XLSX.utils.json_to_sheet(ordered);
-  const wb = XLSX.utils.book_new();
-  const sheetName = (template || 'Report').toUpperCase().slice(0, 31);
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
 
-  XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    const safeName = String(name || 'Report')
+      .replace(/[^A-Za-z0-9._-]+/g, '_');
 
-  const safeName = String(name || 'Report')
-    .replace(/[^A-Za-z0-9._-]+/g, '_');
-
-  XLSX.writeFile(wb, `${safeName}.xlsx`);
-};
+    XLSX.writeFile(wb, `${safeName}.xlsx`);
+  };
 
 
   // Client-side DOCX download (for Synopsis)
@@ -332,7 +332,16 @@ const onDownloadExcel = () => {
                           {[item.title, item.authors, item.year].filter(Boolean).join(' • ')}
                         </Typography>
                         <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                          {item.text || '—'}
+                          <Box
+                            className="ck-content"
+                            sx={{
+                              '& p': { margin: '0 0 8px' },
+                              '& ul, & ol': { paddingLeft: 2 },
+                              '& h1, & h2, & h3': { margin: '8px 0' },
+                            }}
+                            dangerouslySetInnerHTML={{ __html: item.text || '<p>—</p>' }}
+                          />
+
                         </Typography>
                       </Box>
                     ))}
