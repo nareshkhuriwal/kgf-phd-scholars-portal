@@ -6,7 +6,7 @@ A professional admin portal to record literature review fields, review papers on
 ## Features
 - Secure login (JWT token expected; mock mode available)
 - Review Papers: list, add, edit, delete
-- Full paper schema covering: Paper ID, Litracture Review, Category of Paper, DOI, Author(s), Year, Title, Name of Journal/Conference, ISSN / ISBN, Name of Publisher / Organization, Place of Conference, Volume, Issue, Page No, Area / Sub Area, Key Issue, Solution Approach / Methodology used, Related Work, Input Parameters used, Hardware / Software / Technology Used, Results, Key advantages, Limitations, Remarks
+- Full paper schema covering: Paper ID, Literature Review, Category of Paper, DOI, Author(s), Year, Title, Name of Journal/Conference, ISSN / ISBN, Name of Publisher / Organization, Place of Conference, Volume, Issue, Page No, Area / Sub Area, Key Issue, Solution Approach / Methodology used, Related Work, Input Parameters used, Hardware / Software / Technology Used, Results, Key advantages, Limitations, Remarks
 - Reports:
   - ROL report (subset of key columns)
   - Download complete Literature report (all columns) as Excel
