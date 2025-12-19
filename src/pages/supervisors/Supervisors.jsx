@@ -29,6 +29,7 @@ import PageHeader from '../../components/PageHeader';
 import SearchBar from '../../components/SearchBar';
 import EmptyState from '../../components/EmptyState';
 import ConfirmDialog from '../../components/ConfirmDialog';
+import { isAdminRole } from '../../utils/roles';
 
 import SupervisorFormDialog from '../../components/supervisors/SupervisorFormDialog';
 import {
@@ -51,6 +52,11 @@ export default function Supervisors() {
   const [formOpen, setFormOpen] = React.useState(false);
 
   const [toDelete, setToDelete] = React.useState(null);
+
+  const { user } = useSelector((s) => s.auth || {});
+  const canManage = isAdminRole(user?.role);
+
+
 
   // Toast state
   const [toast, setToast] = React.useState({
@@ -179,13 +185,25 @@ export default function Supervisors() {
             >
               Refresh
             </Button>
-            <Button
+            {/* <Button
               variant="contained"
               startIcon={<AddIcon />}
               onClick={handleOpenCreate}
             >
               Add Supervisor
-            </Button>
+            </Button> */}
+
+            {canManage && (
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={handleOpenCreate}
+              >
+                Add Supervisor
+              </Button>
+            )}
+
+
           </Stack>
         }
       />
