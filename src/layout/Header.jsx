@@ -423,7 +423,6 @@ export default function Header({ onToggleSidebar }) {
         </MenuItem>
       </Menu>
 
-
       {/* ================= DIALOGS ================= */}
       <ProfileDialog open={profileOpen} onClose={() => setProfileOpen(false)} />
       <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
