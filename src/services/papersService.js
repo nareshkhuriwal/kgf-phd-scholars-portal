@@ -1,62 +1,38 @@
 // src/services/papersService.js
 import { apiFetch } from '../services/api';
 
-/**
- * Field label -> API key mapping for create/update payloads
- */
-export const LABEL_TO_API = {
-  'Paper ID': 'paper_id',
-  'DOI': 'doi',
-  'Author(s)': 'authors',
-  'Year': 'year',
-  'Title': 'title',
-  'Name of Journal/Conference': 'journal',
-  'ISSN / ISBN': 'issn_isbn',
-  'Name of Publisher / Organization': 'publisher',
-  'Place of Conference': 'place_of_conference',
-  'Area / Sub Area': 'area_sub_area',
-  'Volume': 'volume',
-  'Issue': 'issue',
-  'Page No': 'page_no',
-  'Category of Paper': 'category',
-  'Litracture Review': 'literature_review',
-  'Key Issue': 'key_issue',
-  'Solution Approach / Methodology used': 'solution_methodology',
-  'Related Work': 'related_work',
-  'Input Parameters used': 'input_parameters',
-  'Hardware / Software / Technology Used': 'hardware_software_technology',
-  'Results': 'results',
-  'Key advantages': 'key_advantages',
-  'Limitations': 'limitations',
-  'Remarks': 'remarks',
-};
-
-export function toApiPayload(form) {
-  const body = {};
-  Object.entries(LABEL_TO_API).forEach(([label, apiKey]) => {
-    const v = form?.[label];
-    if (v !== undefined) body[apiKey] = v;
-  });
-  return body;
-}
 
 /** Build final request body: FormData when file present, else JSON object */
 function buildBody(form) {
-  // Already FormData? pass through.
+  // Already FormData → pass through
   if (form instanceof FormData) return form;
 
-  // If caller passed { file } along with labels, convert to FormData.
+  // File upload → FormData
   if (form && form.file instanceof File) {
     const fd = new FormData();
-    const mapped = toApiPayload(form);
-    Object.entries(mapped).forEach(([k, v]) => fd.append(k, v ?? ''));
+
+    Object.entries(form).forEach(([k, v]) => {
+      if (k === 'file') return;
+      if (v !== undefined && v !== null) {
+        fd.append(k, v);
+      }
+    });
+
     fd.append('file', form.file);
     return fd;
   }
 
-  // Plain labeled object → JSON
-  return toApiPayload(form);
+  // Plain JSON payload (KEY-BASED)
+  const body = {};
+  Object.entries(form || {}).forEach(([k, v]) => {
+    if (v !== undefined && v !== null) {
+      body[k] = v;
+    }
+  });
+
+  return body;
 }
+
 
 /**
  * Helper: map friendly param names to backend params and remove undefined
