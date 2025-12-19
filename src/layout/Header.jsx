@@ -55,6 +55,7 @@ export default function Header({ onToggleSidebar }) {
   /* ---------------- Auth ---------------- */
   const { user } = useSelector((s) => s.auth || {});
   const role = user?.role;
+  const avatarUrl = user?.avatar || null;
 
   const firstName = (user?.name || user?.email || 'User').split(' ')[0];
   const initials = (user?.name || 'U')
@@ -119,9 +120,9 @@ export default function Header({ onToggleSidebar }) {
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [pwdOpen, setPwdOpen] = React.useState(false);
 
-  const [menuEl, setMenuEl] = React.useState(null); 
-  const openMenu = Boolean(menuEl); 
-  const handleOpen = (e) => setMenuEl(e.currentTarget); 
+  const [menuEl, setMenuEl] = React.useState(null);
+  const openMenu = Boolean(menuEl);
+  const handleOpen = (e) => setMenuEl(e.currentTarget);
   const handleClose = () => setMenuEl(null);
 
   const openUpgrade = () => { handleClose(); navigate('/price'); };
@@ -253,9 +254,21 @@ export default function Header({ onToggleSidebar }) {
               size="small"
               sx={{ border: '1px solid #e6e6e6', borderRadius: '24px' }}
             >
-              <Avatar sx={{ width: 28, height: 28, fontSize: 13 }}>
-                {initials}
+              <Avatar
+                src={avatarUrl || undefined}
+                alt={user?.name || 'User'}
+                sx={{ width: 28, height: 28, fontSize: 13 }}
+                imgProps={{
+                  referrerPolicy: 'no-referrer',
+                  onError: (e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = '';
+                  },
+                }}
+              >
+                {!avatarUrl && initials}
               </Avatar>
+
               {!isMobile && (
                 <Typography sx={{ ml: 1, fontWeight: 500 }}>
                   {firstName}
@@ -306,23 +319,110 @@ export default function Header({ onToggleSidebar }) {
         anchorEl={userMenuEl}
         open={Boolean(userMenuEl)}
         onClose={closeUserMenu}
+        PaperProps={{
+          sx: {
+            width: 280,
+            borderRadius: 2,
+            overflow: 'hidden',
+          },
+        }}
       >
-        <MenuItem onClick={() => setProfileOpen(true)}>
-          <PersonIcon sx={{ mr: 1 }} /> Profile
-        </MenuItem>
-        <MenuItem onClick={openUpgrade}> <UpgradeIcon fontSize="small" style={{ marginRight: 8 }} /> Upgrade plan </MenuItem>
+        {/* ===== User Summary ===== */}
+        <Box
+          sx={{
+            px: 2,
+            py: 2,
+            display: 'flex',
+            gap: 1.5,
+            alignItems: 'center',
+            bgcolor: '#fafbfc',                   // soft contrast
+          }}
+        >
+          <Avatar
+            src={avatarUrl || undefined}
+            alt={user?.name || 'User'}
+            sx={{
+              width: 48,
+              height: 48,
+              fontSize: 14,
+              boxShadow:
+                '0 2px 6px rgba(0,0,0,0.15)',
+              border: '1px solid rgba(0,0,0,0.08)',
+            }}
+          >
+            {!avatarUrl && initials}
+          </Avatar>
 
-        <MenuItem onClick={() => setPwdOpen(true)}>
-          <LockResetIcon sx={{ mr: 1 }} /> Change password
-        </MenuItem>
-        <MenuItem onClick={() => setSettingsOpen(true)}>
-          <SettingsIcon sx={{ mr: 1 }} /> Settings
-        </MenuItem>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography fontWeight={600} noWrap>
+              {user?.name}
+            </Typography>
+
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              noWrap
+            >
+              {user?.email}
+            </Typography>
+
+            {roleLabel && (
+              <Chip
+                size="small"
+                label={roleLabel.replace('_', ' ').toUpperCase()}
+                color="primary"
+                variant="outlined"
+                sx={{ mt: 0.75 }}
+              />
+            )}
+          </Box>
+        </Box>
+
+
         <Divider />
-        <MenuItem onClick={handleLogout} sx={{ color: 'error.main' }}>
-          <LogoutIcon sx={{ mr: 1 }} /> Logout
+
+        {/* ===== Account ===== */}
+        <MenuItem onClick={() => { closeUserMenu(); setProfileOpen(true); }}>
+          <PersonIcon sx={{ mr: 1 }} />
+          Profile
+        </MenuItem>
+
+        <MenuItem onClick={() => { closeUserMenu(); setSettingsOpen(true); }}>
+          <SettingsIcon sx={{ mr: 1 }} />
+          Settings
+        </MenuItem>
+
+        <Divider />
+
+        {/* ===== Security ===== */}
+        <MenuItem onClick={() => { closeUserMenu(); setPwdOpen(true); }}>
+          <LockResetIcon sx={{ mr: 1 }} />
+          Change password
+        </MenuItem>
+
+        <Divider />
+
+        {/* ===== Subscription ===== */}
+        <MenuItem onClick={openUpgrade}>
+          <UpgradeIcon sx={{ mr: 1 }} />
+          Upgrade plan
+        </MenuItem>
+
+        <Divider />
+
+        {/* ===== Logout ===== */}
+        <MenuItem
+          onClick={handleLogout}
+          sx={{
+            color: 'error.main',
+            fontWeight: 500,
+          }}
+        >
+          <LogoutIcon sx={{ mr: 1 }} />
+          Logout
         </MenuItem>
       </Menu>
+
 
       {/* ================= DIALOGS ================= */}
       <ProfileDialog open={profileOpen} onClose={() => setProfileOpen(false)} />
