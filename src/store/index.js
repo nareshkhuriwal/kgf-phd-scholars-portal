@@ -19,7 +19,7 @@ import usersReducer from './usersSlice';
 import paymentsReducer from './paymentsSlice';
 import monitoringStatsReducer from './monitoringStatsSlice';
 import registerReducer from './registerSlice';
-
+import tagsReducer from './tagsSlice';
 
 const store = configureStore({
   reducer: {
@@ -43,6 +43,7 @@ const store = configureStore({
     payments: paymentsReducer,
     monitoringStats: monitoringStatsReducer,
     register: registerReducer,
+    tags: tagsReducer,
 
   },
 })

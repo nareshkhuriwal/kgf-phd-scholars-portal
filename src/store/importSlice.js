@@ -87,6 +87,29 @@ export const importFiles = createAsyncThunk(
   }
 );
 
+export const downloadSampleCsv = createAsyncThunk(
+  'import/downloadCsv',
+  async () => {
+    const res = await apiFetch('/library/csv-template', {
+      method: 'GET',
+      responseType: 'blob',
+    });
+
+    const blob = new Blob([res.data], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'papers_import_sample.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    window.URL.revokeObjectURL(url);
+  }
+);
+
+
 
 const slice = createSlice({
   name: 'importer',

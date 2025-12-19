@@ -15,13 +15,14 @@ import PageHeader from '../../components/PageHeader';
 import FileDropzone from '../../components/FileDropzone';
 import { importFiles, clearImportState } from '../../store/importSlice';
 import { loadPapers } from '../../store/papersSlice';
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
-const prettyBytes = (b=0) => {
+const prettyBytes = (b = 0) => {
   if (typeof b !== 'number') return '—';
-  const u = ['B','KB','MB','GB','TB']; let i=0; while (b>=1024 && i<u.length-1){b/=1024;i++;}
+  const u = ['B', 'KB', 'MB', 'GB', 'TB']; let i = 0; while (b >= 1024 && i < u.length - 1) { b /= 1024; i++; }
   return `${b.toFixed(1)} ${u[i]}`;
 };
-const ext = (name='') => name.split('.').pop()?.toLowerCase() || '';
+const ext = (name = '') => name.split('.').pop()?.toLowerCase() || '';
 
 export default function Upload() {
   const dispatch = useDispatch();
@@ -50,7 +51,7 @@ export default function Upload() {
     setFiles([...merged.values()]);
   };
 
-  const removeFile = (idx) => setFiles(prev => prev.filter((_,i)=>i!==idx));
+  const removeFile = (idx) => setFiles(prev => prev.filter((_, i) => i !== idx));
   const clearAll = () => { setFiles([]); setUrls(''); setBibtex(''); setCsvFile(null); };
 
   const buildPayload = () => {
@@ -80,13 +81,46 @@ export default function Upload() {
       // refresh the library list
       dispatch(loadPapers());
       clearAll();
-    } catch (_) {}
+    } catch (_) { }
   };
+
+  const downloadCsvTemplate = async () => {
+    try {
+      const res = await fetch(`${BASE_URL}/library/csv-template`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to download CSV');
+      }
+
+      const blob = await res.blob();
+
+      const url = window.URL.createObjectURL(
+        new Blob([blob], { type: 'text/csv;charset=utf-8;' })
+      );
+
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'papers_import_sample.csv';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('CSV download failed:', err);
+    }
+  };
+
 
   React.useEffect(() => () => dispatch(clearImportState()), [dispatch]);
 
   // simple type tag
-  const tagFor = (name='') => {
+  const tagFor = (name = '') => {
     const e = ext(name);
     if (['pdf'].includes(e)) return <Chip size="small" label="PDF" />;
     if (['ris'].includes(e)) return <Chip size="small" label="RIS" />;
@@ -122,7 +156,7 @@ export default function Upload() {
           {/* Tabs for multiple intake methods */}
           <Tabs
             value={tab}
-            onChange={(_,v)=>setTab(v)}
+            onChange={(_, v) => setTab(v)}
             variant="scrollable"
             allowScrollButtonsMobile
             sx={{ borderBottom: '1px solid #eee' }}
@@ -150,7 +184,7 @@ export default function Upload() {
                   >
                     {files.map((f, i) => (
                       <Stack key={`${f.name}-${f.size}-${i}`} direction="row" alignItems="center"
-                             spacing={1} sx={{ py: 0.5 }}>
+                        spacing={1} sx={{ py: 0.5 }}>
                         {tagFor(f.name)}
                         <Typography variant="body2" sx={{ flex: 1, wordBreak: 'break-all' }}>
                           {f.webkitRelativePath || f.name}
@@ -177,7 +211,7 @@ export default function Upload() {
               </Typography>
               <TextField
                 value={urls}
-                onChange={e=>setUrls(e.target.value)}
+                onChange={e => setUrls(e.target.value)}
                 placeholder={'https://arxiv.org/abs/xxxx.xxxxx\nhttps://doi.org/10.xxxx/yyy\nhttps://.../paper.pdf'}
                 fullWidth multiline minRows={6}
               />
@@ -205,16 +239,35 @@ export default function Upload() {
               <Typography variant="body2" color="text.secondary">
                 Upload a CSV with columns like: <code>title, authors, year, doi, url</code>. (Optional: <code>pdf_url</code>)
               </Typography>
-              <Button component="label" variant="outlined">
-                Select CSV
-                <input hidden type="file" accept=".csv,text/csv" onChange={(e)=>setCsvFile(e.target.files?.[0] || null)} />
-              </Button>
+
+              <Stack direction="row" spacing={1}>
+                <Button component="label" variant="outlined">
+                  Select CSV
+                  <input
+                    hidden
+                    type="file"
+                    accept=".csv,text/csv"
+                    onChange={(e) => setCsvFile(e.target.files?.[0] || null)}
+                  />
+                </Button>
+
+                <Button
+                  variant="text"
+                  startIcon={<TableViewIcon />}
+                  onClick={downloadCsvTemplate}
+                >
+                  Download Sample CSV
+                </Button>
+
+              </Stack>
+
+
               {csvFile && (
                 <Stack direction="row" spacing={1} alignItems="center">
                   <Chip size="small" label="CSV" />
                   <Typography variant="body2">{csvFile.name}</Typography>
                   <Typography variant="caption" color="text.secondary">{prettyBytes(csvFile.size)}</Typography>
-                  <IconButton size="small" onClick={()=>setCsvFile(null)}><DeleteOutlineIcon fontSize="small" /></IconButton>
+                  <IconButton size="small" onClick={() => setCsvFile(null)}><DeleteOutlineIcon fontSize="small" /></IconButton>
                 </Stack>
               )}
             </Stack>
