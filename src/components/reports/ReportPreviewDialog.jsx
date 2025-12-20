@@ -66,8 +66,6 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
   // Printable area ref (for Save as PDF)
   const printRef = React.useRef(null);
   const onPrintPdf = () => {
-    // Simple print of the visible preview; users can select "Save as PDF"
-    // (No external libs to keep it lean.)
     const w = window.open('', '_blank');
     if (!w) return;
     const title = (name || 'Report') + ' — Preview';
@@ -78,7 +76,36 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
           <title>${title}</title>
           <meta charset="utf-8"/>
           <style>
-            body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; padding: 24px; }
+            @page {
+              size: A4;
+              margin: 1in;
+            }
+            body { 
+              font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; 
+              margin: 0; 
+              padding: 0; 
+            }
+            .page { 
+              width: 210mm;
+              min-height: 297mm;
+              display: flex; 
+              flex-direction: column; 
+              page-break-after: always; 
+              background: white;
+            }
+            .page-header { 
+              border-bottom: 3px solid #999; 
+              padding: 16px 24px; 
+              display: flex; 
+              align-items: center; 
+              justify-content: space-between; 
+            }
+            .page-footer { 
+              border-top: 3px solid #D6B27C; 
+              padding: 12px 24px; 
+              margin-top: auto; 
+            }
+            .page-content { flex: 1; padding: 24px; }
             h1,h2,h3 { margin: 0 0 8px; }
             .kpi { display:inline-block; margin:4px 8px 4px 0; padding:4px 8px; border:1px solid #ddd; border-radius:8px; }
             .card { border:1px solid #eee; border-radius:8px; padding:12px; margin:8px 0; }
@@ -86,6 +113,10 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
             th, td { border: 1px solid #ddd; padding: 6px 8px; }
             th { background: #f7f7f9; }
             pre { white-space: pre-wrap; }
+            @media print {
+              .page { page-break-after: always; margin: 0; }
+              body { margin: 0; }
+            }
           </style>
         </head>
         <body>${html}</body>
@@ -118,7 +149,6 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
           return;
         }
 
-        // Convert review sections to Excel-friendly text
         if (!metaKeys.has(c.key)) {
           val = htmlToExcelText(val);
         }
@@ -141,20 +171,16 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
     XLSX.writeFile(wb, `${safeName}.xlsx`);
   };
 
-
   // Client-side DOCX download (for Synopsis)
   const onDownloadSynopsis = () => {
     const safe = String(name || 'Synopsis').replace(/[^A-Za-z0-9._-]+/g, '_') || 'Synopsis';
-    // Either of your exporters is fine; keeping the explicit one you added:
     exportSynopsisDocx(merged, `${safe}.docx`);
-    // or: downloadSynopsisDocx({ name, kpis, chapters, literature }, `${safe}.docx`);
   };
 
   // ---- Decide which download buttons to show based on format ----
   const renderDownloadButtons = () => {
     const btns = [];
 
-    // If the API already returned a file link, always show direct Download.
     if (effectiveDownload) {
       btns.push(
         <Button key="dl-file" size="small" variant="contained" startIcon={<DownloadIcon />}
@@ -164,7 +190,6 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
       );
     }
 
-    // Format-specific fallbacks when no server file is given:
     if (fmt === 'xlsx') {
       if (!effectiveDownload && hasDataset && rows.length > 0) {
         btns.push(
@@ -205,7 +230,6 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
               >
                 Download PPTX
               </Button>
-
             </span>
           </Tooltip>
         );
@@ -219,6 +243,115 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
     ? chapters.filter(ch => ch.body_html && ch.body_html.trim() !== '')
     : [];
 
+  // Document-style header component
+  const DocumentHeader = ({ pageNum }) => (
+    <Box
+      className="page-header"
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        py: 2,
+        px: 3,
+        borderBottom: '3px solid #999',
+        bgcolor: '#fff',
+      }}
+    >
+      <Typography
+        variant="subtitle1"
+        sx={{
+          fontWeight: 700,
+          color: '#808080',
+          flex: 1,
+          textAlign: 'center',
+        }}
+      >
+        {name || 'Report'}
+      </Typography>
+      <Box
+        sx={{
+          ml: 2,
+          px: 2,
+          py: 1,
+          borderLeft: '3px solid #999',
+          minWidth: '80px',
+          textAlign: 'center',
+        }}
+      >
+        <Typography
+          variant="subtitle1"
+          sx={{
+            fontWeight: 700,
+            color: '#808080',
+          }}
+        >
+          SET
+        </Typography>
+      </Box>
+    </Box>
+  );
+
+  // Document-style footer component
+  const DocumentFooter = ({ pageNum }) => {
+    const currentDate = new Date().toLocaleDateString('en-US', { 
+      month: 'long', 
+      year: 'numeric' 
+    });
+    
+    return (
+      <Box
+        className="page-footer"
+        sx={{
+          borderTop: '3px solid #D6B27C',
+          py: 1.5,
+          px: 3,
+          bgcolor: '#fff',
+        }}
+      >
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
+          <Typography variant="body2" sx={{ color: '#999', fontSize: '11px' }}>
+            Poornima University, Jaipur
+          </Typography>
+          <Typography variant="body2" sx={{ color: '#999', fontSize: '11px' }}>
+            {currentDate}
+          </Typography>
+          <Typography variant="body2" sx={{ color: '#999', fontSize: '11px' }}>
+            Page {pageNum}
+          </Typography>
+        </Box>
+      </Box>
+    );
+  };
+
+  // Page wrapper component with A4 dimensions
+  const DocumentPage = ({ children, pageNum }) => (
+    <Box
+      className="page"
+      sx={{
+        // A4 dimensions: 210mm x 297mm
+        width: '210mm',
+        minHeight: '297mm',
+        display: 'flex',
+        flexDirection: 'column',
+        bgcolor: '#fff',
+        mb: 3,
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+        mx: 'auto', // Center the page
+      }}
+    >
+      <DocumentHeader pageNum={pageNum} />
+      <Box className="page-content" sx={{ flex: 1, p: 3, overflow: 'hidden' }}>
+        {children}
+      </Box>
+      <DocumentFooter pageNum={pageNum} />
+    </Box>
+  );
 
   return (
     <Dialog
@@ -231,7 +364,7 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
         sx: {
           width: '100vw',
           height: '90vh',
-          maxWidth: '1200px',
+          maxWidth: '1400px', // Increased to accommodate A4 width
           borderRadius: 2,
           overflow: 'hidden',
           display: 'flex',
@@ -239,7 +372,7 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
         }
       }}
     >
-      {/* Header */}
+      {/* Dialog Header (toolbar) */}
       <Box sx={{ px: 2, py: 1.25, display: 'flex', alignItems: 'center', gap: 1.5, bgcolor: 'background.paper' }}>
         <Typography
           variant="h6"
@@ -268,7 +401,6 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
           </IconButton>
         )}
 
-        {/* Dynamically chosen buttons */}
         <Stack direction="row" spacing={1}>
           {renderDownloadButtons()}
         </Stack>
@@ -279,79 +411,124 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
       {loading && <LinearProgress />}
       <Divider />
 
-      {/* Viewer Area */}
-      <Box ref={printRef} sx={{ flex: 1, bgcolor: '#f7f7f9', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+      {/* Document Preview with A4 Pages */}
+      <Box 
+        sx={{ 
+          flex: 1, 
+          bgcolor: '#525659', // Darker gray like PDF viewers
+          display: 'flex', 
+          flexDirection: 'column', 
+          minHeight: 0, 
+          overflow: 'auto',
+          p: 3,
+        }}
+      >
         {loading ? null : (
-          <>
+          <Box ref={printRef}>
             {/* SYNOPSIS PREVIEW */}
             {isSynopsis && (
-              <Box sx={{ p: 2, overflow: 'auto' }}>
-                {/* KPIs */}
-                {Array.isArray(kpis) && kpis.length > 0 && (
-                  <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', mb: 2 }}>
-                    {kpis.map((k, i) => (<Chip key={i} label={`${k.label}: ${k.value}`} className="kpi" />))}
-                  </Stack>
-                )}
-
-                {/* Chapters */}
-                {validChapters.length > 0 && (
-                  <Box sx={{ mb: 3 }}>
-                    {validChapters.map((ch) => (
-                      <Box
-                        key={ch.id}
-                        className="card"
-                        sx={{
-                          mb: 1.5,
-                          p: 1.5,
-                          bgcolor: '#fff',
-                          borderRadius: 1,
-                          border: '1px solid #eee',
-                        }}
-                      >
-                        <Box
-                          className="ck-content"
+              <>
+                {/* First Page - KPIs and first chapter or declaration */}
+                <DocumentPage pageNum="i">
+                  {/* KPIs */}
+                  {Array.isArray(kpis) && kpis.length > 0 && (
+                    <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', mb: 3 }}>
+                      {kpis.map((k, i) => (
+                        <Chip 
+                          key={i} 
+                          label={`${k.label}: ${k.value}`} 
+                          className="kpi"
                           sx={{
-                            backgroundColor: '#fff',
-                            padding: 2,
+                            border: '1px solid #ddd',
+                            borderRadius: '8px',
                           }}
-                          dangerouslySetInnerHTML={{ __html: ch.body_html }}
                         />
-                      </Box>
-                    ))}
-                  </Box>
-                )}
+                      ))}
+                    </Stack>
+                  )}
 
+                  {/* First chapter if exists */}
+                  {validChapters.length > 0 && (
+                    <Box
+                      className="card"
+                      sx={{
+                        p: 2,
+                        bgcolor: '#fff',
+                        borderRadius: 1,
+                        border: '1px solid #eee',
+                      }}
+                    >
+                      <Box
+                        className="ck-content"
+                        dangerouslySetInnerHTML={{ __html: validChapters[0].body_html }}
+                      />
+                    </Box>
+                  )}
+                </DocumentPage>
 
-                {/* Literature Review */}
+                {/* Subsequent chapters - each on its own page */}
+                {validChapters.slice(1).map((ch, idx) => (
+                  <DocumentPage key={ch.id} pageNum={idx + 2}>
+                    <Box
+                      className="card"
+                      sx={{
+                        p: 2,
+                        bgcolor: '#fff',
+                        borderRadius: 1,
+                        border: '1px solid #eee',
+                      }}
+                    >
+                      <Box
+                        className="ck-content"
+                        dangerouslySetInnerHTML={{ __html: ch.body_html }}
+                      />
+                    </Box>
+                  </DocumentPage>
+                ))}
+
+                {/* Literature Review - each item on separate page */}
                 {Array.isArray(literature) && literature.length > 0 && (
-                  <Box>
-                    <Typography variant="h6" sx={{ mb: 1 }}>Literature Review</Typography>
-                    {literature.map((item) => (
-                      <Box key={item.paper_id} className="card" sx={{ mb: 2, p: 1.5, bgcolor: '#fff', borderRadius: 1, border: '1px solid #eee' }}>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: .5 }}>
-                          {[item.title, item.authors, item.year].filter(Boolean).join(' • ')}
-                        </Typography>
-                        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                          <Box
-                            className="ck-content"
-                            sx={{
-                              '& p': { margin: '0 0 8px' },
-                              '& ul, & ol': { paddingLeft: 2 },
-                              '& h1, & h2, & h3': { margin: '8px 0' },
+                  <>
+                    {literature.map((item, idx) => (
+                      <DocumentPage key={item.paper_id} pageNum={validChapters.length + idx + 1}>
+                        <Box>
+                          <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+                            Literature Review
+                          </Typography>
+                          <Box 
+                            className="card" 
+                            sx={{ 
+                              p: 2, 
+                              bgcolor: '#fff', 
+                              borderRadius: 1, 
+                              border: '1px solid #eee' 
                             }}
-                            dangerouslySetInnerHTML={{ __html: item.text || '<p>—</p>' }}
-                          />
-
-                        </Typography>
-                      </Box>
+                          >
+                            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                              {[item.title, item.authors, item.year].filter(Boolean).join(' • ')}
+                            </Typography>
+                            <Box
+                              className="ck-content"
+                              sx={{
+                                '& p': { margin: '0 0 8px' },
+                                '& ul, & ol': { paddingLeft: 2 },
+                                '& h1, & h2, & h3': { margin: '8px 0' },
+                              }}
+                              dangerouslySetInnerHTML={{ __html: item.text || '<p>—</p>' }}
+                            />
+                          </Box>
+                        </Box>
+                      </DocumentPage>
                     ))}
-                  </Box>
+                  </>
                 )}
 
                 {(!chapters?.length && !literature?.length) && (
-                  <Alert severity="info">No content found for Synopsis. Adjust filters/chapters and try again.</Alert>
+                  <DocumentPage pageNum="i">
+                    <Alert severity="info">No content found for Synopsis. Adjust filters/chapters and try again.</Alert>
+                  </DocumentPage>
                 )}
-              </Box>
+              </>
             )}
 
             {/* DATASET (e.g., ROL JSON) */}
@@ -389,7 +566,6 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
                                 />
                               )}
                             </TableCell>
-
                           ))}
                         </TableRow>
                       ))}
@@ -397,7 +573,7 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
                   </Table>
                 </TableContainer>
 
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', bgcolor: '#fff', p: 1 }}>
                   <TablePagination
                     component="div"
                     count={rows.length}
@@ -461,7 +637,7 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
                 )}
               </>
             )}
-          </>
+          </Box>
         )}
       </Box>
     </Dialog>
