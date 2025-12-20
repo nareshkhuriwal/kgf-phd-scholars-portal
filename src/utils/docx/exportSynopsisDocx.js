@@ -6,11 +6,23 @@ import {
   HeadingLevel,
   TextRun,
   AlignmentType,
+  Header,
+  Footer,
+  Table,
+  TableRow,
+  TableCell,
+  WidthType,
+  BorderStyle,
+  PageNumber,
 } from "docx";
+
+
 import { saveAs } from "file-saver";
 import { htmlToDocxParagraphs } from "./../exporters/htmlToDocx.js";
 import { ImageRun } from "docx";
 import { fetchImageBuffer } from "./../exporters/fetchImage.js"; // adjust path if needed
+import buildHeader from "./buildHeader.js";
+import {buildArabicFooter, buildRomanFooter} from "./buildFooter.js";
 
 /**
  * Build DOCX paragraphs for TITLE PAGE only
@@ -228,9 +240,64 @@ export async function exportSynopsisDocx(synopsisData) {
   // ----------------------------
   // FINALIZE DOC
   // ----------------------------
+  // const doc = new Document({
+  //   sections: [{ properties: {}, children: docChildren }],
+  // });
+
   const doc = new Document({
-    sections: [{ properties: {}, children: docChildren }],
-  });
+  sections: [
+    {
+      properties: {},
+      headers: {
+        default: buildHeader(
+          "Adaptive Quantum Error Suppression Strategies for NISQ Devices" || name
+        ),
+      },
+      footers: {
+        default: buildArabicFooter(),
+      },
+      children: docChildren,
+    },
+  ],
+});
+
+  // const doc = new Document({
+  //   sections: [
+  //     {
+  //       properties: {
+  //         pageNumberStart: 1,
+  //         pageNumberFormatType: "lowerRoman", // Use string instead: i, ii, iii, iv, v
+  //       },
+  //       headers: {
+  //         default: buildHeader("Adaptive Quantum Error Suppression Strategies for NISQ Devices" || name),
+  //       },
+  //       footers: {
+  //         default: buildRomanFooter(),
+  //       },
+  //       children: [
+  //         // First 5 pages content here
+  //         // Add your paragraphs, tables, etc.
+  //       ],
+  //     },
+  //     {
+  //       properties: {
+  //         pageNumberStart: 1, // Restart numbering at 1
+  //         pageNumberFormatType: "decimal", // Use string instead: 1, 2, 3...
+  //       },
+  //       headers: {
+  //         default: buildHeader("Adaptive Quantum Error Suppression Strategies for NISQ Devices" || name),
+  //       },
+  //       footers: {
+  //         default: buildArabicFooter(),
+  //       },
+  //       children: [
+  //         // Remaining pages content here (page 6 onwards)
+  //       ],
+  //     },
+  //   ],
+  // });
+
+
 
   const blob = await Packer.toBlob(doc);
   saveAs(blob, `${name || "Synopsis"}.docx`);
