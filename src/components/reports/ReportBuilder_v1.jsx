@@ -9,7 +9,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box, Stack, Paper, Typography, TextField, MenuItem, Button,
   Chip, Divider, LinearProgress, FormControlLabel, Checkbox,
-  Snackbar, Alert, IconButton, Tooltip, Grid
+  Snackbar, Alert, IconButton, Tooltip
 } from '@mui/material';
 import Autocomplete from '@mui/material/Autocomplete';
 import ClearAllIcon from '@mui/icons-material/ClearAll';
@@ -17,8 +17,9 @@ import SelectAllIcon from '@mui/icons-material/SelectAll';
 import CloseIcon from '@mui/icons-material/Close';
 
 const REPORT_TEMPLATES = [
-  { value: 'synopsis', label: 'Thesis Report' },
+  { value: 'synopsis', label: 'Synopsis Report' },
   { value: 'rol', label: 'Review of Literature (ROL)' },
+  { value: 'final_thesis', label: 'Final Thesis' },
   { value: 'presentation', label: 'Presentation' }
 ];
 const FORMATS = [
@@ -33,11 +34,6 @@ const EDITOR_ORDER = [
   'Key advantages', 'Limitations', 'Citations', 'Remarks'
 ];
 const ALL_OPTION = { id: '__ALL__', label: 'Select All Chapters' };
-
-// Utility: get current month and year formatted
-const getCurrentMonthYear = () => {
-  return new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-};
 
 // Utility: make a full include map from partial include (ensures every key exists)
 const normalizeInclude = (maybeInclude) => {
@@ -62,16 +58,6 @@ const coerceSaved = (r) => {
     includeOrder: Array.isArray(r?.selections?.includeOrder) ? r.selections.includeOrder : [...EDITOR_ORDER],
     chapters: Array.isArray(r?.selections?.chapters) ? r.selections.chapters : [],
   };
-
-  // Add header/footer settings - always use current month/year for footerCenter
-  const headerFooter = {
-    headerTitle: r?.headerFooter?.headerTitle ?? '',
-    headerRight: r?.headerFooter?.headerRight ?? 'SET',  // NEW FIELD
-
-    footerLeft: r?.headerFooter?.footerLeft ?? 'Poornima University, Jaipur',
-    footerCenter: getCurrentMonthYear(), // Always use current month and year
-  };
-
   return {
     name: r?.name ?? '',
     template: r?.template ?? 'rol',
@@ -79,15 +65,14 @@ const coerceSaved = (r) => {
     filename: r?.filename ?? 'report',
     filters,
     selections,
-    headerFooter,
   };
 };
 
 export default function ReportBuilder() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { id: pathId } = useParams();
-  const editingId = pathId ? String(pathId) : null;
+  const { id: pathId } = useParams();               // <-- read :id from path
+  const editingId = pathId ? String(pathId) : null;  // string id or null
 
   const {
     preview, loadingPreview, generating, lastDownloadUrl, error,
@@ -115,14 +100,6 @@ export default function ReportBuilder() {
   const [chapterIds, setChapterIds] = React.useState([]);
   const [snack, setSnack] = React.useState(null);
 
-  // Header/Footer settings - footerCenter always uses current date
-  const [headerFooter, setHeaderFooter] = React.useState({
-    headerTitle: '',
-    headerRight: 'SET',  // NEW FIELD
-    footerLeft: 'Poornima University, Jaipur',
-    footerCenter: getCurrentMonthYear(),
-  });
-
   // Hydrate form when currentSaved arrives/changes
   React.useEffect(() => {
     if (!editingId || !currentSaved) return;
@@ -134,31 +111,12 @@ export default function ReportBuilder() {
     setFilters(s.filters);
     setInclude(s.selections.include);
     setChapterIds(s.selections.chapters);
-    setHeaderFooter(s.headerFooter);
   }, [currentSaved, editingId]);
 
-  // Update header title when report name changes (if header title is empty)
-  React.useEffect(() => {
-    if (name && !headerFooter.headerTitle) {
-      setHeaderFooter(prev => ({ ...prev, headerTitle: name }));
-    }
-  }, [name, headerFooter.headerTitle]);
-
-  // Update footer center to current month/year when template changes to synopsis
-  React.useEffect(() => {
-    if (template === 'synopsis') {
-      setHeaderFooter(prev => ({ ...prev, footerCenter: getCurrentMonthYear() }));
-    }
-  }, [template]);
-
   const payloadBase = {
-    name,
-    template,
-    format,
-    filename,
+    name, template, format, filename,
     filters,
-    selections: { include, includeOrder: EDITOR_ORDER, chapters: chapterIds },
-    headerFooter, // Include header/footer in payload
+    selections: { include, includeOrder: EDITOR_ORDER, chapters: chapterIds }
   };
 
   const chapterOptions = React.useMemo(() => {
@@ -177,6 +135,8 @@ export default function ReportBuilder() {
     });
   }, [chapterIds, chapters]);
 
+
+
   const onSave = async () => {
     const action = editingId
       ? await dispatch(updateSavedReport({ id: editingId, ...payloadBase }))
@@ -184,6 +144,7 @@ export default function ReportBuilder() {
 
     if (action.type.endsWith('/fulfilled')) {
       setSnack({ severity: 'success', msg: 'Saved' });
+      // If newly created, navigate to edit route (path param)
       if (!editingId) {
         const newId = action.payload?.data?.id ?? action.payload?.id;
         if (newId) navigate(`/reports/builder/${newId}`);
@@ -219,123 +180,40 @@ export default function ReportBuilder() {
   const clearAllSections = () => setInclude(Object.fromEntries(EDITOR_ORDER.map(k => [k, false])));
   const clearFilters = () => setFilters({ areas: [], years: [], venues: [], userIds: [] });
 
-  // Show header/footer ONLY for Thesis Report (synopsis template)
-  const showHeaderFooter = template === 'synopsis';
-
   return (
     <Stack spacing={2}>
       <Paper variant="outlined" sx={{ p: 2 }}>
-        <Typography variant="subtitle1" sx={{ mb: 2 }}>
+        <Typography variant="subtitle1">
           {editingId ? `Edit Report #${editingId}` : 'Build Report'}
         </Typography>
 
         {/* Toolbar */}
         <Box
           sx={{
-            display: 'flex', gap: 1.5, alignItems: 'center',
+            mt: 1, display: 'flex', gap: 1.5, alignItems: 'center',
             overflowX: 'auto', whiteSpace: 'nowrap', pb: 1,
             '& > *': { flex: '0 0 auto' }
           }}
         >
-          <TextField
-            label="Report Name"
-            value={name}
-            onChange={e => setName(e.target.value)}
-            size="small"
-            sx={{ minWidth: 300 }}
-            required
-          />
+          <TextField label="Report Name" value={name} onChange={e => setName(e.target.value)} size="small" sx={{ minWidth: 300 }} />
 
           <TextField
-            select
-            label="Template"
-            value={template}
-            onChange={e => setTemplate(e.target.value)}
-            size="small"
-            sx={{ minWidth: 220 }}
+            select label="Template" value={template}
+            onChange={e => setTemplate(e.target.value)} size="small" sx={{ minWidth: 220 }}
           >
             {REPORT_TEMPLATES.map(o => (<MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>))}
           </TextField>
 
           <TextField
-            select
-            label="Format"
-            value={format}
-            onChange={e => setFormat(e.target.value)}
-            size="small"
-            sx={{ minWidth: 220 }}
+            select label="Format" value={format}
+            onChange={e => setFormat(e.target.value)} size="small" sx={{ minWidth: 220 }}
           >
             {FORMATS.map(o => (<MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>))}
           </TextField>
+
+          {/* <TextField label="File name" value={filename} onChange={e=>setFilename(e.target.value)} size="small" sx={{ minWidth: 180 }} /> */}
         </Box>
       </Paper>
-
-      {/* Header & Footer Settings (only for Thesis Report) */}
-      {showHeaderFooter && (
-        <Paper variant="outlined" sx={{ p: 2 }}>
-          <Typography variant="subtitle1" gutterBottom>
-            Header & Footer Settings
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Customize the header and footer that will appear on each page of your document
-          </Typography>
-
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={6}>
-              <TextField
-                label="Header Title"
-                value={headerFooter.headerTitle}
-                onChange={(e) => setHeaderFooter(prev => ({ ...prev, headerTitle: e.target.value }))}
-                fullWidth
-                size="small"
-                helperText="This will appear in the center of the header on each page"
-                placeholder={name || "Enter report title"}
-              />
-            </Grid>
-
-            {/* NEW FIELD */}
-            <Grid item xs={12} md={6}>
-              <TextField
-                label="Header Right Section"
-                value={headerFooter.headerRight}
-                onChange={(e) => setHeaderFooter(prev => ({ ...prev, headerRight: e.target.value }))}
-                fullWidth
-                size="small"
-                helperText="Short text for the right side of header (e.g., SET, Department code)"
-                placeholder="SET"
-              />
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <TextField
-                label="Footer Left"
-                value={headerFooter.footerLeft}
-                onChange={(e) => setHeaderFooter(prev => ({ ...prev, footerLeft: e.target.value }))}
-                fullWidth
-                size="small"
-                helperText="e.g., University or Organization name"
-              />
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <TextField
-                label="Footer Center"
-                value={headerFooter.footerCenter}
-                onChange={(e) => setHeaderFooter(prev => ({ ...prev, footerCenter: e.target.value }))}
-                fullWidth
-                size="small"
-                helperText="Current month and year (auto-updates)"
-              />
-            </Grid>
-
-            <Grid item xs={12}>
-              <Alert severity="info" variant="outlined">
-                Page numbers will automatically appear on the right side of the footer
-              </Alert>
-            </Grid>
-          </Grid>
-        </Paper>
-      )}
 
       <Paper variant="outlined" sx={{ p: 2 }}>
         <Typography variant="subtitle1">Filters Applied</Typography>
@@ -369,26 +247,20 @@ export default function ReportBuilder() {
           />
 
           <TextField
-            label="Areas (CSV)"
-            placeholder="QEM, VQE"
-            size="small"
-            sx={{ minWidth: 220 }}
+            label="Areas (CSV)" placeholder="QEM, VQE"
+            size="small" sx={{ minWidth: 220 }}
             value={filters.areas.join(', ')}
             onChange={e => setFilters(f => ({ ...f, areas: parseCsv(e.target.value) }))}
           />
           <TextField
-            label="Years (CSV)"
-            placeholder="2024, 2025"
-            size="small"
-            sx={{ minWidth: 220 }}
+            label="Years (CSV)" placeholder="2024, 2025"
+            size="small" sx={{ minWidth: 220 }}
             value={filters.years.join(', ')}
             onChange={e => setFilters(f => ({ ...f, years: parseCsv(e.target.value) }))}
           />
           <TextField
-            label="Venues (CSV)"
-            placeholder="Nature, PRX"
-            size="small"
-            sx={{ minWidth: 220 }}
+            label="Venues (CSV)" placeholder="Nature, PRX"
+            size="small" sx={{ minWidth: 220 }}
             value={filters.venues.join(', ')}
             onChange={e => setFilters(f => ({ ...f, venues: parseCsv(e.target.value) }))}
           />
@@ -429,6 +301,7 @@ export default function ReportBuilder() {
         </Stack>
 
         <Box sx={{ mt: 2 }}>
+
           <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ mb: 0.5 }}>
             <Button
               size="small"
@@ -444,6 +317,7 @@ export default function ReportBuilder() {
             </Button>
           </Stack>
 
+
           <Autocomplete
             multiple
             disableCloseOnSelect
@@ -455,10 +329,11 @@ export default function ReportBuilder() {
               const hasAll = values.some(v => v.id === ALL_OPTION.id);
 
               if (hasAll) {
+                // Toggle select all
                 if (chapterIds.length === (chapters || []).length) {
-                  setChapterIds([]);
+                  setChapterIds([]); // clear all
                 } else {
-                  setChapterIds((chapters || []).map(c => String(c.id)));
+                  setChapterIds((chapters || []).map(c => String(c.id))); // select all
                 }
                 return;
               }
@@ -489,10 +364,12 @@ export default function ReportBuilder() {
             )}
             sx={{ minWidth: 400 }}
           />
+
         </Box>
       </Paper>
 
       <Stack direction="row" spacing={2}>
+        {/* <Button variant="outlined" onClick={onPreview}>Preview</Button> */}
         <Button variant="outlined" onClick={onSave} disabled={saving || !name}>Save</Button>
         <Button variant="contained" onClick={onSaveAndGenerate} disabled={saving || generating || !name}>
           Save & Generate
@@ -502,6 +379,25 @@ export default function ReportBuilder() {
 
       {loadingPreview && <LinearProgress />}
 
+      {/* {preview && (
+        <Paper variant="outlined" sx={{ p: 2 }}>
+          <Typography variant="h6">Preview</Typography>
+          <Typography variant="body2" sx={{ mt: 1 }}>Outline</Typography>
+          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', mt: 1 }}>
+            {(preview.outline || []).map((s, i) => (<Chip key={i} label={s} />))}
+          </Stack>
+          {!!(preview.kpis || []).length && (
+            <>
+              <Divider sx={{ my: 2 }} />
+              <Typography variant="body2">KPIs</Typography>
+              <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', mt: 1 }}>
+                {preview.kpis.map((k, i) => (<Chip key={i} label={`${k.label}: ${k.value}`} />))}
+              </Stack>
+            </>
+          )}
+        </Paper>
+      )} */}
+
       {lastDownloadUrl && (
         <Alert severity="success" action={<Button size="small" href={lastDownloadUrl}>Download</Button>}>
           Report ready.
@@ -509,15 +405,15 @@ export default function ReportBuilder() {
       )}
       {error && <Alert severity="error">{String(error)}</Alert>}
 
-      <Snackbar
-        open={!!snack}
-        autoHideDuration={3500}
-        onClose={() => setSnack(null)}
+      <Snackbar open={!!snack} autoHideDuration={3500} onClose={() => setSnack(null)}
+
         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
         sx={{ mt: 6 }}
       >
         {snack && <Alert severity={snack.severity}>{snack.msg}</Alert>}
       </Snackbar>
+
+
     </Stack>
   );
 }
