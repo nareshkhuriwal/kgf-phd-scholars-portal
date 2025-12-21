@@ -19,6 +19,9 @@ import { htmlToExcelText } from '../../utils/exporters/htmlToExcelText';
 export default function ReportPreviewDialog({ open, loading, onClose, data }) {
   // Merge nested selectedReport if present
   const merged = React.useMemo(() => ({ ...(data || {}), ...(data?.selectedReport || {}) }), [data]);
+  if (!merged || typeof merged !== 'object') {
+    return null;
+  }
 
   const {
     name = 'Preview',
@@ -43,12 +46,18 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
   const tpl = String(template || '').toLowerCase();
 
   // Extract header/footer with defaults
+  const safeHeaderFooter = headerFooter || {};
+
   const {
-    headerTitle = name,
-    headerRight = "SET",  // NEW FIELD
-    footerLeft = "Poornima University, Jaipur",
-    footerCenter = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
-  } = headerFooter;
+    headerTitle = name || 'Report',
+    headerRight = 'SET',
+    footerLeft = 'Poornima University, Jaipur',
+    footerCenter = new Date().toLocaleDateString('en-US', {
+      month: 'long',
+      year: 'numeric',
+    }),
+  } = safeHeaderFooter;
+
 
 
   const officeViewer = (fileUrl) =>
@@ -61,6 +70,7 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
   const isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(fmt);
   const isSynopsis = tpl === 'synopsis' || tpl === 'presentation';
   const hasSynopsisContent = (chapters?.length || 0) > 0 || (literature?.length || 0) > 0;
+  const showDocumentLayout = isSynopsis || fmt === 'docx' || fmt === 'pdf';
 
   const effectiveDownload = downloadUrl || url || null;
 
@@ -353,11 +363,12 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
         mx: 'auto', // Center the page
       }}
     >
-      <DocumentHeader pageNum={pageNum} />
+      {isSynopsis && <DocumentHeader pageNum={pageNum} />}
       <Box className="page-content" sx={{ flex: 1, p: 3, overflow: 'hidden' }}>
         {children}
       </Box>
-      <DocumentFooter pageNum={pageNum} />
+      {isSynopsis && <DocumentFooter pageNum={pageNum} />}
+
     </Box>
   );
 
