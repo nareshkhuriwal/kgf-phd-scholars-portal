@@ -6,11 +6,11 @@ import {
   HeadingLevel,
   TextRun,
   AlignmentType,
+  ImageRun,
 } from "docx";
 
 import { saveAs } from "file-saver";
 import { htmlToDocxParagraphs } from "./../exporters/htmlToDocx.js";
-import { ImageRun } from "docx";
 import { fetchImageBuffer } from "./../exporters/fetchImage.js";
 import buildHeader from "./buildHeader.js";
 import { buildArabicFooter } from "./buildFooter.js";
@@ -40,49 +40,11 @@ function isIntroductionChapter(title = "") {
   );
 }
 
-async function appendLiterature(docChildren, literature) {
-  if (!Array.isArray(literature) || literature.length === 0) return;
-
-  docChildren.push(
-    new Paragraph({
-      text: "Literature Review",
-      heading: HeadingLevel.HEADING_2,
-      spacing: { before: 300, after: 200 },
-    })
-  );
-
-  for (let i = 0; i < literature.length; i++) {
-    const item = literature[i];
-    const html =
-      item.html ||
-      item.reviewHtml ||
-      item.body_html ||
-      item.text ||
-      "";
-
-    if (!hasMeaningfulContent(html)) continue;
-
-    if (item.title || item.authors || item.year) {
-      docChildren.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: [item.title, item.authors, item.year]
-                .filter(Boolean)
-                .join(" • "),
-              bold: true,
-            }),
-          ],
-          spacing: { before: i === 0 ? 120 : 240, after: 120 },
-        })
-      );
-    }
-
-    const paras = await htmlToDocxParagraphs(html);
-    paras.forEach(p => docChildren.push(p));
-  }
-
-  docChildren.push(new Paragraph({ pageBreakBefore: true }));
+function pushPageBreakIfNeeded(children) {
+  if (!children.length) return;
+  const last = children[children.length - 1];
+  if (last?.options?.pageBreakBefore) return;
+  children.push(new Paragraph({ pageBreakBefore: true }));
 }
 
 /* ---------------------------------------------------------
@@ -112,7 +74,6 @@ async function buildTitlePage(html) {
     if (node.tagName === "FIGURE") {
       const img = node.querySelector("img");
       const src = img?.getAttribute("src");
-
       if (src) {
         const buffer = await fetchImageBuffer(src);
         if (buffer) {
@@ -146,6 +107,52 @@ async function buildTitlePage(html) {
   }
 
   return blocks;
+}
+
+/* ---------------------------------------------------------
+   LITERATURE BUILDER (CONTINUOUS, NO BLANK PAGES)
+--------------------------------------------------------- */
+
+async function appendLiterature(docChildren, literature) {
+  if (!Array.isArray(literature) || literature.length === 0) return;
+
+  docChildren.push(
+    new Paragraph({
+      text: "Literature Review",
+      heading: HeadingLevel.HEADING_2,
+      spacing: { before: 300, after: 200 },
+    })
+  );
+
+  for (const item of literature) {
+    const html =
+      item.html ||
+      item.reviewHtml ||
+      item.body_html ||
+      item.text ||
+      "";
+
+    if (!hasMeaningfulContent(html)) continue;
+
+    if (item.title || item.authors || item.year) {
+      docChildren.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: [item.title, item.authors, item.year]
+                .filter(Boolean)
+                .join(" • "),
+              bold: true,
+            }),
+          ],
+          spacing: { before: 240, after: 120 },
+        })
+      );
+    }
+
+    const paras = await htmlToDocxParagraphs(html);
+    paras.forEach(p => docChildren.push(p));
+  }
 }
 
 /* ---------------------------------------------------------
@@ -193,7 +200,7 @@ export async function exportSynopsisDocx(synopsisData) {
       })
     );
 
-    kpis.forEach(k =>
+    for (const k of kpis) {
       docChildren.push(
         new Paragraph({
           children: [
@@ -202,15 +209,14 @@ export async function exportSynopsisDocx(synopsisData) {
           ],
           spacing: { after: 120 },
         })
-      )
-    );
+      );
+    }
   }
 
-  /* -------- CHAPTERS (SKIP EMPTY) -------- */
+  /* -------- CHAPTERS -------- */
   let literatureInserted = false;
 
-  for (let i = 0; i < chapters.length; i++) {
-    const ch = chapters[i];
+  for (const ch of chapters) {
     const title = ch.title || "";
     const body = ch.body_html || ch.body || "";
 
@@ -219,40 +225,46 @@ export async function exportSynopsisDocx(synopsisData) {
       if (hasMeaningfulContent(body)) {
         const blocks = await buildTitlePage(body);
         blocks.forEach(p => docChildren.push(p));
-        docChildren.push(new Paragraph({ pageBreakBefore: true }));
+        pushPageBreakIfNeeded(docChildren);
       }
       continue;
     }
 
-    // SKIP EMPTY CHAPTERS
     if (!hasMeaningfulContent(body)) continue;
 
     const paras = await htmlToDocxParagraphs(body);
+    if (!paras.length) continue;
+
     paras.forEach(p => docChildren.push(p));
 
     if (!literatureInserted && isIntroductionChapter(title)) {
+      pushPageBreakIfNeeded(docChildren);
       await appendLiterature(docChildren, literature);
+      pushPageBreakIfNeeded(docChildren);
       literatureInserted = true;
+    } else {
+      pushPageBreakIfNeeded(docChildren);
     }
-
-    docChildren.push(new Paragraph({ pageBreakBefore: true }));
   }
 
   /* -------- FALLBACK LITERATURE -------- */
   if (!literatureInserted) {
+    pushPageBreakIfNeeded(docChildren);
     await appendLiterature(docChildren, literature);
+  }
+
+  /* -------- REMOVE TRAILING PAGE BREAK -------- */
+  const last = docChildren[docChildren.length - 1];
+  if (last?.options?.pageBreakBefore) {
+    docChildren.pop();
   }
 
   /* -------- FINAL DOC -------- */
   const doc = new Document({
     sections: [
       {
-        headers: {
-          default: buildHeader(headerTitle, headerRight),
-        },
-        footers: {
-          default: buildArabicFooter(footerLeft, footerCenter),
-        },
+        headers: { default: buildHeader(headerTitle, headerRight) },
+        footers: { default: buildArabicFooter(footerLeft, footerCenter) },
         children: docChildren,
       },
     ],
