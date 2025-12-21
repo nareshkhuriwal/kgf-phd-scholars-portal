@@ -10,7 +10,14 @@ import PageHeader from '../../components/PageHeader';
 import NewPaperDialog from '../../components/papers/NewPaperDialog';
 
 import SearchBar from '../../components/SearchBar';
-
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import { deletePaper } from '../../store/authoredPapersSlice';
 
 export default function MyPapers() {
   const dispatch = useDispatch();
@@ -38,6 +45,23 @@ export default function MyPapers() {
     setOpenNew(false);
     dispatch(loadMyPapers());
     navigate(`/library/my-papers/${res.id}/edit`);
+  };
+
+  const [confirm, setConfirm] = React.useState({ open: false, paper: null });
+
+  const openDelete = (paper) => {
+    setConfirm({ open: true, paper });
+  };
+
+  const closeDelete = () => {
+    setConfirm({ open: false, paper: null });
+  };
+
+  const handleDelete = async () => {
+    if (!confirm.paper) return;
+    await dispatch(deletePaper(confirm.paper.id)).unwrap();
+    closeDelete();
+    dispatch(loadMyPapers());
   };
 
 
@@ -79,21 +103,38 @@ export default function MyPapers() {
                 <TableCell>Title</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell>Updated</TableCell>
+                <TableCell align="right">Actions</TableCell>
               </TableRow>
             </TableHead>
+
             <TableBody>
               {filtered.map(p => (
 
                 <TableRow key={p.id} hover>
                   <TableCell>{p.id}</TableCell>
+
                   <TableCell>
                     <Link to={`/library/my-papers/${p.id}/edit`}>
                       {p.title || '(Untitled)'}
                     </Link>
                   </TableCell>
+
                   <TableCell>{p.status}</TableCell>
                   <TableCell>{p.updated_at}</TableCell>
+
+                  <TableCell align="right">
+                    <Tooltip title="Delete paper">
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => openDelete(p)}
+                      >
+                        <DeleteOutlineIcon />
+                      </IconButton>
+                    </Tooltip>
+                  </TableCell>
                 </TableRow>
+
               ))}
             </TableBody>
           </Table>
@@ -105,6 +146,24 @@ export default function MyPapers() {
         onClose={() => setOpenNew(false)}
         onCreate={handleCreatePaper}
       />
+
+      <Dialog open={confirm.open} onClose={closeDelete}>
+        <DialogTitle>Delete Paper?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            Are you sure you want to delete{" "}
+            <strong>{confirm.paper?.title || 'this paper'}</strong>?
+            <br />
+            This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeDelete}>Cancel</Button>
+          <Button color="error" variant="contained" onClick={handleDelete}>
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
 
 
     </Box>
