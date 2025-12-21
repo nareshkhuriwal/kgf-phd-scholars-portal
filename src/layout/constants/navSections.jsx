@@ -17,6 +17,7 @@ import GroupAddIcon from '@mui/icons-material/GroupAdd';
 import PersonIcon from '@mui/icons-material/Person';
 import PaymentIcon from '@mui/icons-material/Payment'; // new
 import ArticleOutlinedIcon from '@mui/icons-material/ArticleOutlined';
+import AutoStoriesOutlinedIcon from '@mui/icons-material/AutoStoriesOutlined';
 
 export const SECTIONS = [
   {
@@ -52,7 +53,7 @@ export const SECTIONS = [
       { to: '/library/papers', label: 'All Papers', Icon: TableViewIcon },
       { to: '/library/upload', label: 'Upload / Import', Icon: CloudUploadIcon },
       { to: '/library/tags', label: 'Tags', Icon: LabelIcon },
-      { to: '/library/my-papers', label: 'My Research Papers', Icon: ArticleOutlinedIcon }, // ✅ NEW
+      { to: '/library/my-papers', label: 'My Research Papers', Icon: AutoStoriesOutlinedIcon }, // ✅ NEW
 
     ],
   },
