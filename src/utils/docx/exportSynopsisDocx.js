@@ -27,6 +27,24 @@ import { buildArabicFooter, buildRomanFooter } from "./buildFooter.js";
  * Build DOCX paragraphs for TITLE PAGE only
  * (layout-driven, not generic HTML parsing)
  */
+
+function isIntroductionChapter(title = "") {
+  const normalized = title.toLowerCase().trim();
+
+  const INTRO_KEYWORDS = [
+    "introduction",
+    "intro",
+  ];
+
+  return INTRO_KEYWORDS.some(k =>
+    normalized === k ||
+    normalized.startsWith(k) ||
+    normalized.includes(` ${k}`) ||
+    normalized.includes(`${k} `)
+  );
+}
+
+
 async function buildTitlePage(html) {
   console.log('Building title page for DOCX export');
   const container = document.createElement("div");
@@ -38,8 +56,6 @@ async function buildTitlePage(html) {
     if (node.nodeType !== Node.ELEMENT_NODE) continue;
 
     const tag = node.tagName;
-
-    console.log('Title page node:', tag);
 
     // -----------------------------
     // MAIN TITLE
@@ -59,12 +75,9 @@ async function buildTitlePage(html) {
     // -----------------------------
     // IMAGE (LOGO / QR / SEAL)
     // -----------------------------
-    console.log('Title page image node:', node);
     if (tag === "FIGURE") {
       const img = node.querySelector("img");
       const src = img?.getAttribute("src");
-
-      console.log("Extracted image src:", src);
 
       if (src) {
         const buffer = await fetchImageBuffer(src);
@@ -88,7 +101,6 @@ async function buildTitlePage(html) {
             })
           );
         }
-
       }
       continue;
     }
@@ -123,15 +135,18 @@ export async function exportSynopsisDocx(synopsisData) {
   // Extract header/footer settings with defaults
   const {
     headerTitle = name,
-    headerRight = "SET",  // NEW FIELD
+    headerRight = "SET",
     footerLeft = "Poornima University, Jaipur",
-    footerCenter = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+    footerCenter = new Date().toLocaleDateString('en-US', {
+      month: 'long',
+      year: 'numeric',
+    }),
   } = headerFooter;
 
   const docChildren = [];
 
   // ----------------------------
-  // DOCUMENT TITLE (report name)
+  // DOCUMENT TITLE
   // ----------------------------
   docChildren.push(
     new Paragraph({
@@ -168,63 +183,79 @@ export async function exportSynopsisDocx(synopsisData) {
   }
 
   // ----------------------------
-  // LITERATURE REVIEW
-  // ----------------------------
-  if (literature.length) {
-    docChildren.push(
-      new Paragraph({
-        text: "Literature Review",
-        heading: HeadingLevel.HEADING_2,
-        spacing: { before: 300, after: 200 },
-      })
-    );
-
-    for (let idx = 0; idx < literature.length; idx++) {
-      const item = literature[idx];
-
-      if (item.title) {
-        docChildren.push(
-          new Paragraph({
-            text: item.title,
-            heading: HeadingLevel.HEADING_3,
-            spacing: { before: idx === 0 ? 0 : 240, after: 120 },
-          })
-        );
-      }
-
-      const paras = await htmlToDocxParagraphs(
-        item.html || item.reviewHtml || item.body_html || item.text || ""
-      );
-
-      paras.forEach((p) => docChildren.push(p));
-    }
-  }
-
-  // ----------------------------
-  // CHAPTERS
+  // CHAPTERS (Literature after Introduction)
   // ----------------------------
   if (chapters.length) {
     for (let idx = 0; idx < chapters.length; idx++) {
       const ch = chapters[idx];
       const normalizedTitle = ch.title?.trim().toUpperCase();
 
-      // 🟢 TITLE PAGE: custom layout
+      // 🟢 TITLE PAGE
       if (normalizedTitle === "TITLE PAGE") {
         const titleBlocks = await buildTitlePage(ch.body_html || "");
         titleBlocks.forEach((p) => docChildren.push(p));
-
-        // Page break after title page
         docChildren.push(new Paragraph({ pageBreakBefore: true }));
         continue;
       }
 
-      // 🟡 ALL OTHER CHAPTERS: content only, NO chapter heading
-      const paras = await htmlToDocxParagraphs(
-        ch.body_html || ch.body || ""
-      );
+      // 🟡 INTRODUCTION
+      // 🟡 INTRODUCTION (robust match)
+      if (isIntroductionChapter(ch.title)) {
+        const introParas = await htmlToDocxParagraphs(ch.body_html || "");
+        introParas.forEach((p) => docChildren.push(p));
+
+        // -------- INSERT LITERATURE REVIEW HERE --------
+        if (literature.length) {
+          docChildren.push(
+            new Paragraph({
+              text: "Literature Review",
+              heading: HeadingLevel.HEADING_2,
+              spacing: { before: 300, after: 200 },
+            })
+          );
+
+          for (let i = 0; i < literature.length; i++) {
+            const item = literature[i];
+
+            if (item.title || item.authors || item.year) {
+              docChildren.push(
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: [item.title, item.authors, item.year]
+                        .filter(Boolean)
+                        .join(" • "),
+                      bold: true,
+                    }),
+                  ],
+                  spacing: { before: i === 0 ? 120 : 240, after: 120 },
+                })
+              );
+            }
+
+            const paras = await htmlToDocxParagraphs(
+              item.html ||
+              item.reviewHtml ||
+              item.body_html ||
+              item.text ||
+              ""
+            );
+
+            paras.forEach((p) => docChildren.push(p));
+          }
+
+          // Page break after literature
+          docChildren.push(new Paragraph({ pageBreakBefore: true }));
+        }
+
+        continue;
+      }
+
+
+      // 🟡 ALL OTHER CHAPTERS
+      const paras = await htmlToDocxParagraphs(ch.body_html || ch.body || "");
       paras.forEach((p) => docChildren.push(p));
 
-      // Page break between chapters (except last)
       if (idx < chapters.length - 1) {
         docChildren.push(new Paragraph({ pageBreakBefore: true }));
       }
@@ -232,14 +263,14 @@ export async function exportSynopsisDocx(synopsisData) {
   }
 
   // ----------------------------
-  // FINALIZE DOC with dynamic header/footer
+  // FINALIZE DOC
   // ----------------------------
   const doc = new Document({
     sections: [
       {
         properties: {},
         headers: {
-          default: buildHeader(headerTitle, headerRight),  // UPDATED TO PASS headerRight
+          default: buildHeader(headerTitle, headerRight),
         },
         footers: {
           default: buildArabicFooter(footerLeft, footerCenter),
