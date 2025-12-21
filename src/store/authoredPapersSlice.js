@@ -64,6 +64,41 @@ export const savePaper = createAsyncThunk(
   }
 );
 
+// -----------------------------
+// Add section
+// -----------------------------
+export const addPaperSection = createAsyncThunk(
+  'authoredPapers/addSection',
+  async ({ paperId, title }, { rejectWithValue }) => {
+    try {
+      return await apiFetch(`/my-papers/${paperId}/sections`, {
+        method: 'POST',
+        body: { section_title: title },
+      });
+    } catch (e) {
+      return rejectWithValue(e?.message || 'Failed to add section');
+    }
+  }
+);
+
+// -----------------------------
+// Delete section
+// -----------------------------
+export const deletePaperSection = createAsyncThunk(
+  'authoredPapers/deleteSection',
+  async (sectionId, { rejectWithValue }) => {
+    try {
+      await apiFetch(`/my-papers/sections/${sectionId}`, {
+        method: 'DELETE',
+      });
+      return sectionId;
+    } catch (e) {
+      return rejectWithValue(e?.message || 'Failed to delete section');
+    }
+  }
+);
+
+
 // =============================
 // SLICE
 // =============================
@@ -135,18 +170,36 @@ const authoredPapersSlice = createSlice({
         state.error = action.payload;
       })
 
+      // ---------- ADD SECTION ----------
+      .addCase(addPaperSection.fulfilled, (state, action) => {
+        if (state.current?.sections) {
+          state.current.sections.push(action.payload);
+        }
+      })
+
+      // ---------- DELETE SECTION ----------
+      .addCase(deletePaperSection.fulfilled, (state, action) => {
+        if (state.current?.sections) {
+          state.current.sections = state.current.sections.filter(
+            s => s.id !== action.payload
+          );
+        }
+      })
+
+
+
       // ---------- AUTOSAVE ----------
       .addCase(savePaper.pending, (state) => {
         state.saving = true;
       })
-      .addCase(savePaper.fulfilled, (state) => {
-        state.saving = false;
-      })
-      .addCase(savePaper.rejected, (state, action) => {
-        state.saving = false;
-        state.error = action.payload;
-      });
-  },
+    .addCase(savePaper.fulfilled, (state) => {
+      state.saving = false;
+    })
+    .addCase(savePaper.rejected, (state, action) => {
+      state.saving = false;
+      state.error = action.payload;
+    });
+},
 });
 
 export const { clearCurrentPaper } = authoredPapersSlice.actions;
