@@ -37,6 +37,8 @@ import Supervisors from './pages/supervisors/Supervisors';
 import Users from './pages/monitoring/Users';
 import Payments from './pages/monitoring/Payments';
 import Analytics from './pages/monitoring/Analytics';
+import MyPapers from './pages/library/MyPapers';
+import MyPaperEditor from './pages/library/MyPaperEditor';
 
 export default function Router() {
   return (
@@ -70,6 +72,10 @@ export default function Router() {
         <Route path="library/papers/new" element={<PaperForm mode="create" />} />
         <Route path="library/papers/:paperId" element={<PaperForm mode="edit" />} />
         <Route path="library/papers/:paperId/view" element={<PaperView />} />
+
+        <Route path="/library/my-papers" element={<MyPapers />} />
+        <Route path="/library/my-papers/:id/edit" element={<MyPaperEditor />} />
+
 
         <Route path="/chapters" element={<ChaptersPage />} />
         <Route path="/chapters/:id" element={<ChapterEditor />} />

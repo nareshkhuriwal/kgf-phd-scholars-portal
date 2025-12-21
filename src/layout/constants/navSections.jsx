@@ -51,6 +51,8 @@ export const SECTIONS = [
       { to: '/library/papers', label: 'All Papers', Icon: TableViewIcon },
       { to: '/library/upload', label: 'Upload / Import', Icon: CloudUploadIcon },
       { to: '/library/tags', label: 'Tags', Icon: LabelIcon },
+      { to: '/library/my-papers', label: 'My Research Papers', Icon: LabelIcon }, // ✅ NEW
+
     ],
   },
   {

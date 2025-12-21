@@ -84,3 +84,22 @@ a:hover { text-decoration: underline; }
   display: block;
   margin: 0 auto;
 }
+
+@media print {
+  body {
+    background: white;
+  }
+
+  .ck-content {
+    font-size: 12pt;
+    line-height: 1.6;
+  }
+
+  h1, h2, h3 {
+    page-break-after: avoid;
+  }
+
+  p {
+    page-break-inside: avoid;
+  }
+}
