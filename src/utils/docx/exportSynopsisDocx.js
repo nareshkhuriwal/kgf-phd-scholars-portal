@@ -19,16 +19,29 @@ import { buildArabicFooter } from "./buildFooter.js";
    HELPERS
 --------------------------------------------------------- */
 
+function hasMeaningfulContent(html = "") {
+  if (!html) return false;
+  const text = html
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, "")
+    .trim();
+  return text.length > 0;
+}
+
 function isIntroductionChapter(title = "") {
   const t = title.toLowerCase().trim();
   const keys = ["introduction", "intro"];
   return keys.some(
-    k => t === k || t.startsWith(k) || t.includes(` ${k}`) || t.includes(`${k} `)
+    k =>
+      t === k ||
+      t.startsWith(k) ||
+      t.includes(` ${k}`) ||
+      t.includes(`${k} `)
   );
 }
 
 async function appendLiterature(docChildren, literature) {
-  if (!literature?.length) return;
+  if (!Array.isArray(literature) || literature.length === 0) return;
 
   docChildren.push(
     new Paragraph({
@@ -40,6 +53,14 @@ async function appendLiterature(docChildren, literature) {
 
   for (let i = 0; i < literature.length; i++) {
     const item = literature[i];
+    const html =
+      item.html ||
+      item.reviewHtml ||
+      item.body_html ||
+      item.text ||
+      "";
+
+    if (!hasMeaningfulContent(html)) continue;
 
     if (item.title || item.authors || item.year) {
       docChildren.push(
@@ -57,18 +78,10 @@ async function appendLiterature(docChildren, literature) {
       );
     }
 
-    const paras = await htmlToDocxParagraphs(
-      item.html ||
-      item.reviewHtml ||
-      item.body_html ||
-      item.text ||
-      ""
-    );
-
+    const paras = await htmlToDocxParagraphs(html);
     paras.forEach(p => docChildren.push(p));
   }
 
-  // Page break after literature
   docChildren.push(new Paragraph({ pageBreakBefore: true }));
 }
 
@@ -136,7 +149,7 @@ async function buildTitlePage(html) {
 }
 
 /* ---------------------------------------------------------
-   MAIN EXPORT FUNCTION
+   MAIN EXPORT
 --------------------------------------------------------- */
 
 export async function exportSynopsisDocx(synopsisData) {
@@ -193,44 +206,44 @@ export async function exportSynopsisDocx(synopsisData) {
     );
   }
 
-  /* -------- CHAPTERS + CONDITIONAL LITERATURE -------- */
+  /* -------- CHAPTERS (SKIP EMPTY) -------- */
   let literatureInserted = false;
 
-  if (chapters.length) {
-    for (let i = 0; i < chapters.length; i++) {
-      const ch = chapters[i];
-      const title = ch.title || "";
+  for (let i = 0; i < chapters.length; i++) {
+    const ch = chapters[i];
+    const title = ch.title || "";
+    const body = ch.body_html || ch.body || "";
 
-      // TITLE PAGE
-      if (title.trim().toUpperCase() === "TITLE PAGE") {
-        const blocks = await buildTitlePage(ch.body_html || "");
+    // TITLE PAGE
+    if (title.trim().toUpperCase() === "TITLE PAGE") {
+      if (hasMeaningfulContent(body)) {
+        const blocks = await buildTitlePage(body);
         blocks.forEach(p => docChildren.push(p));
         docChildren.push(new Paragraph({ pageBreakBefore: true }));
-        continue;
       }
-
-      // CHAPTER CONTENT
-      const paras = await htmlToDocxParagraphs(ch.body_html || ch.body || "");
-      paras.forEach(p => docChildren.push(p));
-
-      // INSERT LITERATURE AFTER INTRODUCTION
-      if (!literatureInserted && isIntroductionChapter(title)) {
-        await appendLiterature(docChildren, literature);
-        literatureInserted = true;
-      }
-
-      if (i < chapters.length - 1) {
-        docChildren.push(new Paragraph({ pageBreakBefore: true }));
-      }
+      continue;
     }
+
+    // SKIP EMPTY CHAPTERS
+    if (!hasMeaningfulContent(body)) continue;
+
+    const paras = await htmlToDocxParagraphs(body);
+    paras.forEach(p => docChildren.push(p));
+
+    if (!literatureInserted && isIntroductionChapter(title)) {
+      await appendLiterature(docChildren, literature);
+      literatureInserted = true;
+    }
+
+    docChildren.push(new Paragraph({ pageBreakBefore: true }));
   }
 
-  /* -------- FALLBACK: NO INTRODUCTION -------- */
+  /* -------- FALLBACK LITERATURE -------- */
   if (!literatureInserted) {
     await appendLiterature(docChildren, literature);
   }
 
-  /* -------- FINAL DOCUMENT -------- */
+  /* -------- FINAL DOC -------- */
   const doc = new Document({
     sections: [
       {
