@@ -20,6 +20,8 @@ import paymentsReducer from './paymentsSlice';
 import monitoringStatsReducer from './monitoringStatsSlice';
 import registerReducer from './registerSlice';
 import tagsReducer from './tagsSlice';
+import authoredPapersReducer from './authoredPapersSlice';
+
 
 const store = configureStore({
   reducer: {
@@ -44,6 +46,7 @@ const store = configureStore({
     monitoringStats: monitoringStatsReducer,
     register: registerReducer,
     tags: tagsReducer,
+    authoredPapers: authoredPapersReducer,
 
   },
 })
