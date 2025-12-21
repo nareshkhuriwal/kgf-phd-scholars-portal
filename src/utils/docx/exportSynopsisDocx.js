@@ -270,6 +270,7 @@ export async function exportSynopsisDocx(synopsisData) {
     ],
   });
 
+
   const blob = await Packer.toBlob(doc);
   saveAs(blob, `${name || "Synopsis"}.docx`);
 }
