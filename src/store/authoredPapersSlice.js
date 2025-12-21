@@ -98,6 +98,19 @@ export const deletePaperSection = createAsyncThunk(
   }
 );
 
+export const deletePaper = createAsyncThunk(
+  'authoredPapers/delete',
+  async (id, { rejectWithValue }) => {
+    try {
+      await apiFetch(`/my-papers/${id}`, { method: 'DELETE' });
+      return id;
+    } catch (e) {
+      return rejectWithValue(e?.message || 'Failed to delete paper');
+    }
+  }
+);
+
+
 
 // =============================
 // SLICE
@@ -186,20 +199,23 @@ const authoredPapersSlice = createSlice({
         }
       })
 
+      .addCase(deletePaper.fulfilled, (state, action) => {
+        state.list = state.list.filter(p => p.id !== action.payload);
+      })
 
 
       // ---------- AUTOSAVE ----------
       .addCase(savePaper.pending, (state) => {
         state.saving = true;
       })
-    .addCase(savePaper.fulfilled, (state) => {
-      state.saving = false;
-    })
-    .addCase(savePaper.rejected, (state, action) => {
-      state.saving = false;
-      state.error = action.payload;
-    });
-},
+      .addCase(savePaper.fulfilled, (state) => {
+        state.saving = false;
+      })
+      .addCase(savePaper.rejected, (state, action) => {
+        state.saving = false;
+        state.error = action.payload;
+      });
+  },
 });
 
 export const { clearCurrentPaper } = authoredPapersSlice.actions;
