@@ -118,7 +118,7 @@ async function appendLiterature(docChildren, literature) {
 
   docChildren.push(
     new Paragraph({
-      text: "Literature Review",
+      text: "REVIEW OF LITERATURE",
       heading: HeadingLevel.HEADING_2,
       spacing: { before: 300, after: 200 },
     })
