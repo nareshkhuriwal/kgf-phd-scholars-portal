@@ -16,13 +16,12 @@ import {
   PageNumber,
 } from "docx";
 
-
 import { saveAs } from "file-saver";
 import { htmlToDocxParagraphs } from "./../exporters/htmlToDocx.js";
 import { ImageRun } from "docx";
-import { fetchImageBuffer } from "./../exporters/fetchImage.js"; // adjust path if needed
+import { fetchImageBuffer } from "./../exporters/fetchImage.js";
 import buildHeader from "./buildHeader.js";
-import {buildArabicFooter, buildRomanFooter} from "./buildFooter.js";
+import { buildArabicFooter, buildRomanFooter } from "./buildFooter.js";
 
 /**
  * Build DOCX paragraphs for TITLE PAGE only
@@ -61,9 +60,6 @@ async function buildTitlePage(html) {
     // IMAGE (LOGO / QR / SEAL)
     // -----------------------------
     console.log('Title page image node:', node);
-    // -----------------------------
-    // IMAGE (LOGO / QR / SEAL)
-    // -----------------------------
     if (tag === "FIGURE") {
       const img = node.querySelector("img");
       const src = img?.getAttribute("src");
@@ -74,7 +70,7 @@ async function buildTitlePage(html) {
         const buffer = await fetchImageBuffer(src);
 
         if (buffer) {
-          const imageData = new Uint8Array(buffer); // ✅ REQUIRED
+          const imageData = new Uint8Array(buffer);
 
           blocks.push(
             new Paragraph({
@@ -97,7 +93,6 @@ async function buildTitlePage(html) {
       continue;
     }
 
-
     // -----------------------------
     // NORMAL CENTERED TEXT
     // -----------------------------
@@ -116,14 +111,22 @@ async function buildTitlePage(html) {
   return blocks;
 }
 
-
 export async function exportSynopsisDocx(synopsisData) {
   const {
     name = "Synopsis",
     kpis = [],
     literature = [],
     chapters = [],
+    headerFooter = {},
   } = synopsisData || {};
+
+  // Extract header/footer settings with defaults
+  const {
+    headerTitle = name,
+    headerRight = "SET",  // NEW FIELD
+    footerLeft = "Poornima University, Jaipur",
+    footerCenter = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+  } = headerFooter;
 
   const docChildren = [];
 
@@ -189,9 +192,6 @@ export async function exportSynopsisDocx(synopsisData) {
         );
       }
 
-      const paras_old = await htmlToDocxParagraphs(
-        item.reviewHtml || item.body_html || ""
-      );
       const paras = await htmlToDocxParagraphs(
         item.html || item.reviewHtml || item.body_html || item.text || ""
       );
@@ -202,9 +202,6 @@ export async function exportSynopsisDocx(synopsisData) {
 
   // ----------------------------
   // CHAPTERS
-  // ----------------------------
-  // ----------------------------
-  // CHAPTERS (CONTENT ONLY — NO NAMES)
   // ----------------------------
   if (chapters.length) {
     for (let idx = 0; idx < chapters.length; idx++) {
@@ -221,9 +218,7 @@ export async function exportSynopsisDocx(synopsisData) {
         continue;
       }
 
-      // 🟡 ALL OTHER CHAPTERS:
-      // → content only
-      // → NO chapter heading
+      // 🟡 ALL OTHER CHAPTERS: content only, NO chapter heading
       const paras = await htmlToDocxParagraphs(
         ch.body_html || ch.body || ""
       );
@@ -236,68 +231,23 @@ export async function exportSynopsisDocx(synopsisData) {
     }
   }
 
-
   // ----------------------------
-  // FINALIZE DOC
+  // FINALIZE DOC with dynamic header/footer
   // ----------------------------
-  // const doc = new Document({
-  //   sections: [{ properties: {}, children: docChildren }],
-  // });
-
   const doc = new Document({
-  sections: [
-    {
-      properties: {},
-      headers: {
-        default: buildHeader(
-          "Adaptive Quantum Error Suppression Strategies for NISQ Devices" || name
-        ),
+    sections: [
+      {
+        properties: {},
+        headers: {
+          default: buildHeader(headerTitle, headerRight),  // UPDATED TO PASS headerRight
+        },
+        footers: {
+          default: buildArabicFooter(footerLeft, footerCenter),
+        },
+        children: docChildren,
       },
-      footers: {
-        default: buildArabicFooter(),
-      },
-      children: docChildren,
-    },
-  ],
-});
-
-  // const doc = new Document({
-  //   sections: [
-  //     {
-  //       properties: {
-  //         pageNumberStart: 1,
-  //         pageNumberFormatType: "lowerRoman", // Use string instead: i, ii, iii, iv, v
-  //       },
-  //       headers: {
-  //         default: buildHeader("Adaptive Quantum Error Suppression Strategies for NISQ Devices" || name),
-  //       },
-  //       footers: {
-  //         default: buildRomanFooter(),
-  //       },
-  //       children: [
-  //         // First 5 pages content here
-  //         // Add your paragraphs, tables, etc.
-  //       ],
-  //     },
-  //     {
-  //       properties: {
-  //         pageNumberStart: 1, // Restart numbering at 1
-  //         pageNumberFormatType: "decimal", // Use string instead: 1, 2, 3...
-  //       },
-  //       headers: {
-  //         default: buildHeader("Adaptive Quantum Error Suppression Strategies for NISQ Devices" || name),
-  //       },
-  //       footers: {
-  //         default: buildArabicFooter(),
-  //       },
-  //       children: [
-  //         // Remaining pages content here (page 6 onwards)
-  //       ],
-  //     },
-  //   ],
-  // });
-
-
+    ],
+  });
 
   const blob = await Packer.toBlob(doc);
   saveAs(blob, `${name || "Synopsis"}.docx`);

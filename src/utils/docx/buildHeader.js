@@ -13,7 +13,7 @@ import {
   VerticalAlign,
 } from "docx";
 
-export default function buildHeader(titleText) {
+export default function buildHeader(titleText = "Report Title", rightText = "SET") {
   return new Header({
     children: [
       new Table({
@@ -34,10 +34,10 @@ export default function buildHeader(titleText) {
                 width: { size: 85, type: WidthType.PERCENTAGE },
                 borders: {
                   top: { style: BorderStyle.NONE, size: 0 },
-                  bottom: { 
-                    style: BorderStyle.SINGLE, 
-                    size: 24, 
-                    color: "999999" 
+                  bottom: {
+                    style: BorderStyle.SINGLE,
+                    size: 24,
+                    color: "999999"
                   },
                   left: { style: BorderStyle.NONE, size: 0 },
                   right: { style: BorderStyle.NONE, size: 0 },
@@ -66,25 +66,24 @@ export default function buildHeader(titleText) {
                 ],
               }),
 
-              // Right cell - "SET" without background
+              // Right cell - "SET"
               new TableCell({
                 width: { size: 15, type: WidthType.PERCENTAGE },
                 borders: {
                   top: { style: BorderStyle.NONE, size: 0 },
-                  bottom: { 
-                    style: BorderStyle.SINGLE, 
-                    size: 24, 
-                    color: "999999" 
+                  bottom: {
+                    style: BorderStyle.SINGLE,
+                    size: 24,
+                    color: "999999"
                   },
-                  left: { 
-                    style: BorderStyle.SINGLE, 
-                    size: 24, 
-                    color: "999999" 
+                  left: {
+                    style: BorderStyle.SINGLE,
+                    size: 24,
+                    color: "999999"
                   },
                   right: { style: BorderStyle.NONE, size: 0 },
                 },
                 verticalAlign: VerticalAlign.BOTTOM,
-                // Background removed
                 margins: {
                   top: 0,
                   bottom: 200,
@@ -97,7 +96,7 @@ export default function buildHeader(titleText) {
                     spacing: { before: 0, after: 0 },
                     children: [
                       new TextRun({
-                        text: "SET",
+                        text: rightText,
                         bold: true,
                         size: 26,
                         color: "808080",

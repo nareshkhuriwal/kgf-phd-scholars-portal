@@ -1,19 +1,16 @@
-// src/exporters/buildDocument.js
+// src/exporters/buildFooter.js
 
 import { 
-  Document, 
   PageNumber, 
   Footer, 
-  Header, 
   Paragraph, 
   TextRun, 
   TabStopType, 
   BorderStyle,
-  AlignmentType 
 } from "docx";
 
 // Create footer for Roman numerals (Section 1)
-export function buildRomanFooter() {
+export function buildRomanFooter(footerLeft = "Poornima University, Jaipur", footerCenter = "December 2025") {
   return new Footer({
     children: [
       new Paragraph({
@@ -34,14 +31,14 @@ export function buildRomanFooter() {
         ],
         children: [
           new TextRun({
-            text: "Poornima University, Jaipur",
+            text: footerLeft,
             size: 20,
             color: "999999",
             font: "Calibri",
           }),
           new TextRun("\t"),
           new TextRun({
-            text: "December, 2055",
+            text: footerCenter,
             size: 20,
             color: "999999",
             font: "Calibri",
@@ -66,7 +63,7 @@ export function buildRomanFooter() {
 }
 
 // Create footer for Arabic numerals (Section 2)
-export function buildArabicFooter() {
+export function buildArabicFooter(footerLeft = "Poornima University, Jaipur", footerCenter = "December 2025") {
   return new Footer({
     children: [
       new Paragraph({
@@ -87,14 +84,14 @@ export function buildArabicFooter() {
         ],
         children: [
           new TextRun({
-            text: "Poornima University, Jaipur",
+            text: footerLeft,
             size: 20,
             color: "999999",
             font: "Calibri",
           }),
           new TextRun("\t"),
           new TextRun({
-            text: "December, 2055",
+            text: footerCenter,
             size: 20,
             color: "999999",
             font: "Calibri",
@@ -118,11 +115,10 @@ export function buildArabicFooter() {
   });
 }
 
-
-export default function buildFooter() {
+// Default footer builder
+export default function buildFooter(footerLeft = "Poornima University, Jaipur", footerCenter = "December 2025") {
   return new Footer({
     children: [
-      // ───────── top separator line ─────────
       new Paragraph({
         spacing: { 
           before: 0,
@@ -130,13 +126,12 @@ export default function buildFooter() {
         },
         border: {
           top: {
-            style: BorderStyle.THICK,  // changed from SINGLE to THICK
-            size: 24,  // significantly increased (was 12)
+            style: BorderStyle.THICK,
+            size: 24,
             color: "D6B27C",
           },
         },
       }),
-      // ───────── single-line footer with tabs ─────────
       new Paragraph({
         spacing: { 
           before: 100,
@@ -154,14 +149,14 @@ export default function buildFooter() {
         ],
         children: [
           new TextRun({
-            text: "Poornima University, Jaipur",
+            text: footerLeft,
             size: 20,
             color: "999999",
             font: "Calibri",
           }),
           new TextRun("\t"),
           new TextRun({
-            text: "December, 2055",
+            text: footerCenter,
             size: 20,
             color: "999999",
             font: "Calibri",

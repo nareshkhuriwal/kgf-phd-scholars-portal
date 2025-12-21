@@ -11,7 +11,6 @@ import DownloadIcon from '@mui/icons-material/Download';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import SlideshowIcon from '@mui/icons-material/Slideshow';
 import * as XLSX from 'xlsx';
-import { downloadSynopsisDocx } from '../../utils/docx/synopsisDocx';
 import { cleanRich } from '../../utils/text/cleanRich';
 import { exportSynopsisDocx } from '../../utils/docx/exportSynopsisDocx';
 import { exportReportPptx } from '../../utils/pptx/exportReportPptx';
@@ -36,10 +35,21 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
     kpis = [],
     chapters = [],
     literature = [],
+    // Header/Footer settings
+    headerFooter = {},
   } = merged;
 
   const fmt = String(format || '').toLowerCase();
   const tpl = String(template || '').toLowerCase();
+
+  // Extract header/footer with defaults
+  const {
+    headerTitle = name,
+      headerRight = "SET",  // NEW FIELD
+    footerLeft = "Poornima University, Jaipur",
+    footerCenter = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+  } = headerFooter;
+
 
   const officeViewer = (fileUrl) =>
     `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(fileUrl)}`;
@@ -174,8 +184,9 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
   // Client-side DOCX download (for Synopsis)
   const onDownloadSynopsis = () => {
     const safe = String(name || 'Synopsis').replace(/[^A-Za-z0-9._-]+/g, '_') || 'Synopsis';
-    exportSynopsisDocx(merged, `${safe}.docx`);
+    exportSynopsisDocx({ ...merged, headerFooter }, `${safe}.docx`);  // Pass headerFooter
   };
+
 
   // ---- Decide which download buttons to show based on format ----
   const renderDownloadButtons = () => {
@@ -244,6 +255,7 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
     : [];
 
   // Document-style header component
+  // 2. Update DocumentHeader component to use headerTitle (around line 270):
   const DocumentHeader = ({ pageNum }) => (
     <Box
       className="page-header"
@@ -266,7 +278,7 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
           textAlign: 'center',
         }}
       >
-        {name || 'Report'}
+        {headerTitle}  {/* Changed from: {name || 'Report'} */}
       </Typography>
       <Box
         sx={{
@@ -285,19 +297,15 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
             color: '#808080',
           }}
         >
-          SET
+          {headerRight} 
         </Typography>
       </Box>
     </Box>
   );
 
-  // Document-style footer component
+
+  // 3. Update DocumentFooter component to use footerLeft and footerCenter (around line 305):
   const DocumentFooter = ({ pageNum }) => {
-    const currentDate = new Date().toLocaleDateString('en-US', { 
-      month: 'long', 
-      year: 'numeric' 
-    });
-    
     return (
       <Box
         className="page-footer"
@@ -316,10 +324,10 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
           }}
         >
           <Typography variant="body2" sx={{ color: '#999', fontSize: '11px' }}>
-            Poornima University, Jaipur
+            {footerLeft}  {/* Changed from: Poornima University, Jaipur */}
           </Typography>
           <Typography variant="body2" sx={{ color: '#999', fontSize: '11px' }}>
-            {currentDate}
+            {footerCenter}  {/* Changed from: {currentDate} */}
           </Typography>
           <Typography variant="body2" sx={{ color: '#999', fontSize: '11px' }}>
             Page {pageNum}
@@ -412,13 +420,13 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
       <Divider />
 
       {/* Document Preview with A4 Pages */}
-      <Box 
-        sx={{ 
-          flex: 1, 
+      <Box
+        sx={{
+          flex: 1,
           bgcolor: '#525659', // Darker gray like PDF viewers
-          display: 'flex', 
-          flexDirection: 'column', 
-          minHeight: 0, 
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: 0,
           overflow: 'auto',
           p: 3,
         }}
@@ -434,9 +442,9 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
                   {Array.isArray(kpis) && kpis.length > 0 && (
                     <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', mb: 3 }}>
                       {kpis.map((k, i) => (
-                        <Chip 
-                          key={i} 
-                          label={`${k.label}: ${k.value}`} 
+                        <Chip
+                          key={i}
+                          label={`${k.label}: ${k.value}`}
                           className="kpi"
                           sx={{
                             border: '1px solid #ddd',
@@ -495,13 +503,13 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
                           <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
                             Literature Review
                           </Typography>
-                          <Box 
-                            className="card" 
-                            sx={{ 
-                              p: 2, 
-                              bgcolor: '#fff', 
-                              borderRadius: 1, 
-                              border: '1px solid #eee' 
+                          <Box
+                            className="card"
+                            sx={{
+                              p: 2,
+                              bgcolor: '#fff',
+                              borderRadius: 1,
+                              border: '1px solid #eee'
                             }}
                           >
                             <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
