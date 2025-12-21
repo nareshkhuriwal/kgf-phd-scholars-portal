@@ -45,7 +45,7 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
   // Extract header/footer with defaults
   const {
     headerTitle = name,
-      headerRight = "SET",  // NEW FIELD
+    headerRight = "SET",  // NEW FIELD
     footerLeft = "Poornima University, Jaipur",
     footerCenter = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
   } = headerFooter;
@@ -297,7 +297,7 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
             color: '#808080',
           }}
         >
-          {headerRight} 
+          {headerRight}
         </Typography>
       </Box>
     </Box>
@@ -495,26 +495,38 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
                 ))}
 
                 {/* Literature Review - each item on separate page */}
+                {/* Literature Review - continuous section (single page flow) */}
                 {Array.isArray(literature) && literature.length > 0 && (
-                  <>
-                    {literature.map((item, idx) => (
-                      <DocumentPage key={item.paper_id} pageNum={validChapters.length + idx + 1}>
-                        <Box>
-                          <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-                            Literature Review
-                          </Typography>
+                  <DocumentPage pageNum={validChapters.length + 1}>
+                    <Box>
+                      <Typography
+                        variant="h6"
+                        sx={{ mb: 2, fontWeight: 600 }}
+                      >
+                        Literature Review
+                      </Typography>
+
+                      <Stack spacing={2}>
+                        {literature.map((item, idx) => (
                           <Box
+                            key={item.paper_id || idx}
                             className="card"
                             sx={{
                               p: 2,
                               bgcolor: '#fff',
                               borderRadius: 1,
-                              border: '1px solid #eee'
+                              border: '1px solid #eee',
                             }}
                           >
-                            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                              {[item.title, item.authors, item.year].filter(Boolean).join(' • ')}
+                            <Typography
+                              variant="subtitle2"
+                              sx={{ fontWeight: 600, mb: 1 }}
+                            >
+                              {[item.title, item.authors, item.year]
+                                .filter(Boolean)
+                                .join(' • ')}
                             </Typography>
+
                             <Box
                               className="ck-content"
                               sx={{
@@ -525,11 +537,12 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
                               dangerouslySetInnerHTML={{ __html: item.text || '<p>—</p>' }}
                             />
                           </Box>
-                        </Box>
-                      </DocumentPage>
-                    ))}
-                  </>
+                        ))}
+                      </Stack>
+                    </Box>
+                  </DocumentPage>
                 )}
+
 
                 {(!chapters?.length && !literature?.length) && (
                   <DocumentPage pageNum="i">
