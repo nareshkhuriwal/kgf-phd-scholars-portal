@@ -283,10 +283,10 @@ const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     spacing={1}
     sx={{ width: { xs: '100%', sm: 'auto' } }}
   >
-    <Button fullWidth={isMobile} variant="outlined" onClick={() => window.open('/api/papers/export?format=csv', '_blank')}>
+    <Button variant="outlined" onClick={() => window.open('/api/papers/export?format=csv', '_blank')}>
       Export CSV
     </Button>
-    <Button fullWidth={isMobile} variant="contained" onClick={() => navigate('/library/papers/new')}>
+    <Button variant="contained" onClick={() => navigate('/library/papers/new')}>
       Add Paper
     </Button>
   </Stack>
