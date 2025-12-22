@@ -23,7 +23,8 @@ import { CKEditor } from '@ckeditor/ckeditor5-react';
 import DecoupledEditor from '@ckeditor/ckeditor5-build-decoupled-document';
 
 const CHAR_WARN = 150;
-const CHAR_GOOD = 300;
+const CHAR_GOOD = 1000;
+const WORD_TARGET = 150;   // recommended minimum words
 
 const getCharMeta = (count) => {
   if (count > CHAR_GOOD) {
@@ -46,6 +47,33 @@ const getCharMeta = (count) => {
   };
 };
 
+
+const getWordCharMeta = (wordCount, charCount) => {
+  const wordsOk = wordCount >= WORD_TARGET;
+  const charsOk = charCount >= CHAR_GOOD;
+
+  if (wordsOk && charsOk) {
+    return {
+      color: '#2e7d32',
+      label: `Words: ${wordCount} ✓ | Characters: ${charCount} ✓`
+    };
+  }
+
+  if (wordsOk || charsOk) {
+    return {
+      color: '#ed6c02',
+      label: `Words: ${wordCount}${wordsOk ? ' ✓' : ''} | Characters: ${charCount}${charsOk ? ' ✓' : ''}`
+    };
+  }
+
+  return {
+    color: '#6b7280',
+    label: `Words: ${wordCount} / ${WORD_TARGET}+ | Characters: ${charCount} / ${CHAR_GOOD}+`
+  };
+};
+
+
+
 export default function ChapterEditor() {
   const { id } = useParams();
   const cid = Number(id);
@@ -66,6 +94,7 @@ export default function ChapterEditor() {
   const openToast = (severity, msg) => setToast({ open: true, severity, msg });
   const closeToast = () => setToast((t) => ({ ...t, open: false }));
   const [charCount, setCharCount] = React.useState(0);
+  const [wordCount, setWordCount] = React.useState(0);
 
 
   // Fetch once if needed (unconditional hook)
@@ -77,6 +106,7 @@ export default function ChapterEditor() {
     if (chapter?.body_html) {
       const text = chapter.body_html.replace(/<[^>]*>/g, '').trim();
       setCharCount(text.length);
+      setWordCount(text ? text.split(/\s+/).length : 0);
     }
   }, [chapter?.id]);
 
@@ -319,15 +349,16 @@ export default function ChapterEditor() {
                 onChange={(_, editor) => {
                   const data = editor.getData();
                   setBody(data);
-
                   const text = data.replace(/<[^>]*>/g, '').trim();
                   setCharCount(text.length);
+                  setWordCount(text ? text.split(/\s+/).length : 0);
+
                 }}
 
               />
 
               {(() => {
-                const meta = getCharMeta(charCount);
+                const meta = getWordCharMeta(wordCount, charCount);
 
                 return (
                   <Box
@@ -348,15 +379,17 @@ export default function ChapterEditor() {
                       variant="caption"
                       sx={{
                         color: meta.color,
-                        fontWeight: charCount > 150 ? 600 : 400,
+                        fontWeight: (wordCount >= WORD_TARGET || charCount >= CHAR_GOOD) ? 600 : 400,
                       }}
                     >
                       {meta.label}
                     </Typography>
 
+
                     <Typography variant="caption" color="text.secondary">
-                      Recommended: 300+
+                      Recommended: {WORD_TARGET}+ words • {CHAR_GOOD}+ characters
                     </Typography>
+
                   </Box>
                 );
               })()}
