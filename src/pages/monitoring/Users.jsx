@@ -112,7 +112,7 @@ export default function Users() {
                       </Stack>
                     </TableCell>
                     <TableCell>{u.email || '-'}</TableCell>
-                    <TableCell><Chip size="small" label={u.role || '-'} variant="outlined" color={u.role === 'admin' ? 'error' : u.role === 'supervisor' ? 'secondary' : u.role === 'super_admin' ? 'primary' : 'default'} /></TableCell>
+                    <TableCell><Chip size="small" label={u.role || '-'} variant="outlined" color={u.role === 'admin' ? 'error' : u.role === 'supervisor' ? 'secondary' : u.role === 'superuser' ? 'primary' : 'default'} /></TableCell>
                     <TableCell>{u.plan_key || '-'}</TableCell>
                     <TableCell><Chip size="small" label={u.subscription_status || (u.status || '-')} variant="outlined" color={u.subscription_status === 'active' ? 'success' : u.subscription_status === 'trial' ? 'warning' : 'default'} /></TableCell>
                     <TableCell>{u.is_on_trial ? (u.trial_days_remaining != null ? `${u.trial_days_remaining} days` : 'On trial') : '—'}</TableCell>

@@ -33,14 +33,14 @@ export const SECTIONS = [
         to: '/dashboard/researchers',
         label: 'Researchers',
         Icon: GroupAddIcon,
-        roles: ['admin', 'supervisor', 'super_admin'],
+        roles: ['admin', 'supervisor', 'superuser'],
       },
       // visible for admin only
       {
         to: '/dashboard/supervisors',
         label: 'Supervisors',
         Icon: GroupAddIcon,
-        roles: ['admin', 'super_admin'],
+        roles: ['admin', 'superuser'],
       },
     ],
   },
@@ -100,7 +100,7 @@ export const SECTIONS = [
     label: 'Researchers',
     base: '/researchers',
     Icon: GroupAddIcon,
-    roles: ['admin', 'supervisor', 'super_admin'],
+    roles: ['admin', 'supervisor', 'superuser'],
     items: [
       { to: '/researchers', label: 'All Researchers', Icon: DescriptionIcon },
     ],
@@ -110,38 +110,38 @@ export const SECTIONS = [
     label: 'Supervisors',
     base: '/supervisors',
     Icon: GroupAddIcon,
-    roles: ['admin', 'super_admin'],
+    roles: ['admin', 'superuser'],
     items: [
       { to: '/supervisors', label: 'All Supervisors', Icon: DescriptionIcon },
     ],
   },
 
-  // Monitoring: visible only to super_admin
+  // Monitoring: visible only to superuser
   {
     key: 'monitoring',
     label: 'Monitoring',
     base: '/monitoring',
     Icon: TableViewIcon,
-    roles: ['super_admin'],
+    roles: ['superuser'],
     items: [
       // inside the monitoring items array in src/layout/constants/navSections.js
       {
         to: '/monitoring/analytics',
         label: 'Analytics',
         Icon: TableViewIcon, // pick an icon you like
-        roles: ['super_admin'],
+        roles: ['superuser'],
       },
       {
         to: '/monitoring/users',
         label: 'Users',
         Icon: PersonIcon,
-        roles: ['super_admin'],
+        roles: ['superuser'],
       },
       {
         to: '/monitoring/payments',
         label: 'Payments',
         Icon: PaymentIcon,
-        roles: ['super_admin'],
+        roles: ['superuser'],
       },
     ],
   },

@@ -64,7 +64,7 @@ export default function Overview() {
   else if (path.includes('/dashboard/supervisors')) mode = 'supervisors';
 
   const { user } = useSelector((s) => s.auth || {});
-  const role = user?.role; // 'researcher' | 'supervisor' | 'admin' | 'super_admin'
+  const role = user?.role; // 'researcher' | 'supervisor' | 'admin' | 'superuser'
   
   console.log('Dashboard mode:', mode, 'for role:', role);
 
@@ -93,9 +93,9 @@ export default function Overview() {
   // Secondary dropdown: specific user id
   const [selectedUserId, setSelectedUserId] = React.useState('');
 
-  // -------- Load filters for supervisor/admin/super_admin --------
+  // -------- Load filters for supervisor/admin/superuser --------
   React.useEffect(() => {
-    if (role === 'supervisor' || role === 'admin' || role === 'super_admin') {
+    if (role === 'supervisor' || role === 'admin' || role === 'superuser') {
       console.log('Loading filters for role:', role);
       dispatch(loadDashboardFilters());
     }
@@ -106,7 +106,7 @@ export default function Overview() {
     if (!role) return;
 
     if (mode === 'overview') {
-      if (role === 'super_admin' || role === 'admin') {
+      if (role === 'superuser' || role === 'admin') {
         setPrimaryKey('OV_ALL');
       } else if (role === 'supervisor') {
         setPrimaryKey('OV_SELF');
@@ -116,13 +116,13 @@ export default function Overview() {
     } else if (mode === 'researchers') {
       if (role === 'supervisor') {
         setPrimaryKey('RES_ALL_MY');
-      } else if (role === 'admin' || role === 'super_admin') {
+      } else if (role === 'admin' || role === 'superuser') {
         setPrimaryKey('RES_ALL');
       } else {
         setPrimaryKey('OV_SELF');
       }
     } else if (mode === 'supervisors') {
-      if (role === 'admin' || role === 'super_admin') {
+      if (role === 'admin' || role === 'superuser') {
         setPrimaryKey('SUP_ALL');
       } else {
         setPrimaryKey('OV_SELF');
@@ -148,8 +148,8 @@ export default function Overview() {
     if (mode === 'overview') {
       console.log('✅ Mode is overview, checking role...');
       
-      if (role === 'super_admin') {
-        console.log('✅ Is super_admin');
+      if (role === 'superuser') {
+        console.log('✅ Is superuser');
         return [
           { value: 'OV_SELF', label: 'My own activity' },
           { value: 'OV_ALL', label: 'All users (supervisors + researchers)' },
@@ -184,7 +184,7 @@ export default function Overview() {
     if (mode === 'researchers') {
       console.log('✅ Mode is researchers');
       
-      if (role === 'super_admin') {
+      if (role === 'superuser') {
         return [
           { value: 'RES_ALL', label: 'All researchers' },
           { value: 'RES_SPEC', label: 'Specific researcher' },
@@ -209,7 +209,7 @@ export default function Overview() {
     if (mode === 'supervisors') {
       console.log('✅ Mode is supervisors');
       
-      if (role === 'super_admin' || role === 'admin') {
+      if (role === 'superuser' || role === 'admin') {
         return [
           { value: 'SUP_ALL', label: 'All supervisors' },
           { value: 'SUP_SPEC', label: 'Specific supervisor' },
@@ -305,7 +305,7 @@ export default function Overview() {
     if (mode === 'overview') {
       title = 'Dashboard';
 
-      if (role === 'super_admin') {
+      if (role === 'superuser') {
         title = 'Dashboard – Overview';
         subtitle = 'System-wide activity at a glance';
 
@@ -421,7 +421,7 @@ export default function Overview() {
             chip = r ? `Researcher – ${labelUser(r)}` : `Researcher #${id}`;
           }
         }
-      } else if (role === 'admin' || role === 'super_admin') {
+      } else if (role === 'admin' || role === 'superuser') {
         if (primaryKey === 'RES_ALL' || !primaryKey) {
           scope = 'all_researchers';
           chip = 'All researchers';
@@ -447,7 +447,7 @@ export default function Overview() {
       title = 'Supervisors Dashboard';
       subtitle = 'Monitor supervisor activity and coverage';
 
-      if (role === 'admin' || role === 'super_admin') {
+      if (role === 'admin' || role === 'superuser') {
         if (primaryKey === 'SUP_ALL' || !primaryKey) {
           scope = 'all_supervisors';
           chip = 'All supervisors';
@@ -521,7 +521,7 @@ export default function Overview() {
     '#A78BFA',
   ];
 
-  // Show dropdown for supervisor, admin, and super_admin ONLY
+  // Show dropdown for supervisor, admin, and superuser ONLY
   const showPrimaryDropdown = role !== 'researcher' && primaryOptions.length > 0;
   
   console.log('🔍 Dropdown visibility:', {
