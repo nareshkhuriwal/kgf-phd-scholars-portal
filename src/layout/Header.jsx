@@ -73,7 +73,7 @@ export default function Header({ onToggleSidebar }) {
     researcher: 'Researcher',
     supervisor: 'Supervisor',
     admin: 'Admin',
-    super_admin: 'Super Admin',
+    superuser: 'Super Admin',
   };
 
   const roleLabel = normalizedRole
