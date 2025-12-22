@@ -1,7 +1,6 @@
 import {
   Paragraph,
   TextRun,
-  HeadingLevel,
   AlignmentType,
   ImageRun,
   Table,
@@ -10,6 +9,52 @@ import {
   WidthType,
 } from "docx";
 import { fetchImageBuffer } from "./fetchImage";
+import { DOCUMENT_FORMATTING } from "../../config/documentFormatting.config.js";
+
+/* ---------------------------------------------------------
+   DOCX UNIT HELPERS
+--------------------------------------------------------- */
+
+const PT_TO_HALF_POINTS = (pt) => pt * 2;
+const INCH_TO_TWIP = (inch) => inch * 1440;
+
+/* ---------------------------------------------------------
+   DERIVED GLOBAL STYLES (FROM CONFIG)
+--------------------------------------------------------- */
+
+const BODY_RUN = {
+  font: DOCUMENT_FORMATTING.font.family,
+  size: PT_TO_HALF_POINTS(DOCUMENT_FORMATTING.font.bodySizePt),
+};
+
+const BODY_PARAGRAPH = {
+  alignment: AlignmentType[DOCUMENT_FORMATTING.paragraph.alignment],
+  spacing: {
+    line:
+      DOCUMENT_FORMATTING.paragraph.lineSpacing === 1.5
+        ? 360
+        : 240,
+    before: DOCUMENT_FORMATTING.paragraph.spacingBeforePt,
+    after: DOCUMENT_FORMATTING.paragraph.spacingAfterPt,
+  },
+  indent: {
+    firstLine: INCH_TO_TWIP(
+      DOCUMENT_FORMATTING.paragraph.firstLineIndentInch
+    ),
+  },
+};
+
+const HEADING_RUN = (level) => ({
+  font: DOCUMENT_FORMATTING.font.family,
+  bold: true,
+  size: PT_TO_HALF_POINTS(
+    DOCUMENT_FORMATTING.font.heading[level]
+  ),
+});
+
+/* ---------------------------------------------------------
+   MAIN HTML → DOCX PARSER
+--------------------------------------------------------- */
 
 export async function htmlToDocxParagraphs(html) {
   if (!html) return [];
@@ -20,6 +65,7 @@ export async function htmlToDocxParagraphs(html) {
   const blocks = [];
 
   for (const node of container.childNodes) {
+
     /* -----------------------------
        TEXT NODE
     ----------------------------- */
@@ -28,8 +74,13 @@ export async function htmlToDocxParagraphs(html) {
       if (text) {
         blocks.push(
           new Paragraph({
-            children: [new TextRun(text)],
-            spacing: { after: 200 },
+            ...BODY_PARAGRAPH,
+            children: [
+              new TextRun({
+                text,
+                ...BODY_RUN,
+              }),
+            ],
           })
         );
       }
@@ -41,18 +92,27 @@ export async function htmlToDocxParagraphs(html) {
     const tag = node.tagName.toLowerCase();
 
     /* -----------------------------
-       HEADINGS
+       HEADINGS (H1 / H2 / H3)
     ----------------------------- */
-    if (tag === "h1" || tag === "h2") {
+    if (tag === "h1" || tag === "h2" || tag === "h3") {
+      const level = tag === "h1" ? "h1" : tag === "h2" ? "h2" : "h3";
+
       blocks.push(
         new Paragraph({
-          text: node.innerText.trim(),
-          heading: HeadingLevel.HEADING_1,
           alignment:
             node.style.textAlign === "center"
               ? AlignmentType.CENTER
-              : undefined,
-          spacing: { after: 300 },
+              : AlignmentType.LEFT,
+          spacing: {
+            before: 240,
+            after: 120,
+          },
+          children: [
+            new TextRun({
+              text: node.innerText.trim(),
+              ...HEADING_RUN(level),
+            }),
+          ],
         })
       );
       continue;
@@ -66,8 +126,8 @@ export async function htmlToDocxParagraphs(html) {
       if (runs.length) {
         blocks.push(
           new Paragraph({
+            ...BODY_PARAGRAPH,
             children: runs,
-            spacing: { after: 200 },
           })
         );
       }
@@ -75,7 +135,7 @@ export async function htmlToDocxParagraphs(html) {
     }
 
     /* -----------------------------
-       TABLE (figure > table OR table)
+       TABLE
     ----------------------------- */
     if (tag === "table" || (tag === "figure" && node.querySelector("table"))) {
       const tableEl = tag === "table" ? node : node.querySelector("table");
@@ -94,7 +154,14 @@ export async function htmlToDocxParagraphs(html) {
               width: { size: 33, type: WidthType.PERCENTAGE },
               children: [
                 new Paragraph({
-                  children: [new TextRun(cellText)],
+                  ...BODY_PARAGRAPH,
+                  indent: undefined, // No first-line indent in tables
+                  children: [
+                    new TextRun({
+                      text: cellText,
+                      ...BODY_RUN,
+                    }),
+                  ],
                 }),
               ],
             })
@@ -114,12 +181,11 @@ export async function htmlToDocxParagraphs(html) {
           })
         );
       }
-
       continue;
     }
 
     /* -----------------------------
-       IMAGE (IMG OR FIGURE)
+       IMAGE
     ----------------------------- */
     if (tag === "img" || tag === "figure") {
       const img = tag === "img" ? node : node.querySelector("img");
@@ -131,7 +197,7 @@ export async function htmlToDocxParagraphs(html) {
           blocks.push(
             new Paragraph({
               alignment: AlignmentType.CENTER,
-              spacing: { before: 300, after: 300 },
+              spacing: { before: 240, after: 240 },
               children: [
                 new ImageRun({
                   data: new Uint8Array(buffer),
@@ -152,9 +218,10 @@ export async function htmlToDocxParagraphs(html) {
   return blocks;
 }
 
-/* -----------------------------
+/* ---------------------------------------------------------
    INLINE TEXT PARSER
------------------------------ */
+--------------------------------------------------------- */
+
 function parseInline(node) {
   const runs = [];
 
@@ -162,17 +229,34 @@ function parseInline(node) {
     if (n.nodeType === Node.TEXT_NODE) {
       const txt = n.textContent;
       if (txt?.trim()) {
-        runs.push(new TextRun(txt));
+        runs.push(
+          new TextRun({
+            text: txt,
+            ...BODY_RUN,
+          })
+        );
       }
     }
 
     if (n.nodeType === Node.ELEMENT_NODE) {
       if (n.tagName === "STRONG") {
-        runs.push(new TextRun({ text: n.innerText, bold: true }));
+        runs.push(
+          new TextRun({
+            text: n.innerText,
+            bold: true,
+            ...BODY_RUN,
+          })
+        );
       }
 
       if (n.tagName === "EM") {
-        runs.push(new TextRun({ text: n.innerText, italics: true }));
+        runs.push(
+          new TextRun({
+            text: n.innerText,
+            italics: true,
+            ...BODY_RUN,
+          })
+        );
       }
     }
   });

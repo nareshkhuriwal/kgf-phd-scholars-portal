@@ -15,6 +15,7 @@ import { cleanRich } from '../../utils/text/cleanRich';
 import { exportSynopsisDocx } from '../../utils/docx/exportSynopsisDocx';
 import { exportReportPptx } from '../../utils/pptx/exportReportPptx';
 import { htmlToExcelText } from '../../utils/exporters/htmlToExcelText';
+import { DOCUMENT_TYPOGRAPHY } from '../../config/reportFormatting.config';
 
 export default function ReportPreviewDialog({ open, loading, onClose, data }) {
   // Merge nested selectedReport if present
@@ -364,7 +365,16 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
       }}
     >
       {isSynopsis && <DocumentHeader pageNum={pageNum} />}
-      <Box className="page-content" sx={{ flex: 1, p: 3, overflow: 'hidden' }}>
+      <Box
+        className="page-content"
+        sx={{
+          flex: 1,
+          p: 3,
+          overflow: 'hidden',
+          ...DOCUMENT_TYPOGRAPHY,
+        }}
+      >
+
         {children}
       </Box>
       {isSynopsis && <DocumentFooter pageNum={pageNum} />}
@@ -479,6 +489,7 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
                     >
                       <Box
                         className="ck-content"
+                        sx={DOCUMENT_TYPOGRAPHY}
                         dangerouslySetInnerHTML={{ __html: validChapters[0].body_html }}
                       />
                     </Box>
@@ -499,6 +510,7 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
                     >
                       <Box
                         className="ck-content"
+                        sx={DOCUMENT_TYPOGRAPHY}
                         dangerouslySetInnerHTML={{ __html: ch.body_html }}
                       />
                     </Box>
@@ -540,11 +552,7 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
 
                             <Box
                               className="ck-content"
-                              sx={{
-                                '& p': { margin: '0 0 8px' },
-                                '& ul, & ol': { paddingLeft: 2 },
-                                '& h1, & h2, & h3': { margin: '8px 0' },
-                              }}
+                              sx={DOCUMENT_TYPOGRAPHY}
                               dangerouslySetInnerHTML={{ __html: item.text || '<p>—</p>' }}
                             />
                           </Box>
@@ -593,7 +601,7 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
                               ) : (
                                 <Box
                                   className="ck-content"
-                                  sx={{ '& p': { m: 0 }, '& ol, & ul': { pl: 2 } }}
+                                  sx={DOCUMENT_TYPOGRAPHY}
                                   dangerouslySetInnerHTML={{ __html: row[col.key] }}
                                 />
                               )}
