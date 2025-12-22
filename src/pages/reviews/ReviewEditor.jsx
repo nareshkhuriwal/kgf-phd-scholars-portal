@@ -71,7 +71,7 @@ const WORKPANE_MIN = 600; // absolute minimum height
 const CHAR_WARN = 150;
 const CHAR_GOOD = 300;
 // Replace these constants (around line 67-69)
-const WORD_TARGET = 300;
+const WORD_TARGET = 150;
 const CHAR_TARGET = 1000;
 
 const getCharMeta = (count) => {
