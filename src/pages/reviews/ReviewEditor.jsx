@@ -70,8 +70,9 @@ const WORKPANE_MIN = 600; // absolute minimum height
 
 const CHAR_WARN = 150;
 const CHAR_GOOD = 300;
-const WORD_MIN = 300;
-const CHAR_MIN = 1000;
+// Replace these constants (around line 67-69)
+const WORD_TARGET = 300;
+const CHAR_TARGET = 1000;
 
 const getCharMeta = (count) => {
   if (count > CHAR_GOOD) {
@@ -94,6 +95,30 @@ const getCharMeta = (count) => {
   };
 };
 
+// Replace the getCountMeta function (around line 71-91)
+const getCountMeta = (wordCount, charCount) => {
+  const wordsMet = wordCount >= WORD_TARGET;
+  const charsMet = charCount >= CHAR_TARGET;
+
+  if (wordsMet && charsMet) {
+    return {
+      color: '#2e7d32', // success green
+      label: `Words: ${wordCount} / ${WORD_TARGET}+ ✓ | Characters: ${charCount} / ${CHAR_TARGET}+ ✓`
+    };
+  }
+
+  if (wordsMet || charsMet) {
+    return {
+      color: '#ed6c02', // warning orange
+      label: `Words: ${wordCount} / ${WORD_TARGET}+ ${wordsMet ? '✓' : ''} | Characters: ${charCount} / ${CHAR_TARGET}+ ${charsMet ? '✓' : ''}`
+    };
+  }
+
+  return {
+    color: '#6b7280', // text.secondary
+    label: `Words: ${wordCount} / ${WORD_TARGET}+ | Characters: ${charCount} / ${CHAR_TARGET}+`
+  };
+};
 
 
 
@@ -105,6 +130,7 @@ export default function ReviewEditor() {
   const [sidebarOpen, setSidebarOpen] = React.useState(true);
   const [charCount, setCharCount] = React.useState(0);
   const toolbarRef = React.useRef(null);
+  // Add this state variable (around line 108)
   const [wordCount, setWordCount] = React.useState(0);
 
 
@@ -130,15 +156,6 @@ export default function ReviewEditor() {
     [paperId, current]
   );
 
-  const extractTextStats = (html) => {
-    const text = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-    return {
-      chars: text.length,
-      words: text ? text.split(' ').length : 0,
-    };
-  };
-
-
   React.useEffect(() => {
     const blockEnterSubmit = (e) => {
       if (e.key === 'Enter' && e.target?.closest('.ck')) {
@@ -154,6 +171,7 @@ export default function ReviewEditor() {
     () => makeEditorConfig(pid),
     [pid]
   );
+
 
   // Load paper/review once
   React.useEffect(() => { dispatch(loadReview(paperId)); }, [dispatch, paperId]);
@@ -189,23 +207,32 @@ export default function ReviewEditor() {
   //   debouncedSetSectionsRef.current(label, editor.getData());
   // }, []);
 
+  // Replace the onEditorChange callback (around line 162-171)
   const onEditorChange = React.useCallback((label, editor) => {
     const data = editor.getData();
 
-    // Strip HTML to count characters only
+    // Strip HTML to count characters and words
     const text = data.replace(/<[^>]*>/g, '').trim();
     setCharCount(text.length);
+
+    // Count words (split by whitespace and filter empty strings)
+    const words = text.split(/\s+/).filter(word => word.length > 0);
+    setWordCount(words.length);
 
     debouncedSetSectionsRef.current(label, data);
   }, []);
 
+
+  // Replace the useEffect for tab changes (around line 173-179)
   React.useEffect(() => {
     const activeLabel = EDITOR_ORDER[tab];
     const html = sections[activeLabel] || '';
-    const { chars, words } = extractTextStats(html);
+    const text = html.replace(/<[^>]*>/g, '').trim();
+    setCharCount(text.length);
 
-    setCharCount(chars);
-    setWordCount(words);
+    // Count words
+    const words = text.split(/\s+/).filter(word => word.length > 0);
+    setWordCount(words.length);
   }, [tab, sections]);
 
 
@@ -369,18 +396,15 @@ export default function ReviewEditor() {
                                 toolbarRef.current.appendChild(editor.ui.view.toolbar.element);
                               }
                             }}
-                            // onChange={(_, editor) => {
-                            //   const data = editor.getData();
-                            //   const text = data.replace(/<[^>]*>/g, '').trim();
-                            //   setCharCount(text.length);
-                            //   debouncedSetSectionsRef.current(label, data);
-                            // }}
+                            // Update the onChange in CKEditor (around line 320-329)
                             onChange={(_, editor) => {
                               const data = editor.getData();
-                              const { chars, words } = extractTextStats(data);
+                              const text = data.replace(/<[^>]*>/g, '').trim();
+                              setCharCount(text.length);
 
-                              setCharCount(chars);
-                              setWordCount(words);
+                              // Count words
+                              const words = text.split(/\s+/).filter(word => word.length > 0);
+                              setWordCount(words.length);
 
                               debouncedSetSectionsRef.current(label, data);
                             }}
@@ -390,7 +414,7 @@ export default function ReviewEditor() {
 
                       )}
                       {(() => {
-                        const meta = getCharMeta(charCount);
+                        const meta = getCountMeta(wordCount, charCount);
 
                         return (
                           <Typography
@@ -398,22 +422,17 @@ export default function ReviewEditor() {
                             sx={{
                               mt: 0.5,
                               px: 1,
-                              py: 0.5,
+                              py: 0.25,
                               textAlign: 'right',
+                              color: meta.color,
                               backgroundColor: '#fafafa',
                               borderTop: '1px solid #eee',
-                              fontWeight: (charCount >= CHAR_MIN && wordCount >= WORD_MIN) ? 600 : 400,
-                              color:
-                                charCount >= CHAR_MIN && wordCount >= WORD_MIN
-                                  ? '#2e7d32'
-                                  : '#ed6c02',
-                              display: 'block',
+                              fontWeight: (wordCount >= WORD_TARGET || charCount >= CHAR_TARGET) ? 600 : 400,
+                              display: 'block'
                             }}
                           >
-                            Words: {wordCount} / {WORD_MIN} &nbsp;|&nbsp;
-                            Characters: {charCount} / {CHAR_MIN}
+                            {meta.label}
                           </Typography>
-
                         );
                       })()}
 
