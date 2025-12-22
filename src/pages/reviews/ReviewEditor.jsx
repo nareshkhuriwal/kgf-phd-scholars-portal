@@ -70,6 +70,8 @@ const WORKPANE_MIN = 600; // absolute minimum height
 
 const CHAR_WARN = 150;
 const CHAR_GOOD = 300;
+const WORD_MIN = 300;
+const CHAR_MIN = 1000;
 
 const getCharMeta = (count) => {
   if (count > CHAR_GOOD) {
@@ -103,6 +105,7 @@ export default function ReviewEditor() {
   const [sidebarOpen, setSidebarOpen] = React.useState(true);
   const [charCount, setCharCount] = React.useState(0);
   const toolbarRef = React.useRef(null);
+  const [wordCount, setWordCount] = React.useState(0);
 
 
   console.log("current: ", current)
@@ -126,6 +129,15 @@ export default function ReviewEditor() {
     () => (paperId ?? current?.id ?? current?.paper_id) ?? null,
     [paperId, current]
   );
+
+  const extractTextStats = (html) => {
+    const text = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    return {
+      chars: text.length,
+      words: text ? text.split(' ').length : 0,
+    };
+  };
+
 
   React.useEffect(() => {
     const blockEnterSubmit = (e) => {
@@ -190,10 +202,11 @@ export default function ReviewEditor() {
   React.useEffect(() => {
     const activeLabel = EDITOR_ORDER[tab];
     const html = sections[activeLabel] || '';
-    const text = html.replace(/<[^>]*>/g, '').trim();
-    setCharCount(text.length);
-  }, [tab, sections]);
+    const { chars, words } = extractTextStats(html);
 
+    setCharCount(chars);
+    setWordCount(words);
+  }, [tab, sections]);
 
 
   // Save only CURRENT tab
@@ -356,12 +369,22 @@ export default function ReviewEditor() {
                                 toolbarRef.current.appendChild(editor.ui.view.toolbar.element);
                               }
                             }}
+                            // onChange={(_, editor) => {
+                            //   const data = editor.getData();
+                            //   const text = data.replace(/<[^>]*>/g, '').trim();
+                            //   setCharCount(text.length);
+                            //   debouncedSetSectionsRef.current(label, data);
+                            // }}
                             onChange={(_, editor) => {
                               const data = editor.getData();
-                              const text = data.replace(/<[^>]*>/g, '').trim();
-                              setCharCount(text.length);
+                              const { chars, words } = extractTextStats(data);
+
+                              setCharCount(chars);
+                              setWordCount(words);
+
                               debouncedSetSectionsRef.current(label, data);
                             }}
+
                           />
                         </Box>
 
@@ -375,17 +398,22 @@ export default function ReviewEditor() {
                             sx={{
                               mt: 0.5,
                               px: 1,
-                              py: 0.25,
+                              py: 0.5,
                               textAlign: 'right',
-                              color: meta.color,                 // ← FORCE color
                               backgroundColor: '#fafafa',
                               borderTop: '1px solid #eee',
-                              fontWeight: charCount > CHAR_WARN ? 600 : 400,
-                              display: 'block'
+                              fontWeight: (charCount >= CHAR_MIN && wordCount >= WORD_MIN) ? 600 : 400,
+                              color:
+                                charCount >= CHAR_MIN && wordCount >= WORD_MIN
+                                  ? '#2e7d32'
+                                  : '#ed6c02',
+                              display: 'block',
                             }}
                           >
-                            {meta.label}
+                            Words: {wordCount} / {WORD_MIN} &nbsp;|&nbsp;
+                            Characters: {charCount} / {CHAR_MIN}
                           </Typography>
+
                         );
                       })()}
 
