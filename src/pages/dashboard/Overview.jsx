@@ -44,7 +44,6 @@ import {
 } from 'recharts';
 import { hasRoleAccess } from '../../utils/rbac';
 
-
 const StatCard = ({ label, value }) => (
   <Paper sx={{ p: 2, border: '1px solid #eee', borderRadius: 2 }}>
     <Typography variant="h4" sx={{ mb: 0.5 }}>{value ?? 0}</Typography>
@@ -65,7 +64,8 @@ export default function Overview() {
   else if (path.includes('/dashboard/supervisors')) mode = 'supervisors';
 
   const { user } = useSelector((s) => s.auth || {});
-  const role = user?.role; // 'researcher' | 'supervisor' | 'admin'
+  const role = user?.role; // 'researcher' | 'supervisor' | 'admin' | 'super_admin'
+  
   console.log('Dashboard mode:', mode, 'for role:', role);
 
   const {
@@ -93,17 +93,12 @@ export default function Overview() {
   // Secondary dropdown: specific user id
   const [selectedUserId, setSelectedUserId] = React.useState('');
 
-
-  const canManageSupervisors = hasRoleAccess(user?.role, 'admin');
-
-  // -------- Load filters whenever we might need specific users --------
+  // -------- Load filters for supervisor/admin/super_admin --------
   React.useEffect(() => {
-
-
-    if (hasRoleAccess(role, 'admin')) {
+    if (role === 'supervisor' || role === 'admin' || role === 'super_admin') {
+      console.log('Loading filters for role:', role);
       dispatch(loadDashboardFilters());
     }
-
   }, [dispatch, role]);
 
   // -------- Initial primary option based on mode + role --------
@@ -111,23 +106,24 @@ export default function Overview() {
     if (!role) return;
 
     if (mode === 'overview') {
-      if (hasRoleAccess(role, 'admin')) {
+      if (role === 'super_admin' || role === 'admin') {
         setPrimaryKey('OV_ALL');
+      } else if (role === 'supervisor') {
+        setPrimaryKey('OV_SELF');
       } else {
         setPrimaryKey('OV_SELF');
       }
-    }
-    else if (mode === 'researchers') {
-      if (hasRoleAccess(role, 'supervisor')) {
-        setPrimaryKey('RES_ALL_MY'); // all my researchers
-      } else if (hasRoleAccess(role, 'admin')) {
-        setPrimaryKey('RES_ALL'); // all researchers
+    } else if (mode === 'researchers') {
+      if (role === 'supervisor') {
+        setPrimaryKey('RES_ALL_MY');
+      } else if (role === 'admin' || role === 'super_admin') {
+        setPrimaryKey('RES_ALL');
       } else {
         setPrimaryKey('OV_SELF');
       }
     } else if (mode === 'supervisors') {
-      if (hasRoleAccess(role, 'admin')) {
-        setPrimaryKey('SUP_ALL'); // all supervisors
+      if (role === 'admin' || role === 'super_admin') {
+        setPrimaryKey('SUP_ALL');
       } else {
         setPrimaryKey('OV_SELF');
       }
@@ -138,34 +134,71 @@ export default function Overview() {
 
   // -------- Primary dropdown options per (mode, role) --------
   const primaryOptions = React.useMemo(() => {
+    console.log('🔍 primaryOptions calculating...', {
+      role,
+      mode,
+    });
 
-
-    if (hasRoleAccess(role, 'researcher')) return [];
+    // Researcher should NOT see dropdowns
+    if (role === 'researcher') {
+      console.log('❌ Returning empty - is researcher');
+      return [];
+    }
 
     if (mode === 'overview') {
-      if (hasRoleAccess(role, 'admin')) {
+      console.log('✅ Mode is overview, checking role...');
+      
+      if (role === 'super_admin') {
+        console.log('✅ Is super_admin');
         return [
-          { value: 'OV_ALL', label: 'All supervisors & researchers' },
+          { value: 'OV_SELF', label: 'My own activity' },
+          { value: 'OV_ALL', label: 'All users (supervisors + researchers)' },
           { value: 'OV_SPEC_SUP', label: 'Specific supervisor' },
           { value: 'OV_SPEC_RES', label: 'Specific researcher' },
         ];
       }
-      if (hasRoleAccess(role, 'supervisor')) {
+      
+      if (role === 'admin') {
+        console.log('✅ Is admin');
+        return [
+          { value: 'OV_SELF', label: 'My own activity' },
+          { value: 'OV_ALL', label: 'All my supervisors & researchers' },
+          { value: 'OV_SPEC_SUP', label: 'Specific supervisor' },
+          { value: 'OV_SPEC_RES', label: 'Specific researcher' },
+        ];
+      }
+      
+      if (role === 'supervisor') {
+        console.log('✅ Is supervisor - returning options');
         return [
           { value: 'OV_SELF', label: 'My own activity' },
           { value: 'OV_MY_RESEARCHERS', label: 'All my researchers' },
+          { value: 'OV_ALL', label: 'Me + All my researchers' },
+          { value: 'OV_SPEC_RES', label: 'Specific researcher' },
         ];
       }
+      
+      console.log('❌ Role not matched in overview:', role);
     }
 
     if (mode === 'researchers') {
-      if (hasRoleAccess(role, 'supervisor')) {
+      console.log('✅ Mode is researchers');
+      
+      if (role === 'super_admin') {
+        return [
+          { value: 'RES_ALL', label: 'All researchers' },
+          { value: 'RES_SPEC', label: 'Specific researcher' },
+        ];
+      }
+      
+      if (role === 'supervisor') {
         return [
           { value: 'RES_ALL_MY', label: 'All my researchers' },
           { value: 'RES_SPEC', label: 'Specific researcher' },
         ];
       }
-      if (hasRoleAccess(role, 'admin')) {
+      
+      if (role === 'admin') {
         return [
           { value: 'RES_ALL', label: 'All researchers' },
           { value: 'RES_SPEC', label: 'Specific researcher' },
@@ -174,7 +207,9 @@ export default function Overview() {
     }
 
     if (mode === 'supervisors') {
-      if (hasRoleAccess(role, 'admin')) {
+      console.log('✅ Mode is supervisors');
+      
+      if (role === 'super_admin' || role === 'admin') {
         return [
           { value: 'SUP_ALL', label: 'All supervisors' },
           { value: 'SUP_SPEC', label: 'Specific supervisor' },
@@ -182,6 +217,7 @@ export default function Overview() {
       }
     }
 
+    console.log('❌ Returning empty - no condition matched');
     return [];
   }, [mode, role]);
 
@@ -189,29 +225,27 @@ export default function Overview() {
   const { showUserDropdown, userDropdownLabel, userOptions } = React.useMemo(() => {
     const labelUser = (u) => u?.name || u?.email || `User #${u?.id}`;
 
-    // default
     let show = false;
     let label = '';
     let options = [];
 
-    if (hasRoleAccess(role, 'researcher')) {
+    // Researcher should NOT see any dropdowns
+    if (role === 'researcher') {
       return { showUserDropdown: false, userDropdownLabel: '', userOptions: [] };
     }
 
-
-
-    // overview: only admin can pick specific
-    if (mode === 'overview' && hasRoleAccess(role, 'admin')) {
+    // Overview mode
+    if (mode === 'overview') {
       if (primaryKey === 'OV_SPEC_SUP') {
         show = true;
-        label = 'Supervisor';
+        label = 'Select Supervisor';
         options = supervisors.map((s) => ({
           value: String(s.id),
           label: labelUser(s),
         }));
       } else if (primaryKey === 'OV_SPEC_RES') {
         show = true;
-        label = 'Researcher';
+        label = 'Select Researcher';
         options = researchers.map((r) => ({
           value: String(r.id),
           label: labelUser(r),
@@ -219,11 +253,11 @@ export default function Overview() {
       }
     }
 
-    // researchers dashboard
+    // Researchers dashboard
     if (mode === 'researchers') {
       if (primaryKey === 'RES_SPEC') {
         show = true;
-        label = 'Researcher';
+        label = 'Select Researcher';
         options = researchers.map((r) => ({
           value: String(r.id),
           label: labelUser(r),
@@ -231,11 +265,11 @@ export default function Overview() {
       }
     }
 
-    // supervisors dashboard
+    // Supervisors dashboard
     if (mode === 'supervisors') {
       if (primaryKey === 'SUP_SPEC') {
         show = true;
-        label = 'Supervisor';
+        label = 'Select Supervisor';
         options = supervisors.map((s) => ({
           value: String(s.id),
           label: labelUser(s),
@@ -256,8 +290,8 @@ export default function Overview() {
     let scope = 'self';
     let targetUserId = null;
 
-    // researcher: always self
-    if (hasRoleAccess(role, 'researcher')) {
+    // Researcher: always self
+    if (role === 'researcher') {
       if (mode === 'researchers') {
         title = 'Researchers Dashboard';
         subtitle = 'Your own research activity';
@@ -270,13 +304,17 @@ export default function Overview() {
     // OVERVIEW mode
     if (mode === 'overview') {
       title = 'Dashboard';
-      if (hasRoleAccess(role, 'admin')) {
-        title = 'Dashboard – Overview';
-        subtitle = 'Organisation-wide activity at a glance';
 
-        if (primaryKey === 'OV_ALL' || !primaryKey) {
+      if (role === 'super_admin') {
+        title = 'Dashboard – Overview';
+        subtitle = 'System-wide activity at a glance';
+
+        if (primaryKey === 'OV_SELF') {
+          scope = 'self';
+          chip = 'My dashboard';
+        } else if (primaryKey === 'OV_ALL' || !primaryKey) {
           scope = 'all';
-          chip = 'All supervisors & researchers';
+          chip = 'All users (supervisors + researchers)';
         } else if (primaryKey === 'OV_SPEC_SUP') {
           if (!selectedUserId) {
             scope = null;
@@ -300,15 +338,62 @@ export default function Overview() {
             chip = r ? `Researcher – ${labelUser(r)}` : `Researcher #${id}`;
           }
         }
-      } else if (hasRoleAccess(role, 'supervisor')) {
+      } else if (role === 'admin') {
+        title = 'Dashboard – Overview';
+        subtitle = 'Organisation-wide activity at a glance';
+
+        if (primaryKey === 'OV_SELF') {
+          scope = 'self';
+          chip = 'My dashboard';
+        } else if (primaryKey === 'OV_ALL' || !primaryKey) {
+          scope = 'all';
+          chip = 'All my supervisors & researchers';
+        } else if (primaryKey === 'OV_SPEC_SUP') {
+          if (!selectedUserId) {
+            scope = null;
+            chip = 'Select a supervisor';
+          } else {
+            const id = Number(selectedUserId);
+            const s = supervisors.find((x) => x.id === id);
+            scope = 'supervisor';
+            targetUserId = id;
+            chip = s ? `Supervisor – ${labelUser(s)}` : `Supervisor #${id}`;
+          }
+        } else if (primaryKey === 'OV_SPEC_RES') {
+          if (!selectedUserId) {
+            scope = null;
+            chip = 'Select a researcher';
+          } else {
+            const id = Number(selectedUserId);
+            const r = researchers.find((x) => x.id === id);
+            scope = 'researcher';
+            targetUserId = id;
+            chip = r ? `Researcher – ${labelUser(r)}` : `Researcher #${id}`;
+          }
+        }
+      } else if (role === 'supervisor') {
         subtitle = 'Your research activity and your team at a glance';
+
         if (primaryKey === 'OV_SELF' || !primaryKey) {
           scope = 'self';
           chip = 'My dashboard';
         } else if (primaryKey === 'OV_MY_RESEARCHERS') {
           scope = 'my_researchers';
-          targetUserId = user?.id || null;
           chip = 'All my researchers';
+        } else if (primaryKey === 'OV_ALL') {
+          scope = 'all';
+          chip = 'Me + All my researchers';
+        } else if (primaryKey === 'OV_SPEC_RES') {
+          if (!selectedUserId) {
+            scope = null;
+            chip = 'Select a researcher';
+          } else {
+            const id = Number(selectedUserId);
+            const r = researchers.find((x) => x.id === id);
+            scope = 'researcher';
+            targetUserId = id;
+            chip = r ? `Researcher – ${labelUser(r)}` : `Researcher #${id}`;
+          }
         }
       }
 
@@ -320,10 +405,9 @@ export default function Overview() {
       title = 'Researchers Dashboard';
       subtitle = 'Monitor and compare researcher performance';
 
-      if (hasRoleAccess(role, 'supervisor')) {
+      if (role === 'supervisor') {
         if (primaryKey === 'RES_ALL_MY' || !primaryKey) {
           scope = 'my_researchers';
-          targetUserId = user?.id || null;
           chip = 'All my researchers';
         } else if (primaryKey === 'RES_SPEC') {
           if (!selectedUserId) {
@@ -337,7 +421,7 @@ export default function Overview() {
             chip = r ? `Researcher – ${labelUser(r)}` : `Researcher #${id}`;
           }
         }
-      } else if (hasRoleAccess(role, 'admin')) {
+      } else if (role === 'admin' || role === 'super_admin') {
         if (primaryKey === 'RES_ALL' || !primaryKey) {
           scope = 'all_researchers';
           chip = 'All researchers';
@@ -363,7 +447,7 @@ export default function Overview() {
       title = 'Supervisors Dashboard';
       subtitle = 'Monitor supervisor activity and coverage';
 
-      if (hasRoleAccess(role, 'admin')) {
+      if (role === 'admin' || role === 'super_admin') {
         if (primaryKey === 'SUP_ALL' || !primaryKey) {
           scope = 'all_supervisors';
           chip = 'All supervisors';
@@ -385,15 +469,7 @@ export default function Overview() {
     }
 
     return { title, subtitle, chip, scope, targetUserId };
-  }, [
-    mode,
-    role,
-    primaryKey,
-    selectedUserId,
-    user,
-    supervisors,
-    researchers,
-  ]);
+  }, [mode, role, primaryKey, selectedUserId, supervisors, researchers]);
 
   const { title, subtitle, chip, scope, targetUserId } = config;
 
@@ -445,7 +521,14 @@ export default function Overview() {
     '#A78BFA',
   ];
 
-  const showPrimaryDropdown = !hasRoleAccess(role, 'researcher') && primaryOptions.length > 0;
+  // Show dropdown for supervisor, admin, and super_admin ONLY
+  const showPrimaryDropdown = role !== 'researcher' && primaryOptions.length > 0;
+  
+  console.log('🔍 Dropdown visibility:', {
+    role,
+    showPrimaryDropdown,
+    primaryOptionsCount: primaryOptions.length,
+  });
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -475,7 +558,7 @@ export default function Overview() {
             <Typography variant="body2" color="text.secondary">
               {subtitle}
             </Typography>
-            {/* {chip && (
+            {chip && (
               <Chip
                 size="small"
                 label={chip}
@@ -483,7 +566,7 @@ export default function Overview() {
                 variant="outlined"
                 sx={{ mt: 0.5, alignSelf: 'flex-start' }}
               />
-            )} */}
+            )}
           </Stack>
 
           {/* Right side: dropdown(s) */}
