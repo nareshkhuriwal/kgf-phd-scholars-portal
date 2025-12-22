@@ -2,7 +2,7 @@ const ROLE_HIERARCHY = {
   researcher: 1,
   supervisor: 2,
   admin: 3,
-  super_admin: 4,
+  superuser: 4, // Changed from super_admin
 };
 
 export function hasRoleAccess(userRole, requiredRole) {
