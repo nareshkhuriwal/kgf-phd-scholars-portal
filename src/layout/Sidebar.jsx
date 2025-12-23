@@ -22,13 +22,24 @@ const collapsedWidth = 68;
 export default function Sidebar({ open }) {
   const location = useLocation();
   const user = useSelector((s) => s.auth?.user);
-  const role = user?.role || null; // 'admin' | 'supervisor' | 'researcher' | null
+  const role = user?.role || null; // 'admin' | 'supervisor' | 'researcher' | 'superuser' | null
+
+  // Filter sections based on user role
+  const visibleSections = SECTIONS.filter((section) => {
+    if (!section.roles || section.roles.length === 0) {
+      // section has no role restriction
+      return true;
+    }
+    // section has explicit allowed roles; show only if user's role is in the list
+    if (!role) return false;
+    return section.roles.includes(role);
+  });
 
   const activeSection =
-    SECTIONS.find((s) => location.pathname.startsWith(s.base)) || SECTIONS[0];
+    visibleSections.find((s) => location.pathname.startsWith(s.base)) || visibleSections[0];
 
   // Filter items based on roles (only affects dashboard items where roles is set)
-  const visibleItems = (activeSection.items || []).filter((item) => {
+  const visibleItems = (activeSection?.items || []).filter((item) => {
     if (!item.roles || item.roles.length === 0) {
       // item has no role restriction
       return true;
@@ -61,18 +72,20 @@ export default function Sidebar({ open }) {
       <Toolbar />
       <Box sx={{ overflowY: 'auto', overflowX: 'hidden' }}>
         {/* Section label hidden when collapsed */}
-        <Typography
-          variant="caption"
-          sx={{
-            px: 2,
-            pt: 1,
-            pb: 0.5,
-            color: 'text.secondary',
-            display: open ? 'block' : 'none'
-          }}
-        >
-          {activeSection.label}
-        </Typography>
+        {activeSection && (
+          <Typography
+            variant="caption"
+            sx={{
+              px: 2,
+              pt: 1,
+              pb: 0.5,
+              color: 'text.secondary',
+              display: open ? 'block' : 'none'
+            }}
+          >
+            {activeSection.label}
+          </Typography>
+        )}
 
         <List component="nav" dense>
           {visibleItems.map((item) => {

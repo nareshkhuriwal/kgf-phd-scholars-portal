@@ -97,6 +97,7 @@ const initialState = {
   filters: {
     supervisors: [],
     researchers: [],
+    admins: [],
   },
 };
 
@@ -178,6 +179,7 @@ const slice = createSlice({
       s.filters = {
         supervisors: Array.isArray(d.supervisors) ? d.supervisors : [],
         researchers: Array.isArray(d.researchers) ? d.researchers : [],
+        admins: Array.isArray(d.admins) ? d.admins : [],
       };
     });
     b.addCase(loadDashboardFilters.rejected, (s, a) => {

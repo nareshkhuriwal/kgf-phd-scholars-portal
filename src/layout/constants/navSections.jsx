@@ -18,6 +18,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import PaymentIcon from '@mui/icons-material/Payment'; // new
 import ArticleOutlinedIcon from '@mui/icons-material/ArticleOutlined';
 import AutoStoriesOutlinedIcon from '@mui/icons-material/AutoStoriesOutlined';
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 
 export const SECTIONS = [
   {
@@ -41,6 +42,13 @@ export const SECTIONS = [
         label: 'Supervisors',
         Icon: GroupAddIcon,
         roles: ['admin', 'superuser'],
+      },
+      // visible for admin only
+      {
+        to: '/dashboard/admins',
+        label: 'Admins',
+        Icon: AdminPanelSettingsIcon,
+        roles: ['superuser'],
       },
     ],
   },

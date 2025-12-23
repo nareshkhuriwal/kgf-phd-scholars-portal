@@ -87,13 +87,25 @@ export default function Header({ onToggleSidebar }) {
 
   /* ---------------- Visible nav sections ---------------- */
   const visibleSections = React.useMemo(() => {
+    console.log('🔍 Header filtering sections for role:', normalizedRole);
+    
     if (!normalizedRole) return SECTIONS;
 
-    return SECTIONS.map((sec) => {
+    const filtered = SECTIONS.filter((sec) => {
+      // Check if section has role restrictions
       if (sec.roles?.length) {
-        if (!normalizeRoles(sec.roles).includes(normalizedRole)) return null;
+        const hasAccess = normalizeRoles(sec.roles).includes(normalizedRole);
+        console.log(`  Section "${sec.label}": roles=${sec.roles}, hasAccess=${hasAccess}`);
+        
+        // Section requires specific roles - check if user has access
+        if (!hasAccess) {
+          return false;
+        }
+      } else {
+        console.log(`  Section "${sec.label}": no role restriction, showing`);
       }
 
+      // Filter items within the section based on roles
       const items =
         sec.items?.filter((i) =>
           i.roles?.length
@@ -101,11 +113,22 @@ export default function Header({ onToggleSidebar }) {
             : true
         ) || [];
 
-      if (!items.length && sec.roles?.length) return { ...sec, items: [] };
-      if (!items.length) return null;
-
-      return { ...sec, items };
-    }).filter(Boolean);
+      // Keep section if it has items OR if it has role restrictions (even with empty items)
+      const shouldShow = items.length > 0 || sec.roles?.length;
+      console.log(`  Section "${sec.label}": items=${items.length}, shouldShow=${shouldShow}`);
+      
+      return shouldShow;
+    }).map((sec) => ({
+      ...sec,
+      items: sec.items?.filter((i) =>
+        i.roles?.length
+          ? normalizeRoles(i.roles).includes(normalizedRole)
+          : true
+      ) || [],
+    }));
+    
+    console.log('✅ Visible sections:', filtered.map(s => s.label));
+    return filtered;
   }, [normalizedRole]);
 
   const activeSection = visibleSections.find((s) =>
