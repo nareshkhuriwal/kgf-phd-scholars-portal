@@ -17,6 +17,37 @@ import { exportReportPptx } from '../../utils/pptx/exportReportPptx';
 import { htmlToExcelText } from '../../utils/exporters/htmlToExcelText';
 import { DOCUMENT_TYPOGRAPHY } from '../../config/reportFormatting.config';
 
+
+function extractTitlePage(html) {
+  const container = document.createElement('div');
+  container.innerHTML = html;
+
+  const getText = (selector) =>
+    container.querySelector(selector)?.innerText?.trim() || '';
+
+  const strongs = Array.from(container.querySelectorAll('strong'))
+    .map(el => el.innerText.trim())
+    .filter(Boolean);
+
+  const img = container.querySelector('img')?.getAttribute('src') || '';
+
+  return {
+    title: getText('h2'),
+    scholar: container.innerText.match(/by\s+(.*)\s+\(/)?.[1] || '',
+    regNo: container.innerText.match(/\(([^)]+)\)/)?.[1] || '',
+    supervisorBlock: {
+      name: strongs.find(t => t.startsWith('Dr.')) || '',
+      department: strongs.find(t => t.includes('Department of Engineering')) || '',
+      school: strongs.find(t => t.includes('School of')) || '',
+      university: strongs.find(t => t.includes('University')) || '',
+    },
+    date: strongs.find(t => /\d{4}$/.test(t)) || '',
+    logo: img,
+  };
+}
+
+
+
 export default function ReportPreviewDialog({ open, loading, onClose, data, error }) {
   // If there's an error, show it
   if (error && open) {
@@ -55,7 +86,7 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
 
   // Merge nested selectedReport if present
   const merged = React.useMemo(() => ({ ...(data || {}), ...(data?.selectedReport || {}) }), [data]);
-  
+
   if (!merged || typeof merged !== 'object') {
     return null;
   }
@@ -82,8 +113,8 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
   const fmt = String(format || '').toLowerCase();
   const tpl = String(template || '').toLowerCase();
 
-  // Extract header/footer with defaults
-  const safeHeaderFooter = headerFooter || {};
+  // Extract header/footer with defaults - FIXED: Ensure proper fallbacks
+  const safeHeaderFooter = headerFooter && typeof headerFooter === 'object' ? headerFooter : {};
 
   const {
     headerTitle = name || 'Report',
@@ -94,8 +125,6 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
       year: 'numeric',
     }),
   } = safeHeaderFooter;
-
-
 
   const officeViewer = (fileUrl) =>
     `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(fileUrl)}`;
@@ -127,10 +156,18 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
     if (!w) return;
     const title = (name || 'Report') + ' — Preview';
     const html = printRef.current ? printRef.current.innerHTML : '<p>No content</p>';
+
+    // FIXED: Proper escaping of header/footer values in print template
+    const escapeHtml = (str) => {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    };
+
     w.document.write(`
       <html>
         <head>
-          <title>${title}</title>
+          <title>${escapeHtml(title)}</title>
           <meta charset="utf-8"/>
           <style>
             @page {
@@ -157,10 +194,36 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
               align-items: center; 
               justify-content: space-between; 
             }
+            .page-header-title {
+              flex: 1;
+              text-align: center;
+              font-weight: 700;
+              color: #808080;
+              font-size: 14px;
+            }
+            .page-header-right {
+              margin-left: 16px;
+              padding-left: 16px;
+              border-left: 3px solid #999;
+              min-width: 80px;
+              text-align: center;
+              font-weight: 700;
+              color: #808080;
+              font-size: 14px;
+            }
             .page-footer { 
               border-top: 3px solid #D6B27C; 
               padding: 12px 24px; 
               margin-top: auto; 
+            }
+            .page-footer-content {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+            }
+            .page-footer-content > * {
+              color: #999;
+              font-size: 11px;
             }
             .page-content { flex: 1; padding: 24px; }
             h1,h2,h3 { margin: 0 0 8px; }
@@ -231,9 +294,8 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
   // Client-side DOCX download (for Synopsis)
   const onDownloadSynopsis = () => {
     const safe = String(name || 'Synopsis').replace(/[^A-Za-z0-9._-]+/g, '_') || 'Synopsis';
-    exportSynopsisDocx({ ...merged, headerFooter }, `${safe}.docx`);  // Pass headerFooter
+    exportSynopsisDocx({ ...merged, headerFooter: safeHeaderFooter }, `${safe}.docx`);
   };
-
 
   // ---- Decide which download buttons to show based on format ----
   const renderDownloadButtons = () => {
@@ -297,12 +359,25 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
     return btns;
   };
 
+
+  function sanitizeTitlePageHtml(html) {
+    if (!html) return '';
+
+    return html
+      // Remove margin-left, margin-right, margin
+      .replace(/margin-left\s*:\s*[^;"]+;?/gi, '')
+      .replace(/margin-right\s*:\s*[^;"]+;?/gi, '')
+      .replace(/margin\s*:\s*[^;"]+;?/gi, '')
+      // Normalize empty paragraphs
+      .replace(/<p[^>]*>(&nbsp;|\s)*<\/p>/gi, '<p class="spacer"></p>');
+  }
+
+
   const validChapters = Array.isArray(chapters)
     ? chapters.filter(ch => ch.body_html && ch.body_html.trim() !== '')
     : [];
 
-  // Document-style header component
-  // 2. Update DocumentHeader component to use headerTitle (around line 270):
+  // FIXED: Document-style header component with proper text handling
   const DocumentHeader = ({ pageNum }) => (
     <Box
       className="page-header"
@@ -310,24 +385,30 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        py: 2,
+        py: 1.5,
         px: 3,
         borderBottom: '3px solid #999',
         bgcolor: '#fff',
       }}
     >
       <Typography
+        className="page-header-title"
         variant="subtitle1"
+        component="div"
         sx={{
           fontWeight: 700,
           color: '#808080',
           flex: 1,
           textAlign: 'center',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
         }}
       >
-        {headerTitle}  {/* Changed from: {name || 'Report'} */}
+        {String(headerTitle || name || 'Report')}
       </Typography>
       <Box
+        className="page-header-right"
         sx={{
           ml: 2,
           px: 2,
@@ -339,19 +420,20 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
       >
         <Typography
           variant="subtitle1"
+          component="div"
           sx={{
             fontWeight: 700,
             color: '#808080',
+            whiteSpace: 'nowrap',
           }}
         >
-          {headerRight}
+          {String(headerRight || 'SET')}
         </Typography>
       </Box>
     </Box>
   );
 
-
-  // 3. Update DocumentFooter component to use footerLeft and footerCenter (around line 305):
+  // FIXED: Document-style footer component with proper text handling
   const DocumentFooter = ({ pageNum }) => {
     return (
       <Box
@@ -364,19 +446,53 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
         }}
       >
         <Box
+          className="page-footer-content"
           sx={{
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
+            gap: 2,
           }}
         >
-          <Typography variant="body2" sx={{ color: '#999', fontSize: '11px' }}>
-            {footerLeft}  {/* Changed from: Poornima University, Jaipur */}
+          <Typography
+            variant="body2"
+            component="div"
+            sx={{
+              color: '#999',
+              fontSize: '11px',
+              flex: '1 1 0',
+              minWidth: 0,
+            }}
+          >
+            {String(footerLeft || 'Poornima University, Jaipur')}
           </Typography>
-          <Typography variant="body2" sx={{ color: '#999', fontSize: '11px' }}>
-            {footerCenter}  {/* Changed from: {currentDate} */}
+          <Typography
+            variant="body2"
+            component="div"
+            sx={{
+              color: '#999',
+              fontSize: '11px',
+              flex: '1 1 0',
+              textAlign: 'center',
+              minWidth: 0,
+            }}
+          >
+            {String(footerCenter || new Date().toLocaleDateString('en-US', {
+              month: 'long',
+              year: 'numeric',
+            }))}
           </Typography>
-          <Typography variant="body2" sx={{ color: '#999', fontSize: '11px' }}>
+          <Typography
+            variant="body2"
+            component="div"
+            sx={{
+              color: '#999',
+              fontSize: '11px',
+              flex: '1 1 0',
+              textAlign: 'right',
+              minWidth: 0,
+            }}
+          >
             Page {pageNum}
           </Typography>
         </Box>
@@ -385,11 +501,11 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
   };
 
   // Page wrapper component with A4 dimensions
-  const DocumentPage = ({ children, pageNum }) => (
+  const DocumentPage = ({ children, pageNum, hideHeader = false, hideFooter = false,
+  }) => (
     <Box
       className="page"
       sx={{
-        // A4 dimensions: 210mm x 297mm
         width: '210mm',
         minHeight: '297mm',
         display: 'flex',
@@ -397,10 +513,11 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
         bgcolor: '#fff',
         mb: 3,
         boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-        mx: 'auto', // Center the page
+        mx: 'auto',
       }}
     >
-      {isSynopsis && <DocumentHeader pageNum={pageNum} />}
+      {isSynopsis && !hideHeader && <DocumentHeader pageNum={pageNum} />}
+
       <Box
         className="page-content"
         sx={{
@@ -410,11 +527,9 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
           ...DOCUMENT_TYPOGRAPHY,
         }}
       >
-
         {children}
       </Box>
-      {isSynopsis && <DocumentFooter pageNum={pageNum} />}
-
+      {isSynopsis && !hideFooter && <DocumentFooter pageNum={pageNum} />}
     </Box>
   );
 
@@ -429,7 +544,7 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
         sx: {
           width: '100vw',
           height: '90vh',
-          maxWidth: '1400px', // Increased to accommodate A4 width
+          maxWidth: '1400px',
           borderRadius: 2,
           overflow: 'hidden',
           display: 'flex',
@@ -480,7 +595,7 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
       <Box
         sx={{
           flex: 1,
-          bgcolor: '#525659', // Darker gray like PDF viewers
+          bgcolor: '#525659',
           display: 'flex',
           flexDirection: 'column',
           minHeight: 0,
@@ -494,7 +609,7 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
             {isSynopsis && (
               <>
                 {/* First Page - KPIs and first chapter or declaration */}
-                <DocumentPage pageNum="i">
+                <DocumentPage pageNum="i" hideHeader hideFooter>
                   {/* KPIs */}
                   {Array.isArray(kpis) && kpis.length > 0 && (
                     <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', mb: 3 }}>
@@ -513,23 +628,131 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
                   )}
 
                   {/* First chapter if exists */}
-                  {validChapters.length > 0 && (
-                    <Box
-                      className="card"
-                      sx={{
-                        p: 2,
-                        bgcolor: '#fff',
-                        borderRadius: 1,
-                        border: '1px solid #eee',
-                      }}
-                    >
+                  {validChapters.length > 0 && (() => {
+                    const ch = validChapters[0];
+                    const isTitlePage = ch.title?.toUpperCase() === 'TITLE PAGE';
+
+                    if (!isTitlePage) {
+                      return (
+                        <Box
+                          className="card"
+                          sx={{
+                            p: 2,
+                            bgcolor: '#fff',
+                            borderRadius: 1,
+                            border: '1px solid #eee',
+                          }}
+                        >
+                          <Box
+                            className="ck-content"
+                            sx={DOCUMENT_TYPOGRAPHY}
+                            dangerouslySetInnerHTML={{ __html: ch.body_html }}
+                          />
+                        </Box>
+                      );
+                    }
+
+                    const tp = extractTitlePage(ch.body_html);
+
+                    return (
                       <Box
-                        className="ck-content"
-                        sx={DOCUMENT_TYPOGRAPHY}
-                        dangerouslySetInnerHTML={{ __html: validChapters[0].body_html }}
-                      />
-                    </Box>
-                  )}
+                        sx={{
+                          minHeight: '100%',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          textAlign: 'center',
+                          fontFamily: 'Times New Roman, serif',
+
+                          // Real thesis margins
+                          pt: 10,   // more top space
+                          pb: 10,   // more bottom space
+                          gap: 4,   // more spacing between sections
+                          px: 6,
+
+                        }}
+                      >
+
+                        {/* Title */}
+                        <Typography sx={{ fontSize: 16, fontWeight: 700, mt: 6 }}>
+                          {tp.title}
+                        </Typography>
+
+                        {/* Degree Block */}
+                        <Box>
+
+                          <Typography sx={{ fontSize: 16, fontWeight: 700, mt: 1 }}>
+                            Doctor of Philosophy
+                          </Typography>
+
+                          <Typography sx={{ fontSize: 14, mt: 1 }}>
+                            in
+                          </Typography>
+
+                          <Typography sx={{ fontSize: 14, fontWeight: 700 }}>
+                            Department of Engineering & Technology
+                          </Typography>
+
+                          <Typography sx={{ fontSize: 14, mt: 1 }}>
+                            by {tp.scholar}
+                          </Typography>
+
+                          <Typography sx={{ fontSize: 14 }}>
+                            ({tp.regNo})
+                          </Typography>
+                        </Box>
+
+                        {/* Logo */}
+                        {tp.logo && (
+                          <img src={tp.logo} alt="University Logo" style={{ width: 140 }} />
+                        )}
+
+                        {/* Supervisor */}
+
+
+                        <Box sx={{ mb: 6 }}>
+                          <Typography sx={{ fontSize: 14, fontWeight: 700 }}>
+                            Under the supervision of
+                          </Typography>
+
+                          {tp.supervisorBlock.name && (
+                            <Typography sx={{ fontSize: 14, fontWeight: 700 }}>
+                              {tp.supervisorBlock.name}
+                            </Typography>
+                          )}
+
+                          {tp.supervisorBlock.department && (
+                            <Typography sx={{ fontSize: 14 }}>
+                              {tp.supervisorBlock.department}
+                            </Typography>
+                          )}
+
+                          {tp.supervisorBlock.school && (
+                            <Typography sx={{ fontSize: 14 }}>
+                              {tp.supervisorBlock.school}
+                            </Typography>
+                          )}
+
+                          {tp.supervisorBlock.university && (
+                            <Typography sx={{ fontSize: 14, mt: 1 }}>
+                              {tp.supervisorBlock.university}
+                            </Typography>
+                          )}
+
+                          {tp.date && (
+                            <Typography sx={{ fontSize: 14, mt: 1 }}>
+                              {tp.date}
+                            </Typography>
+                          )}
+
+
+
+                        </Box>
+                      </Box>
+                    );
+                  })()}
+
+
                 </DocumentPage>
 
                 {/* Subsequent chapters - each on its own page */}
@@ -553,8 +776,7 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
                   </DocumentPage>
                 ))}
 
-                {/* Literature Review - each item on separate page */}
-                {/* Literature Review - continuous section (single page flow) */}
+                {/* Literature Review - continuous section */}
                 {Array.isArray(literature) && literature.length > 0 && (
                   <DocumentPage pageNum={validChapters.length + 1}>
                     <Box>
@@ -597,7 +819,6 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
                     </Box>
                   </DocumentPage>
                 )}
-
 
                 {(!chapters?.length && !literature?.length) && (
                   <DocumentPage pageNum="i">
