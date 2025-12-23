@@ -7,27 +7,33 @@ import {
   ImageRun,
 } from "docx";
 import { saveAs } from "file-saver";
-import { htmlToDocxParagraphs } from "./../exporters/htmlToDocx.js";
-import { fetchImageBuffer } from "./../exporters/fetchImage.js";
+import { htmlToDocxParagraphs } from "../exporters/htmlToDocx.js";
+import { fetchImageBuffer } from "../exporters/fetchImage.js";
 import buildHeader from "./buildHeader.js";
 import { buildArabicFooter } from "./buildFooter.js";
 import { DOCUMENT_FORMATTING } from "../../config/documentFormatting.config.js";
 
 /* ---------------------------------------------------------
-   DOCX UNIT HELPERS
+   UNIT HELPERS
 --------------------------------------------------------- */
 
 const PT_TO_HALF_POINTS = (pt) => pt * 2;
 const INCH_TO_TWIP = (inch) => inch * 1440;
 
 /* ---------------------------------------------------------
-   DERIVED GLOBAL DOCX STYLES (FROM CONFIG)
+   STYLES
 --------------------------------------------------------- */
 
 const BODY_RUN = {
   font: DOCUMENT_FORMATTING.font.family,
   size: PT_TO_HALF_POINTS(DOCUMENT_FORMATTING.font.bodySizePt),
 };
+
+const HEADING_RUN = (level) => ({
+  font: DOCUMENT_FORMATTING.font.family,
+  bold: true,
+  size: PT_TO_HALF_POINTS(DOCUMENT_FORMATTING.font.heading[level]),
+});
 
 const BODY_PARAGRAPH = {
   alignment: AlignmentType[DOCUMENT_FORMATTING.paragraph.alignment],
@@ -36,26 +42,6 @@ const BODY_PARAGRAPH = {
     before: DOCUMENT_FORMATTING.paragraph.spacingBeforePt,
     after: DOCUMENT_FORMATTING.paragraph.spacingAfterPt,
   },
-  indent: {
-    firstLine: INCH_TO_TWIP(
-      DOCUMENT_FORMATTING.paragraph.firstLineIndentInch
-    ),
-  },
-};
-
-const HEADING_RUN = (level) => ({
-  font: DOCUMENT_FORMATTING.font.family,
-  bold: true,
-  size: PT_TO_HALF_POINTS(
-    DOCUMENT_FORMATTING.font.heading[level]
-  ),
-});
-
-const HEADING_PARAGRAPH = {
-  spacing: {
-    before: 240,
-    after: 120,
-  },
 };
 
 /* ---------------------------------------------------------
@@ -63,28 +49,12 @@ const HEADING_PARAGRAPH = {
 --------------------------------------------------------- */
 
 function hasMeaningfulContent(html = "") {
-  if (!html) return false;
   return html.replace(/<[^>]*>/g, "").trim().length > 0;
 }
 
-function isIntroductionChapter(title = "") {
-  const t = title.toLowerCase().trim();
+function isIntroduction(title = "") {
+  const t = title.toLowerCase();
   return t === "introduction" || t.startsWith("introduction");
-}
-
-function pushPageBreakIfNeeded(children) {
-  const last = children[children.length - 1];
-  if (!last?.options?.pageBreakBefore) {
-    children.push(new Paragraph({ pageBreakBefore: true }));
-  }
-}
-
-function normalizeParagraph(p) {
-  p.options = { ...p.options, ...BODY_PARAGRAPH };
-  p.root?.forEach(run => {
-    run.options = { ...run.options, ...BODY_RUN };
-  });
-  return p;
 }
 
 /* ---------------------------------------------------------
@@ -94,16 +64,45 @@ function normalizeParagraph(p) {
 async function buildTitlePage(html) {
   const container = document.createElement("div");
   container.innerHTML = html;
+
   const blocks = [];
 
-  for (const node of container.childNodes) {
-    if (node.nodeType !== Node.ELEMENT_NODE) continue;
+  // for (const node of container.childNodes) {
+  //   if (node.nodeType !== Node.ELEMENT_NODE) continue;
 
+  for (const node of container.childNodes) {
+
+  /* -----------------------------
+     TEXT NODE (IMPORTANT FIX)
+  ----------------------------- */
+  if (node.nodeType === Node.TEXT_NODE) {
+    const text = node.textContent?.trim();
+
+    if (text) {
+      blocks.push(
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 200 },
+          children: [
+            new TextRun({
+              text,
+              ...BODY_RUN,
+            }),
+          ],
+        })
+      );
+    }
+    continue;
+  }
+
+  if (node.nodeType !== Node.ELEMENT_NODE) continue;
+
+    /* TITLE */
     if (node.tagName === "H2") {
       blocks.push(
         new Paragraph({
           alignment: AlignmentType.CENTER,
-          spacing: { after: 500 },
+          spacing: { after: 600 },
           children: [
             new TextRun({
               text: node.innerText.trim(),
@@ -115,16 +114,18 @@ async function buildTitlePage(html) {
       continue;
     }
 
-    if (node.tagName === "FIGURE") {
-      const img = node.querySelector("img");
+    /* IMAGE */
+    if (node.tagName === "IMG" || node.tagName === "FIGURE") {
+      const img = node.tagName === "IMG" ? node : node.querySelector("img");
       const src = img?.getAttribute("src");
+
       if (src) {
         const buffer = await fetchImageBuffer(src);
         if (buffer) {
           blocks.push(
             new Paragraph({
               alignment: AlignmentType.CENTER,
-              spacing: { before: 300, after: 300 },
+              spacing: { before: 400, after: 400 },
               children: [
                 new ImageRun({
                   data: new Uint8Array(buffer),
@@ -138,13 +139,21 @@ async function buildTitlePage(html) {
       continue;
     }
 
+    /* CENTER TEXT */
     const text = node.textContent?.trim();
     if (!text) continue;
 
     blocks.push(
       new Paragraph({
         alignment: AlignmentType.CENTER,
-        children: [new TextRun({ text, ...BODY_RUN })],
+        spacing: { after: 200 },
+        children: [
+          new TextRun({
+            text,
+            ...BODY_RUN,
+            bold: node.tagName === "STRONG",
+          }),
+        ],
       })
     );
   }
@@ -161,7 +170,7 @@ async function appendLiterature(children, literature) {
 
   children.push(
     new Paragraph({
-      ...HEADING_PARAGRAPH,
+      spacing: { before: 300, after: 200 },
       children: [
         new TextRun({
           text: "REVIEW OF LITERATURE",
@@ -199,7 +208,7 @@ async function appendLiterature(children, literature) {
     }
 
     const paras = await htmlToDocxParagraphs(html);
-    paras.forEach(p => children.push(normalizeParagraph(p)));
+    paras.forEach(p => children.push(p));
   }
 }
 
@@ -225,59 +234,78 @@ export async function exportSynopsisDocx(data) {
     }),
   } = headerFooter;
 
-  const children = [];
+  /* -------------------------------
+     SECTION CONTENT BUCKETS
+  -------------------------------- */
+
+  const titlePageChildren = [];
+  const bodyChildren = [];
+
   let literatureInserted = false;
 
-  children.push(
-    new Paragraph({
-      alignment: AlignmentType.CENTER,
-      spacing: { after: 300 },
-      children: [
-        new TextRun({
-          text: name,
-          ...HEADING_RUN("h1"),
-        }),
-      ],
-    })
-  );
+  /* -------------------------------
+     CHAPTER LOOP
+  -------------------------------- */
 
   for (const ch of chapters) {
     const title = ch.title || "";
     const body = ch.body_html || ch.body || "";
 
+    /* TITLE PAGE */
     if (title.toUpperCase() === "TITLE PAGE") {
       const blocks = await buildTitlePage(body);
-      blocks.forEach(b => children.push(b));
-      pushPageBreakIfNeeded(children);
+      blocks.forEach(b => titlePageChildren.push(b));
       continue;
     }
 
     if (!hasMeaningfulContent(body)) continue;
 
+    /* CHAPTER CONTENT */
     const paras = await htmlToDocxParagraphs(body);
-    paras.forEach(p => children.push(normalizeParagraph(p)));
+    paras.forEach(p => bodyChildren.push(p));
 
-    if (!literatureInserted && isIntroductionChapter(title)) {
-      pushPageBreakIfNeeded(children);
-      await appendLiterature(children, literature);
-      pushPageBreakIfNeeded(children);
+    /* INSERT LITERATURE AFTER INTRO */
+    if (!literatureInserted && isIntroduction(title)) {
+      bodyChildren.push(new Paragraph({ pageBreakBefore: true }));
+      await appendLiterature(bodyChildren, literature);
       literatureInserted = true;
-    } else {
-      pushPageBreakIfNeeded(children);
     }
+
+    bodyChildren.push(new Paragraph({ pageBreakBefore: true }));
   }
 
-  if (!literatureInserted) {
-    pushPageBreakIfNeeded(children);
-    await appendLiterature(children, literature);
+  if (!literatureInserted && literature.length) {
+    bodyChildren.push(new Paragraph({ pageBreakBefore: true }));
+    await appendLiterature(bodyChildren, literature);
   }
 
-  if (children.at(-1)?.options?.pageBreakBefore) {
-    children.pop();
+  /* CLEAN TRAILING PAGE BREAK */
+  if (bodyChildren.at(-1)?.options?.pageBreakBefore) {
+    bodyChildren.pop();
   }
+
+  /* -------------------------------
+     DOCUMENT WITH SECTIONS
+  -------------------------------- */
 
   const doc = new Document({
     sections: [
+      /* TITLE PAGE (NO HEADER / FOOTER) */
+      {
+        properties: {
+          page: {
+            margin: {
+              top: INCH_TO_TWIP(1.5),
+              bottom: INCH_TO_TWIP(1.5),
+              left: INCH_TO_TWIP(1.25),
+              right: INCH_TO_TWIP(1.25),
+            },
+          },
+        },
+        children: titlePageChildren,
+      },
+
+      /* MAIN CONTENT */
       {
         properties: {
           page: {
@@ -293,7 +321,7 @@ export async function exportSynopsisDocx(data) {
         },
         headers: { default: buildHeader(headerTitle, headerRight) },
         footers: { default: buildArabicFooter(footerLeft, footerCenter) },
-        children,
+        children: bodyChildren,
       },
     ],
   });
