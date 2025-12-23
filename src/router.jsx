@@ -58,9 +58,11 @@ export default function Router() {
 
         <Route path="/dashboard" element={<Overview />} />                     {/* self */}
         <Route path="/dashboard/researchers" element={<Overview />} />         {/* self */}
-        <Route path="/dashboard/supervisors" element={<Overview />} />         {/* self */}
         <Route path="/dashboard/researchers/:userId" element={<Overview />} /> {/* view a researcher */}
+        <Route path="/dashboard/supervisors" element={<Overview />} />         {/* self */}
         <Route path="/dashboard/supervisors/:userId" element={<Overview />} /> {/* view a supervisor */}
+        <Route path="/dashboard/admins" element={<Overview />} />         {/* self */}
+        <Route path="/dashboard/admins/:userId" element={<Overview />} /> {/* view an admin */}
 
 
         <Route path="/pricing" element={<PricePage />} />
@@ -92,8 +94,8 @@ export default function Router() {
         <Route path="reports" element={<ReportsPage />} />
         <Route path="reports/builder" element={<CreateReports />} />
         <Route path="reports/builder/:id" element={<CreateReports />} />
+        
         <Route path="researchers" element={<Researchers />} />
-
         <Route path="/supervisors" element={<Supervisors />} />
 
           <Route path="/monitoring/users" element={<Users />} />

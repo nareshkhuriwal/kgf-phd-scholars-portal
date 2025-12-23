@@ -55,7 +55,7 @@ const coerceSaved = (r) => {
     areas: Array.isArray(r?.filters?.areas) ? r.filters.areas : [],
     years: Array.isArray(r?.filters?.years) ? r.filters.years : [],
     venues: Array.isArray(r?.filters?.venues) ? r.filters.venues : [],
-    userIds: Array.isArray(r?.filters?.userIds) ? r.filters.userIds : [],
+    userId: r?.filters?.userId || null, // Changed from userIds array to single userId
   };
   const selections = {
     include: normalizeInclude(r?.selections?.include),
@@ -66,7 +66,7 @@ const coerceSaved = (r) => {
   // Add header/footer settings - always use current month/year for footerCenter
   const headerFooter = {
     headerTitle: r?.headerFooter?.headerTitle ?? '',
-    headerRight: r?.headerFooter?.headerRight ?? 'SET',  // NEW FIELD
+    headerRight: r?.headerFooter?.headerRight ?? 'SET',
 
     footerLeft: r?.headerFooter?.footerLeft ?? 'Poornima University, Jaipur',
     footerCenter: getCurrentMonthYear(), // Always use current month and year
@@ -94,6 +94,11 @@ export default function ReportBuilder() {
     chapters, users, currentSaved, saving
   } = useSelector(s => s.reports);
 
+  // Get current user and role
+  const { user } = useSelector(s => s.auth || {});
+  const role = user?.role; // 'researcher' | 'supervisor' | 'admin' | 'superuser'
+  const isResearcher = role === 'researcher';
+
   // Load static data
   React.useEffect(() => {
     dispatch(loadChapters());
@@ -110,32 +115,78 @@ export default function ReportBuilder() {
   const [template, setTemplate] = React.useState('rol');
   const [format, setFormat] = React.useState('pdf');
   const [filename, setFilename] = React.useState('report');
-  const [filters, setFilters] = React.useState({ areas: [], years: [], venues: [], userIds: [] });
+  const [filters, setFilters] = React.useState({ 
+    areas: [], 
+    years: [], 
+    venues: [], 
+    userId: null // Changed from userIds array to single userId
+  });
   const [include, setInclude] = React.useState(normalizeInclude());
   const [chapterIds, setChapterIds] = React.useState([]);
   const [snack, setSnack] = React.useState(null);
+  
+  // Flag to prevent hydration immediately after save
+  const [justSaved, setJustSaved] = React.useState(false);
 
   // Header/Footer settings - footerCenter always uses current date
   const [headerFooter, setHeaderFooter] = React.useState({
     headerTitle: '',
-    headerRight: 'SET',  // NEW FIELD
+    headerRight: 'SET',
     footerLeft: 'Poornima University, Jaipur',
     footerCenter: getCurrentMonthYear(),
   });
 
+  // Auto-set userId to current user's ID for researchers (only if not already set)
+  React.useEffect(() => {
+    if (isResearcher && user?.id && !filters.userId && !editingId) {
+      console.log('🔧 Auto-setting userId for researcher:', user.id);
+      setFilters(f => ({ ...f, userId: String(user.id) }));
+    }
+  }, [isResearcher, user?.id, filters.userId, editingId]);
+
+  // Warn if non-researcher is editing a report without userId
+  React.useEffect(() => {
+    if (!isResearcher && editingId && !filters.userId) {
+      console.warn('⚠️ Editing a report without userId - user must select one');
+    }
+  }, [isResearcher, editingId, filters.userId]);
+
   // Hydrate form when currentSaved arrives/changes
   React.useEffect(() => {
     if (!editingId || !currentSaved) return;
+    
+    // Don't re-hydrate if we just saved - the form already has correct data
+    if (justSaved) {
+      console.log('⏭️ Skipping hydration - just saved');
+      setJustSaved(false);
+      return;
+    }
+    
     const s = coerceSaved(currentSaved);
+    
+    console.log('🔄 Hydrating form with saved report:', s);
+    
     setName(s.name);
     setTemplate(s.template);
     setFormat(s.format);
     setFilename(s.filename);
-    setFilters(s.filters);
+    
+    // Only update filters if we don't already have a userId set
+    // This prevents overwriting the user's selection with stale DB data
+    setFilters(prevFilters => {
+      const newFilters = {
+        ...s.filters,
+        // Preserve existing userId if it's already set and the saved one is null
+        userId: s.filters.userId || prevFilters.userId || null
+      };
+      console.log('🔄 Hydrating filters - prev:', prevFilters, 'new:', newFilters);
+      return newFilters;
+    });
+    
     setInclude(s.selections.include);
     setChapterIds(s.selections.chapters);
     setHeaderFooter(s.headerFooter);
-  }, [currentSaved, editingId]);
+  }, [currentSaved, editingId, justSaved]);
 
   // Update header title when report name changes (if header title is empty)
   React.useEffect(() => {
@@ -156,10 +207,20 @@ export default function ReportBuilder() {
     template,
     format,
     filename,
-    filters,
+    filters: {
+      areas: filters.areas || [],
+      years: filters.years || [],
+      venues: filters.venues || [],
+      userId: filters.userId ? parseInt(filters.userId, 10) : null, // Ensure userId is integer
+    },
     selections: { include, includeOrder: EDITOR_ORDER, chapters: chapterIds },
-    headerFooter, // Include header/footer in payload
+    headerFooter,
   };
+
+  // Debug: Log filters state
+  React.useEffect(() => {
+    console.log('📊 Current filters state:', filters);
+  }, [filters]);
 
   const chapterOptions = React.useMemo(() => {
     const base = (chapters || []).map(ch => ({
@@ -177,47 +238,76 @@ export default function ReportBuilder() {
     });
   }, [chapterIds, chapters]);
 
+  // Get selected user object for display
+  const selectedUserObject = React.useMemo(() => {
+    if (!filters.userId) return null;
+    const u = (users || []).find(x => String(x.id) === String(filters.userId));
+    return u ? { id: String(u.id), label: u.name || u.email || `User ${u.id}` } : null;
+  }, [filters.userId, users]);
+
   const onSave = async () => {
+    console.log('💾 Saving report with payload:', payloadBase);
+    
     const action = editingId
       ? await dispatch(updateSavedReport({ id: editingId, ...payloadBase }))
       : await dispatch(createSavedReport(payloadBase));
 
     if (action.type.endsWith('/fulfilled')) {
+      setJustSaved(true); // Prevent re-hydration
       setSnack({ severity: 'success', msg: 'Saved' });
+      
+      // Don't navigate or re-fetch if editing - just show success message
       if (!editingId) {
         const newId = action.payload?.data?.id ?? action.payload?.id;
-        if (newId) navigate(`/reports/builder/${newId}`);
+        if (newId) {
+          // Navigate to edit page
+          navigate(`/reports/builder/${newId}`);
+        }
       }
+      // If editing, the form already has the correct data, no need to re-hydrate
     } else {
       setSnack({ severity: 'error', msg: 'Failed to save' });
     }
   };
 
   const onSaveAndGenerate = async () => {
+    console.log('🚀 Generating report with payload:', payloadBase);
+    
     const saved = editingId
       ? await dispatch(updateSavedReport({ id: editingId, ...payloadBase }))
       : await dispatch(createSavedReport(payloadBase));
 
     if (saved.type.endsWith('/fulfilled')) {
+      setJustSaved(true); // Prevent re-hydration
+      
+      // Generate the report
       const g = await dispatch(generateReport(payloadBase));
       if (g.type.endsWith('/fulfilled')) setSnack({ severity: 'success', msg: 'Report ready.' });
       else setSnack({ severity: 'error', msg: 'Generate failed' });
+      
+      // Don't navigate or re-fetch if editing
       if (!editingId) {
         const newId = saved.payload?.data?.id ?? saved.payload?.id;
-        if (newId) navigate(`/reports/builder/${newId}`);
+        if (newId) {
+          navigate(`/reports/builder/${newId}`);
+        }
       }
+      // If editing, the form already has the correct data, no need to re-hydrate
     } else {
       setSnack({ severity: 'error', msg: 'Save failed' });
     }
   };
 
-  const onPreview = () => dispatch(fetchReportPreview(payloadBase));
+  const onPreview = () => {
+    console.log('👁️ Previewing report with payload:', payloadBase);
+    dispatch(fetchReportPreview(payloadBase));
+  };
 
   // helpers
   const parseCsv = (val) => val.split(',').map(s => s.trim()).filter(Boolean);
   const selectAllSections = () => setInclude(Object.fromEntries(EDITOR_ORDER.map(k => [k, true])));
   const clearAllSections = () => setInclude(Object.fromEntries(EDITOR_ORDER.map(k => [k, false])));
-  const clearFilters = () => setFilters({ areas: [], years: [], venues: [], userIds: [] });
+  const clearFilters = () => setFilters({ areas: [], years: [], venues: [], userId: isResearcher ? user?.id : null });
 
   // Show header/footer ONLY for Thesis Report (synopsis template)
   const showHeaderFooter = template === 'synopsis';
@@ -293,7 +383,6 @@ export default function ReportBuilder() {
               />
             </Grid>
 
-            {/* NEW FIELD */}
             <Grid item xs={12} md={6}>
               <TextField
                 label="Header Right Section"
@@ -339,34 +428,68 @@ export default function ReportBuilder() {
 
       <Paper variant="outlined" sx={{ p: 2 }}>
         <Typography variant="subtitle1">Filters Applied</Typography>
+        
+        {/* Warning for missing userId */}
+        {!isResearcher && !filters.userId && (
+          <Alert severity="warning" sx={{ mt: 1, mb: 2 }}>
+            <strong>User selection required!</strong> Please select a user below to generate the report for.
+          </Alert>
+        )}
+        
         <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', mt: 1 }}>
           {filters.areas.length > 0 && <Chip label={`Areas: ${filters.areas.join(', ')}`} />}
           {filters.years.length > 0 && <Chip label={`Years: ${filters.years.join(', ')}`} />}
           {filters.venues.length > 0 && <Chip label={`Venues: ${filters.venues.join(', ')}`} />}
-          {filters.userIds.length > 0 && (
+          {filters.userId && (
             <Chip
-              label={`Users: ${filters.userIds.map(id => {
-                const u = (users || []).find(x => String(x.id) === String(id));
-                return u?.name || u?.email || `User ${id}`;
-              }).join(', ')}`}
+              label={`User: ${(() => {
+                const u = (users || []).find(x => String(x.id) === String(filters.userId));
+                return u?.name || u?.email || `User ${filters.userId}`;
+              })()}`}
+              color="primary"
             />
           )}
-          {Object.values(filters).every(arr => arr.length === 0) &&
+          {!filters.userId && filters.areas.length === 0 && filters.years.length === 0 && filters.venues.length === 0 &&
             <Typography variant="body2" color="text.secondary">No filters applied.</Typography>}
         </Stack>
 
         <Box sx={{ mt: 2, display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
-          <Autocomplete
-            multiple
-            options={(users || []).map(u => ({ id: String(u.id), label: u.name || u.email || `User ${u.id}` }))}
-            value={(filters.userIds || []).map(id => {
-              const u = (users || []).find(x => String(x.id) === String(id));
-              return { id: String(id), label: u?.name || u?.email || `User ${id}` };
-            })}
-            onChange={(_, vals) => setFilters(f => ({ ...f, userIds: vals.map(v => v.id) }))}
-            renderInput={(params) => <TextField {...params} label={`Users (${filters.userIds.length})`} size="small" sx={{ minWidth: 400 }} />}
-            sx={{ minWidth: 260 }}
-          />
+          {/* User Selection - Single select for non-researchers, hidden for researchers */}
+          {!isResearcher && (
+            <Autocomplete
+              options={(users || []).map(u => ({ 
+                id: String(u.id), 
+                label: u.name || u.email || `User ${u.id}` 
+              }))}
+              value={selectedUserObject}
+              onChange={(_, val) => {
+                console.log('👤 User selected:', val);
+                setFilters(f => {
+                  const newFilters = { ...f, userId: val?.id || null };
+                  console.log('📋 Updated filters:', newFilters);
+                  return newFilters;
+                });
+              }}
+              renderInput={(params) => (
+                <TextField 
+                  {...params} 
+                  label="Select User" 
+                  size="small" 
+                  sx={{ minWidth: 300 }} 
+                  required
+                  helperText="Select a user to generate report for"
+                />
+              )}
+              sx={{ minWidth: 300 }}
+              isOptionEqualToValue={(option, value) => option.id === value?.id}
+            />
+          )}
+
+          {isResearcher && (
+            <Alert severity="info" sx={{ flex: 1 }}>
+              Report will be generated for your account: <strong>{user?.name || user?.email}</strong>
+            </Alert>
+          )}
 
           <TextField
             label="Areas (CSV)"
@@ -493,8 +616,18 @@ export default function ReportBuilder() {
       </Paper>
 
       <Stack direction="row" spacing={2}>
-        <Button variant="outlined" onClick={onSave} disabled={saving || !name}>Save</Button>
-        <Button variant="contained" onClick={onSaveAndGenerate} disabled={saving || generating || !name}>
+        <Button 
+          variant="outlined" 
+          onClick={onSave} 
+          disabled={saving || !name || (!isResearcher && !filters.userId)}
+        >
+          Save
+        </Button>
+        <Button 
+          variant="contained" 
+          onClick={onSaveAndGenerate} 
+          disabled={saving || generating || !name || (!isResearcher && !filters.userId)}
+        >
           Save & Generate
         </Button>
         <Button onClick={() => navigate('/reports')}>Back to Saved</Button>
