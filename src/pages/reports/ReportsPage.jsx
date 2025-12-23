@@ -35,6 +35,7 @@ export default function SavedReports() {
   const [previewOpen, setPreviewOpen] = React.useState(false);
   const [previewData, setPreviewData] = React.useState(null);
   const [selectedReport, setSelectedReport] = React.useState(null);
+  const [previewError, setPreviewError] = React.useState(null);
 
   // NEW: delete confirm state
   const [confirm, setConfirm] = React.useState(null); // { id, name } | null
@@ -65,16 +66,42 @@ export default function SavedReports() {
   };
 
   const onPreview = async (row) => {
-    console.log('Previewing', row);
+    console.log('👁️ Previewing report:', row);
+    
+    // Clear previous error
+    setPreviewError(null);
+    
+    // Prepare payload with userId explicitly in filters
+    const payload = {
+      ...row,
+      filters: {
+        areas: row.filters?.areas || [],
+        years: row.filters?.years || [],
+        venues: row.filters?.venues || [],
+        userId: row.filters?.userId ? parseInt(row.filters.userId, 10) : null,
+      }
+    };
+    
+    console.log('📤 Preview payload with filters:', payload);
+    
     try {
-      const res = await dispatch(previewSavedReport({ id: row.id, payload: { ...row } })).unwrap();
+      const res = await dispatch(previewSavedReport({ id: row.id, payload })).unwrap();
       // if your API wraps data, normalize it here:
       setPreviewData(res?.data ?? res ?? null);
       setPreviewOpen(true);
       setSelectedReport(row);
     } catch (err) {
-      // optional: toast/log
-      console.error('Preview failed', err);
+      // Set error state and open dialog to show error
+      console.error('❌ Preview failed', err);
+      setPreviewError(err?.response?.data?.message || err?.message || 'Failed to load preview');
+      setPreviewOpen(true); // Still open dialog to show error
+      setSelectedReport(row);
+      
+      // Also show snackbar
+      setSnack({ 
+        severity: 'error', 
+        msg: 'Preview failed: ' + (err?.response?.data?.message || err?.message || 'Unknown error')
+      });
     }
   };
 
@@ -164,15 +191,19 @@ export default function SavedReports() {
         </Alert>
       )}
       <Snackbar open={!!snack} autoHideDuration={3000} onClose={() => setSnack(null)}>
-        {snack && <Alert severity="success">{snack.msg}</Alert>}
+        {snack && <Alert severity={snack?.severity || 'success'}>{snack?.msg}</Alert>}
       </Snackbar>
 
       {/* Preview modal */}
       <ReportPreviewDialog
         open={previewOpen}
         loading={previewLoading}
-        onClose={() => setPreviewOpen(false)}
+        onClose={() => {
+          setPreviewOpen(false);
+          setPreviewError(null); // Clear error when closing
+        }}
         data={{ ...previewData, selectedReport }}
+        error={previewError}
       />
 
       {/* DELETE CONFIRMATION */}
@@ -188,6 +219,8 @@ export default function SavedReports() {
           <Button color="error" variant="contained" onClick={confirmDelete}>Delete</Button>
         </DialogActions>
       </Dialog>
+
+      
     </Box>
   );
 }

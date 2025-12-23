@@ -17,9 +17,45 @@ import { exportReportPptx } from '../../utils/pptx/exportReportPptx';
 import { htmlToExcelText } from '../../utils/exporters/htmlToExcelText';
 import { DOCUMENT_TYPOGRAPHY } from '../../config/reportFormatting.config';
 
-export default function ReportPreviewDialog({ open, loading, onClose, data }) {
+export default function ReportPreviewDialog({ open, loading, onClose, data, error }) {
+  // If there's an error, show it
+  if (error && open) {
+    return (
+      <Dialog
+        open={open}
+        onClose={onClose}
+        maxWidth="sm"
+        fullWidth
+      >
+        <Box sx={{ px: 2, py: 1.25, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Typography variant="h6" sx={{ fontWeight: 600, flex: 1 }}>
+            Preview Error
+          </Typography>
+          <IconButton onClick={onClose} title="Close"><CloseIcon /></IconButton>
+        </Box>
+        <Divider />
+        <Box sx={{ p: 3 }}>
+          <Alert severity="error">
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+              Failed to load preview
+            </Typography>
+            <Typography variant="body2">
+              {typeof error === 'string' ? error : error?.message || 'An unknown error occurred'}
+            </Typography>
+            {error?.response?.data?.message && (
+              <Typography variant="body2" sx={{ mt: 1, fontStyle: 'italic' }}>
+                Server message: {error.response.data.message}
+              </Typography>
+            )}
+          </Alert>
+        </Box>
+      </Dialog>
+    );
+  }
+
   // Merge nested selectedReport if present
   const merged = React.useMemo(() => ({ ...(data || {}), ...(data?.selectedReport || {}) }), [data]);
+  
   if (!merged || typeof merged !== 'object') {
     return null;
   }
