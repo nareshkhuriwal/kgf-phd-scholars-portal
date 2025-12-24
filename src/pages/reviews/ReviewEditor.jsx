@@ -242,6 +242,16 @@ export default function ReviewEditor() {
       setSavedOnce(true);
     } finally { setSaving(false); }
   };
+  const ellipsize = (str, max = 40) =>
+    str && str.length > max ? `${str.slice(0, max)}…` : str;
+
+
+  const STATUS_META = {
+    draft: { label: 'Draft', color: 'default' },
+    in_progress: { label: 'In Progress', color: 'warning' },
+    done: { label: 'Completed', color: 'success' },
+  };
+
 
   return (
     // Use minHeight so the page can grow with comments below
@@ -249,10 +259,56 @@ export default function ReviewEditor() {
       <PageHeader
         title={current?.title || 'Review Editor'}
         subtitle={
-          current?.authors
-            ? `${current.authors} • ${current.year || ''}`
-            : 'Compose your literature review'
+          <Stack spacing={0.5}>
+            {/* Line 1: Authors / Year / Journal */}
+            <Typography variant="body2" color="text.secondary">
+              {[
+                current?.authors,
+                current?.year,
+                current?.journal,
+              ].filter(Boolean).join(' • ') || 'Compose your literature review'}
+            </Typography>
+
+            {/* Line 2: Meta chips */}
+            <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap">
+              {current?.area && (
+                <Chip
+                  size="small"
+                  label={current.area}
+                  variant="outlined"
+                />
+              )}
+
+              {current?.category && (
+                <Chip
+                  size="small"
+                  label={current.category}
+                  variant="outlined"
+                />
+              )}
+
+              {current?.doi && (
+                <Tooltip title={current.doi}>
+                  <Chip
+                    size="small"
+                    label={`DOI: ${ellipsize(current.doi, 20)}`}
+                    variant="outlined"
+                  />
+                </Tooltip>
+              )}
+
+              {current?.status && (
+                <Chip
+                  size="small"
+                  label={STATUS_META[current.status]?.label ?? current.status}
+                  color={STATUS_META[current.status]?.color ?? 'default'}
+                  variant="outlined"
+                />
+              )}
+            </Stack>
+          </Stack>
         }
+
         actions={
           <Stack direction="row" spacing={1}>
             {savedOnce && <Chip label="Saved" size="small" color="success" variant="outlined" />}
