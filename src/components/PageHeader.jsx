@@ -14,44 +14,34 @@ export default function PageHeader({ title, subtitle, actions }) {
       <Box
         sx={{
           display: 'flex',
-          flexDirection: {
-            xs: 'column',   // mobile
-            sm: 'row',      // tablet
-            md: 'row',      // desktop
-          },
-          alignItems: {
-            xs: 'flex-start',
-            sm: 'center',
-          },
+          flexDirection: { xs: 'column', sm: 'row' },
+          alignItems: { xs: 'flex-start', sm: 'center' },
           gap: 2,
         }}
       >
         {/* TITLE + SUBTITLE */}
-        <Box sx={{ flex: 1, width: '100%' }}>
+        <Box
+          sx={{
+            flexGrow: 1,
+            minWidth: 0,   // ✅ critical: allows text to shrink correctly
+          }}
+        >
           <Typography
             variant="h6"
             sx={{
-              lineHeight: 1.2,
-
-              // Width control
-              maxWidth: {
-                xs: '100%',
-                sm: '65%',   // tablet constraint
-                md: '70%',   // desktop breathing space
-              },
-
-              // Mobile-only truncation
-              display: {
-                xs: '-webkit-box',
-                sm: 'block',
-              },
-              WebkitBoxOrient: 'vertical',
-              WebkitLineClamp: {
-                xs: 3,       // mobile clamp
-              },
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
+              lineHeight: 1.25,
               wordBreak: 'break-word',
+              fontSize: {
+                xs: '1.05rem',   // mobile
+                sm: '1.25rem',   // tablet
+                md: '1.45rem',   // desktop
+              },
+              fontWeight: 600,
+              // Mobile-only clamp
+              display: { xs: '-webkit-box', sm: 'block' },
+              WebkitBoxOrient: 'vertical',
+              WebkitLineClamp: { xs: 3 },
+              overflow: 'hidden',
             }}
           >
             {title}
@@ -71,16 +61,9 @@ export default function PageHeader({ title, subtitle, actions }) {
         {/* ACTIONS */}
         {actions && (
           <Stack
-            direction={{
-              xs: 'column',  // mobile: stacked
-              sm: 'row',     // tablet
-              md: 'row',     // desktop
-            }}
+            direction="row"
             spacing={1}
-            alignSelf={{
-              xs: 'flex-start',
-              sm: 'center',
-            }}
+            flexShrink={0}   // ✅ prevents actions from shrinking
           >
             {actions}
           </Stack>
