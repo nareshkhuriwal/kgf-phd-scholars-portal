@@ -9,26 +9,26 @@ export const SECTION_LIMITS = {
 
   // Concise problem definition
   'Key Issue': {
-    minWords: 100,
-    minChars: 600,
+    minWords: 50,
+    minChars: 300,
   },
 
   // Methodology requires explanation, but shorter than full review
   'Solution Approach / Methodology used': {
-    minWords: 120,
-    minChars: 800,
+    minWords: 60,
+    minChars: 400,
   },
 
   // Comparable depth to methodology
   'Related Work': {
-    minWords: 120,
-    minChars: 800,
+    minWords: 60,
+    minChars: 400,
   },
 
   // Mostly descriptive
   'Input Parameters used': {
-    minWords: 80,
-    minChars: 500,
+    minWords: 40,
+    minChars: 250,
   },
 
   // Infrastructure/tools summary
@@ -39,14 +39,14 @@ export const SECTION_LIMITS = {
 
   // Outcomes and evaluation
   'Results': {
-    minWords: 120,
-    minChars: 800,
+    minWords: 60,
+    minChars: 400,
   },
 
   // Strengths summary
   'Key advantages': {
-    minWords: 80,
-    minChars: 500,
+    minWords: 60,
+    minChars: 400,
   },
 
   // Critical but brief
@@ -63,7 +63,7 @@ export const SECTION_LIMITS = {
 
   // Reviewer-style notes
   'Remarks': {
-    minWords: 60,
-    minChars: 300,
+    minWords: 30,
+    minChars: 150,
   },
 };

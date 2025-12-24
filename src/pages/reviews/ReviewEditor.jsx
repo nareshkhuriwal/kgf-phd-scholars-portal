@@ -115,7 +115,6 @@ export default function ReviewEditor() {
   // Add this state variable (around line 108)
   const [wordCount, setWordCount] = React.useState(0);
 
-
   console.log("current: ", current)
   const [tab, setTab] = React.useState(0);
 
