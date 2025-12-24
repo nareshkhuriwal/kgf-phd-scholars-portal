@@ -190,24 +190,28 @@ async function appendLiterature(children, literature) {
 
     if (!hasMeaningfulContent(html)) continue;
 
-    if (item.title || item.authors || item.year) {
-      children.push(
-        new Paragraph({
-          ...BODY_PARAGRAPH,
-          children: [
-            new TextRun({
-              text: [item.title, item.authors, item.year]
-                .filter(Boolean)
-                .join(" • "),
-              ...BODY_RUN,
-              bold: true,
-            }),
-          ],
-        })
-      );
-    }
+    // if (item.title || item.authors || item.year) {
+    //   children.push(
+    //     new Paragraph({
+    //       ...BODY_PARAGRAPH,
+    //       children: [
+    //         new TextRun({
+    //           text: [item.title, item.authors, item.year]
+    //             .filter(Boolean)
+    //             .join(" • "),
+    //           ...BODY_RUN,
+    //           bold: true,
+    //         }),
+    //       ],
+    //     })
+    //   );
+    // }
 
-    const paras = await htmlToDocxParagraphs(html);
+    const paras = await htmlToDocxParagraphs(html, {
+      noFirstLineIndent: true,
+      forceJustified: true,
+    });
+    // const paras = await htmlToDocxParagraphs(html);
     paras.forEach(p => children.push(p));
   }
 }
