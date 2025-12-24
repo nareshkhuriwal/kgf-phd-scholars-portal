@@ -12,6 +12,7 @@ import {
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import { SECTION_GUIDELINES } from './sectionGuidelines';
 
 function fmtBytes(b) {
   if (b == null) return '—';
@@ -247,8 +248,62 @@ export default function ReviewSidebar({
 
       </Stack>
 
-      <Divider sx={{ mb: 1 }} />
 
+      {/* ================= GUIDELINES ================= */}
+      <Divider sx={{ my: 1 }} />
+
+      <Box>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            cursor: 'pointer',
+            px: 0.5,
+            py: 0.25,
+          }}
+          onClick={() => setDetailsOpen(v => !v)}
+        >
+          <Typography
+            variant="subtitle2"
+            sx={{ fontWeight: 600, color: 'text.secondary' }}
+          >
+            Guidelines
+          </Typography>
+          <ExpandMoreIcon
+            sx={{
+              fontSize: 18,
+              transform: detailsOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 0.2s ease',
+            }}
+          />
+        </Box>
+
+        <Collapse in={detailsOpen} timeout="auto" unmountOnExit>
+          <Box sx={{ mt: 0.5, pl: 1 }}>
+            {(SECTION_GUIDELINES[editorOrder[activeTab]] || []).map((q, i) => (
+              <Typography
+                key={i}
+                variant="caption"
+                sx={{
+                  display: 'block',
+                  mb: 0.75,
+                  color: 'text.secondary',
+                  lineHeight: 1.4,
+                }}
+              >
+                • {q}
+              </Typography>
+            ))}
+
+            {!SECTION_GUIDELINES[editorOrder[activeTab]] && (
+              <Typography variant="caption" color="text.secondary">
+                No specific guidelines for this section.
+              </Typography>
+            )}
+          </Box>
+        </Collapse>
+      </Box>
 
 
     </Paper>
