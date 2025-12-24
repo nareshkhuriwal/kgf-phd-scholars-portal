@@ -111,7 +111,7 @@ export default function Payments() {
             <Table stickyHeader size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>#</TableCell>
+                  <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>ID</TableCell>
                   <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>Order ID</TableCell>
                   <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>Payment ID</TableCell>
                   <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>User</TableCell>
