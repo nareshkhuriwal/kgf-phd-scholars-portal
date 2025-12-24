@@ -565,10 +565,12 @@ export default function Overview() {
     const L = daily?.labels || [];
     const A = daily?.added || [];
     const R = daily?.reviewed || [];
+    const S = daily?.started || [];
     return L.map((x, i) => ({
       label: x,
       added: A[i] ?? 0,
       reviewed: R[i] ?? 0,
+      started: S[i] ?? 0,
     }));
   }, [daily]);
 
@@ -576,10 +578,12 @@ export default function Overview() {
     const L = weekly?.labels || [];
     const A = weekly?.added || [];
     const R = weekly?.reviewed || [];
+    const S = weekly?.started || [];
     return L.map((x, i) => ({
       label: x,
       added: A[i] ?? 0,
       reviewed: R[i] ?? 0,
+      started: S[i] ?? 0,
     }));
   }, [weekly]);
 
@@ -800,6 +804,15 @@ export default function Overview() {
                       dot={false}
                       name="Reviewed"
                     />
+                    <Line
+                      type="monotone"
+                      dataKey="started"
+                      stroke="#F59E0B"
+                      strokeWidth={2}
+                      dot={false}
+                      name="In Review"
+                    />  
+
                   </LineChart>
                 </ResponsiveContainer>
               </Box>
@@ -908,6 +921,8 @@ export default function Overview() {
                     <Legend />
                     <Bar dataKey="added" name="Added" fill="#60A5FA" />
                     <Bar dataKey="reviewed" name="Reviewed" fill="#34D399" />
+                    <Bar dataKey="started" name="In Review" fill="#FBBF24" />
+
                   </BarChart>
                 </ResponsiveContainer>
               </Box>
