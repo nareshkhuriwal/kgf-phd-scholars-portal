@@ -21,6 +21,7 @@ import CommentsPanel from '../../components/comments/CommentsPanel';
 import { CKEditor } from '@ckeditor/ckeditor5-react';
 // import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
 import DecoupledEditor from '@ckeditor/ckeditor5-build-decoupled-document';
+import { SECTION_PLACEHOLDERS } from '../../components/reviews/sectionPlaceholders';
 
 import {
   loadReview,
@@ -167,10 +168,14 @@ export default function ReviewEditor() {
   }, []);
 
 
-  const editorConfig = React.useMemo(
-    () => makeEditorConfig(pid),
-    [pid]
-  );
+  const editorConfig = React.useMemo(() => {
+    const label = EDITOR_ORDER[tab];
+    return makeEditorConfig(
+      pid,
+      SECTION_PLACEHOLDERS[label] || 'Start writing here…'
+    );
+  }, [pid, tab]);
+
 
 
   // Load paper/review once

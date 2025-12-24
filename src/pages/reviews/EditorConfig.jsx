@@ -38,9 +38,9 @@ function PasteBlockNormalizer(editor) {
 /* -------------------------------------------------------
    MAIN EDITOR CONFIG (DECOUPLED)
 ------------------------------------------------------- */
-export default function makeEditorConfig(paperId) {
+export default function makeEditorConfig(paperId, placeholder = '') {
   return {
-    placeholder: 'Write or review content here…',
+    placeholder: placeholder || 'Write or review content here…',
 
     /* ---------- CRITICAL: BLOCK ENFORCEMENT ---------- */
     enterMode: 'paragraph',
