@@ -18,6 +18,7 @@ import Tooltip from '@mui/material/Tooltip';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { useTheme, useMediaQuery } from '@mui/material';
+import { initialsOf } from '../../utils/text/cleanRich';
 
 export default function ReviewQueue() {
   const dispatch = useDispatch();
@@ -35,6 +36,10 @@ export default function ReviewQueue() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
+
+  const userRole = useSelector(s => s.auth?.user?.role);
+const isResearcher = userRole === 'researcher';
+
 
   React.useEffect(() => {
     dispatch(loadReviewQueue());
@@ -197,6 +202,13 @@ export default function ReviewQueue() {
                     Status{sortIcon('review_status')}
                   </TableCell>
 
+                  {!isResearcher && !isMobile && (
+  <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 160 }}>
+    Created By
+  </TableCell>
+)}
+
+
                   {!isMobile && (
                     <TableCell sx={{ fontWeight: 600 }} onClick={() => onSort('updated_at')}>
                       Updated At{sortIcon('updated_at')}
@@ -239,6 +251,44 @@ export default function ReviewQueue() {
                           return <Chip label={label} color={color} size="small" />;
                         })()}
                       </TableCell>
+
+                      {!isResearcher && !isMobile && (
+  <TableCell>
+    <Tooltip title={r?.created_by || 'Unknown user'}>
+      <Stack direction="row" spacing={1} alignItems="center">
+        <Stack
+          alignItems="center"
+          justifyContent="center"
+          sx={{
+            width: 36,
+            height: 36,
+            borderRadius: '50%',
+            bgcolor: 'grey.100',
+            border: '1px solid',
+            borderColor: 'grey.300',
+            fontSize: 13,
+            fontWeight: 700,
+            color: 'text.primary',
+            letterSpacing: 0.5,
+            userSelect: 'none',
+          }}
+        >
+          {initialsOf(r?.created_by)}
+        </Stack>
+
+        {!isTablet && (
+          <Typography
+            variant="body2"
+            sx={{ fontWeight: 500, color: 'text.secondary' }}
+          >
+            {r?.creator?.name}
+          </Typography>
+        )}
+      </Stack>
+    </Tooltip>
+  </TableCell>
+)}
+
 
                       {!isMobile && (
                         <TableCell>

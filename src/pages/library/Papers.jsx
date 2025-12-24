@@ -37,6 +37,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import RateReviewIcon from '@mui/icons-material/RateReview';
 import { useTheme, useMediaQuery } from '@mui/material';
+import { initialsOf } from '../../utils/text/cleanRich';
 
 // --- helpers to read fields regardless of API casing ---
 const val = (row, keys) => {
@@ -53,7 +54,8 @@ const COLUMN_TO_FIELD = {
   title: 'title',
   authors: 'authors',
   year: 'year',
-  doi: 'doi'
+  doi: 'doi',
+  created_by: 'created_by'
 };
 
 // Helper to get value for sorting (normalize numbers)
@@ -71,6 +73,8 @@ const sortValue = (row, field) => {
       return Number(val(row, ['year', 'Year'])) || 0;
     case 'doi':
       return (val(row, ['doi', 'DOI']) || '').toString().toLowerCase();
+    case 'created_by':
+      return (val(row, ['created_by', 'CreatedBy']) || '').toString().toLowerCase();
     default:
       return (val(row, [field]) || '').toString().toLowerCase();
   }
@@ -99,12 +103,16 @@ export default function Papers() {
   const [confirm, setConfirm] = React.useState(null);
   const [bulkCfm, setBulkCfm] = React.useState(null);
   const [selected, setSelected] = React.useState([]);
-const theme = useTheme();
-const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
+  const userRole = useSelector(s => s.auth?.user?.role);
+  const isResearcher = userRole === 'researcher';
+
 
   // sorting state
-  const [sortBy, setSortBy] = React.useState('id');     // use backend field names (id, title, authors, year, doi)
-  const [sortDir, setSortDir] = React.useState('desc'); // 'asc' | 'desc'
+  const [sortBy, setSortBy] = React.useState('title');     // use backend field names (id, title, authors, year, doi)
+  const [sortDir, setSortDir] = React.useState('asc'); // 'asc' | 'desc'
 
   // toast
   const [snack, setSnack] = React.useState({ open: false, msg: '', sev: 'success' });
@@ -278,19 +286,19 @@ const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
         title="Library — Papers"
         subtitle="Your master library (imported, uploaded, or synced)"
         actions={
-  <Stack
-    direction={{ xs: 'column', sm: 'row' }}
-    spacing={1}
-    sx={{ width: { xs: '100%', sm: 'auto' } }}
-  >
-    <Button variant="outlined" onClick={() => window.open('/api/papers/export?format=csv', '_blank')}>
-      Export CSV
-    </Button>
-    <Button variant="contained" onClick={() => navigate('/library/papers/new')}>
-      Add Paper
-    </Button>
-  </Stack>
-}
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={1}
+            sx={{ width: { xs: '100%', sm: 'auto' } }}
+          >
+            <Button variant="outlined" onClick={() => window.open('/api/papers/export?format=csv', '_blank')}>
+              Export CSV
+            </Button>
+            <Button variant="contained" onClick={() => navigate('/library/papers/new')}>
+              Add Paper
+            </Button>
+          </Stack>
+        }
 
       />
 
@@ -339,13 +347,13 @@ const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
           </Box>
         ) : (
           <>
-<TableContainer
-  sx={{
-    flex: 1,
-    overflowX: 'auto',
-    maxHeight: isMobile ? 'none' : 'calc(100vh - 230px)',
-  }}
->
+            <TableContainer
+              sx={{
+                flex: 1,
+                overflowX: 'auto',
+                maxHeight: isMobile ? 'none' : 'calc(100vh - 230px)',
+              }}
+            >
               <Table stickyHeader size="small">
                 <TableHead>
                   <TableRow>
@@ -408,6 +416,19 @@ const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
                       </TableSortLabel>
                     </TableCell>
 
+                    {!isResearcher && (
+                      <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>
+                        <TableSortLabel
+                          active={sortBy === 'created_by'}
+                          direction={sortBy === 'created_by' ? sortDir : 'asc'}
+                          onClick={() => handleSort('created_by')}
+                        >
+                          CreatedBy
+                        </TableSortLabel>
+                      </TableCell>
+                    )}
+
+
                     <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 220 }}>Actions</TableCell>
                   </TableRow>
                 </TableHead>
@@ -453,6 +474,43 @@ const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
                         <TableCell>{val(r, ['authors', 'Author(s)'])}</TableCell>
                         <TableCell>{val(r, ['year', 'Year'])}</TableCell>
                         <TableCell>{val(r, ['doi', 'DOI'])}</TableCell>
+
+                        {!isResearcher && (
+                          <TableCell>
+                            <Tooltip title={r?.creator?.name || 'Unknown user'}>
+                              <Stack
+                                direction="row"
+                                alignItems="center"
+                                spacing={1}
+                              >
+                                <Stack
+                                  alignItems="center"
+                                  justifyContent="center"
+                                  sx={{
+                                    width: 36,
+                                    height: 36,
+                                    borderRadius: '50%',
+                                    bgcolor: 'grey.100',
+                                    border: '1px solid',
+                                    borderColor: 'grey.300',
+                                    fontSize: 13,
+                                    fontWeight: 700,
+                                    color: 'text.primary',
+                                    letterSpacing: 0.5,
+                                    userSelect: 'none',
+                                  }}
+                                >
+                                  {initialsOf(r?.creator?.name || val(r, ['created_by', 'CreatedBy']))}
+                                </Stack>
+
+                                {/* Optional: show name on desktop only */}
+
+                              </Stack>
+                            </Tooltip>
+                          </TableCell>
+                        )}
+
+
 
                         <TableCell sx={{ whiteSpace: 'nowrap' }}>
                           <Stack direction="row" spacing={1} useFlexGap flexWrap="nowrap">
