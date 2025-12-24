@@ -24,7 +24,9 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { Snackbar, Alert } from '@mui/material';
 import { useTheme, useMediaQuery } from '@mui/material';
+import { initialsOf } from '../../utils/text/cleanRich';
 
+// Helper to copy text to clipboard
 
 
 const copyText = async (t) => { try { await navigator.clipboard.writeText(t || ''); } catch { } };
@@ -50,6 +52,8 @@ export default function ChaptersPage({ userId: userIdProp }) {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
 
+  const userRole = useSelector(s => s.auth?.user?.role);
+  const isResearcher = userRole === 'researcher';
 
   const nav = useNavigate();
 
@@ -63,23 +67,23 @@ export default function ChaptersPage({ userId: userIdProp }) {
     [chapters]
   );
 
-const filtered = React.useMemo(() => {
-  const q = query.trim().toLowerCase();
-  if (!q) return normalized;
-  return normalized.filter(c =>
-    [c.title, (c.updated_at || c.created_at || '')]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase()
-      .includes(q)
-  );
-}, [normalized, query]);
+  const filtered = React.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return normalized;
+    return normalized.filter(c =>
+      [c.title, (c.updated_at || c.created_at || '')]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(q)
+    );
+  }, [normalized, query]);
 
-// ✅ SAFE PLACE — filtered is initialized
-const canReorder =
-  !isMobile &&
-  !query &&
-  filtered.length === normalized.length;
+  // ✅ SAFE PLACE — filtered is initialized
+  const canReorder =
+    !isMobile &&
+    !query &&
+    filtered.length === normalized.length;
 
 
   const start = page * rowsPerPage;
@@ -211,6 +215,13 @@ const canReorder =
                         <TableRow>
                           <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 60 }} />
                           <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>Title</TableCell>
+
+                          {!isResearcher && (
+                            <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 180 }}>
+                              Created By
+                            </TableCell>
+                          )}
+
                           {!isMobile && (
                             <TableCell sx={{ fontWeight: 600, width: 200 }}>
                               Updated
@@ -220,24 +231,7 @@ const canReorder =
                           <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 140 }}>Actions</TableCell>
                         </TableRow>
                       </TableHead>
-                      {/* <TableBody>
-                        {normalized.map((c, idx) => (
-                          <Draggable key={c.id} draggableId={String(c.id)} index={idx}>
-                            {(p) => (
-                              <TableRow ref={p.innerRef} {...p.draggableProps} hover>
-                                <TableCell {...p.dragHandleProps}><DragIndicatorIcon fontSize="small" /></TableCell>
-                                <TableCell>{c.title || '—'}</TableCell>
-                                <TableCell>{(c.updated_at || c.created_at || '').toString().replace('T', ' ').replace('.000000Z', '')}</TableCell>
-                                <TableCell>
-                                  <Tooltip title="Edit"><IconButton size="small" onClick={() => nav(`/chapters/${c.id}`)}><EditIcon fontSize="inherit" /></IconButton></Tooltip>
-                                  <Tooltip title="Copy Title"><IconButton size="small" onClick={() => copyText(c.title)}><ContentCopyIcon fontSize="inherit" /></IconButton></Tooltip>
-                                  <Tooltip title="Delete"><IconButton size="small" onClick={() => handleDelete(c.id)}><DeleteIcon fontSize="inherit" /></IconButton></Tooltip>
-                                </TableCell>
-                              </TableRow>
-                            )}
-                          </Draggable>
-                        ))}
-                      </TableBody> */}
+
 
                       <TableBody>
                         {normalized.map((c, idx) => (
@@ -263,6 +257,35 @@ const canReorder =
                             </TableCell>
 
                             <TableCell>{c.title || '—'}</TableCell>
+
+                            {!isResearcher && (
+                              <TableCell>
+                                <Tooltip title={c?.creator?.name || 'Unknown user'}>
+                                  <Stack direction="row" spacing={1} alignItems="center">
+                                    <Stack
+                                      alignItems="center"
+                                      justifyContent="center"
+                                      sx={{
+                                        width: 34,
+                                        height: 34,
+                                        borderRadius: '50%',
+                                        bgcolor: 'grey.100',
+                                        border: '1px solid',
+                                        borderColor: 'grey.300',
+                                        fontSize: 13,
+                                        fontWeight: 700,
+                                        userSelect: 'none',
+                                      }}
+                                    >
+                                      {initialsOf(c?.creator?.name)}
+                                    </Stack>
+
+                                  </Stack>
+                                </Tooltip>
+                              </TableCell>
+                            )}
+
+
 
                             {!isMobile && (
                               <TableCell>
@@ -296,6 +319,11 @@ const canReorder =
                   <TableRow>
                     <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 70 }}>#</TableCell>
                     <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>Title</TableCell>
+                    {!isResearcher && !isMobile && (
+                      <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 180 }}>
+                        Created By
+                      </TableCell>
+                    )}
                     <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 200 }}>Updated</TableCell>
                     <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 140 }}>Actions</TableCell>
                   </TableRow>
@@ -326,6 +354,36 @@ const canReorder =
                           {c.title || '—'}
                         </Typography>
                       </TableCell>
+
+                      {!isResearcher && !isMobile && (
+                        <TableCell>
+                          <Tooltip title={c?.creator?.name || 'Unknown user'}>
+                            <Stack direction="row" spacing={1} alignItems="center">
+                              <Stack
+                                alignItems="center"
+                                justifyContent="center"
+                                sx={{
+                                  width: 34,
+                                  height: 34,
+                                  borderRadius: '50%',
+                                  bgcolor: 'grey.100',
+                                  border: '1px solid',
+                                  borderColor: 'grey.300',
+                                  fontSize: 13,
+                                  fontWeight: 700,
+                                  userSelect: 'none',
+                                }}
+                              >
+                                {initialsOf(c?.creator?.name)}
+                              </Stack>
+
+                            </Stack>
+                          </Tooltip>
+                        </TableCell>
+                      )}
+
+
+
                       <TableCell>{(c.updated_at || c.created_at || '').toString().replace('T', ' ').replace('.000000Z', '')}</TableCell>
                       <TableCell>
                         <Tooltip title="Edit"><IconButton size="small" onClick={() => nav(`/chapters/${c.id}`)}><EditIcon fontSize="inherit" /></IconButton></Tooltip>

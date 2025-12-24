@@ -18,6 +18,9 @@ import EditIcon from '@mui/icons-material/Edit';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ReportPreviewDialog from '../../components/reports/ReportPreviewDialog';
+import { useTheme, useMediaQuery } from '@mui/material';
+import { initialsOf } from '../../utils/text/cleanRich';
+
 
 export default function SavedReports() {
   const dispatch = useDispatch();
@@ -36,6 +39,14 @@ export default function SavedReports() {
   const [previewData, setPreviewData] = React.useState(null);
   const [selectedReport, setSelectedReport] = React.useState(null);
   const [previewError, setPreviewError] = React.useState(null);
+
+  const userRole = useSelector(s => s.auth?.user?.role);
+  const isResearcher = userRole === 'researcher';
+
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
+
 
   // NEW: delete confirm state
   const [confirm, setConfirm] = React.useState(null); // { id, name } | null
@@ -67,10 +78,10 @@ export default function SavedReports() {
 
   const onPreview = async (row) => {
     console.log('👁️ Previewing report:', row);
-    
+
     // Clear previous error
     setPreviewError(null);
-    
+
     // Prepare payload with userId explicitly in filters
     const payload = {
       ...row,
@@ -81,9 +92,9 @@ export default function SavedReports() {
         userId: row.filters?.userId ? parseInt(row.filters.userId, 10) : null,
       }
     };
-    
+
     console.log('📤 Preview payload with filters:', payload);
-    
+
     try {
       const res = await dispatch(previewSavedReport({ id: row.id, payload })).unwrap();
       // if your API wraps data, normalize it here:
@@ -96,10 +107,10 @@ export default function SavedReports() {
       setPreviewError(err?.response?.data?.message || err?.message || 'Failed to load preview');
       setPreviewOpen(true); // Still open dialog to show error
       setSelectedReport(row);
-      
+
       // Also show snackbar
-      setSnack({ 
-        severity: 'error', 
+      setSnack({
+        severity: 'error',
         msg: 'Preview failed: ' + (err?.response?.data?.message || err?.message || 'Unknown error')
       });
     }
@@ -125,6 +136,11 @@ export default function SavedReports() {
                 <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>Name</TableCell>
                 <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>Template</TableCell>
                 <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>Format</TableCell>
+                {!isResearcher && !isMobile && (
+                  <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 180 }}>
+                    Created By
+                  </TableCell>
+                )}
                 <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>Updated</TableCell>
                 <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 220 }}>Actions</TableCell>
               </TableRow>
@@ -146,6 +162,34 @@ export default function SavedReports() {
                   </TableCell>
                   <TableCell>{r.template}</TableCell>
                   <TableCell>{r.format || '—'}</TableCell>
+
+                  {!isResearcher && !isMobile && (
+                    <TableCell>
+                      <Tooltip title={r?.creator?.name || 'Unknown user'}>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Stack
+                            alignItems="center"
+                            justifyContent="center"
+                            sx={{
+                              width: 34,
+                              height: 34,
+                              borderRadius: '50%',
+                              bgcolor: 'grey.100',
+                              border: '1px solid',
+                              borderColor: 'grey.300',
+                              fontSize: 13,
+                              fontWeight: 700,
+                              userSelect: 'none',
+                            }}
+                          >
+                            {initialsOf(r?.creator?.name)}
+                          </Stack>
+
+                        </Stack>
+                      </Tooltip>
+                    </TableCell>
+                  )}
+
                   <TableCell>{r.updated_at ? new Date(r.updated_at).toLocaleString() : '—'}</TableCell>
                   <TableCell>
                     <Stack direction="row" spacing={1}>
@@ -220,7 +264,7 @@ export default function SavedReports() {
         </DialogActions>
       </Dialog>
 
-      
+
     </Box>
   );
 }
