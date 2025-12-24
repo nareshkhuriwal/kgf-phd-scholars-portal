@@ -11,6 +11,9 @@ import {
 import AttachmentIcon from '@mui/icons-material/Attachment';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { attachPaperFile } from '../../store/papersSlice';
+import { useLocation } from 'react-router-dom';
+
+
 
 
 const SINGLE_LINE_FIELDS = [
@@ -46,6 +49,9 @@ export default function PaperForm({ mode = 'create' }) {
   const { current, loading, uploading, progress } = useSelector((s) => s.papers || {});
   const { register, handleSubmit, reset, setError, formState: { errors, isSubmitting } } = useForm({ defaultValues: {} });
 
+  const location = useLocation();
+  const navState = location.state;
+
   // New file to upload (optional)
   const [file, setFile] = React.useState(null);
 
@@ -60,7 +66,7 @@ export default function PaperForm({ mode = 'create' }) {
 
   React.useEffect(() => {
     if (mode === 'edit' && paperId) dispatch(loadPaper(paperId));
-    return () => dispatch(clearCurrent());
+    // return () => dispatch(clearCurrent());
   }, [dispatch, mode, paperId]);
 
   // 🔹 THIS WAS MISSING — populate form
@@ -116,7 +122,28 @@ export default function PaperForm({ mode = 'create' }) {
         ).unwrap();
       }
 
-      navigate('/papers');
+      if (
+        navState?.from === 'papers-list' &&
+        Array.isArray(navState.orderedIds)
+      ) {
+        const nextIndex = navState.index + 1;
+        const nextPaperId = navState.orderedIds[nextIndex];
+
+        if (nextPaperId) {
+          navigate(`/library/papers/${nextPaperId}`, {
+            state: {
+              ...navState,
+              index: nextIndex,
+            },
+            replace: true,
+          });
+        } else {
+          navigate('/papers');
+        }
+      } else {
+        navigate('/papers');
+      }
+
     } catch (err) {
       setError('root', {
         type: 'server',
