@@ -26,6 +26,13 @@ export default function CollectionsList() {
   const [desc, setDesc] = React.useState('');
   const [saving, setSaving] = React.useState(false);
 
+  const [confirmDelete, setConfirmDelete] = React.useState({
+    open: false,
+    id: null,
+    name: '',
+  });
+
+
   React.useEffect(() => { dispatch(loadCollections()); }, [dispatch]);
 
   const resetForm = () => { setName(''); setDesc(''); };
@@ -42,6 +49,22 @@ export default function CollectionsList() {
       dispatch(loadCollections());
     } finally { setSaving(false); }
   };
+
+  const handleDeleteClick = (id, name) => {
+    setConfirmDelete({ open: true, id, name });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!confirmDelete.id) return;
+
+    try {
+      await dispatch(deleteCollection(confirmDelete.id)).unwrap();
+      dispatch(loadCollections()); // refresh list
+    } finally {
+      setConfirmDelete({ open: false, id: null, name: '' });
+    }
+  };
+
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column' }}>
@@ -87,10 +110,11 @@ export default function CollectionsList() {
                     <IconButton
                       size="small"
                       color="error"
-                      onClick={() => dispatch(deleteCollection(c.id))}
+                      onClick={() => handleDeleteClick(c.id, c.name)}
                     >
                       <DeleteIcon fontSize="inherit" />
                     </IconButton>
+
                   </span>
                 </Tooltip>
               </Stack>
@@ -138,6 +162,45 @@ export default function CollectionsList() {
           </Button>
         </DialogActions>
       </Dialog>
+
+
+      <Dialog
+        open={confirmDelete.open}
+        onClose={() => setConfirmDelete({ open: false, id: null, name: '' })}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Delete Collection</DialogTitle>
+
+        <DialogContent>
+          <Typography variant="body2" sx={{ mt: 1 }}>
+            Are you sure you want to delete the collection
+            <strong> “{confirmDelete.name || 'this collection'}”</strong>?
+            <br />
+            This action will permanently remove the collection.
+          </Typography>
+        </DialogContent>
+
+        <DialogActions>
+          <Button
+            onClick={() =>
+              setConfirmDelete({ open: false, id: null, name: '' })
+            }
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleConfirmDelete}
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+
+
     </Box>
   );
 }

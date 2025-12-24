@@ -55,6 +55,13 @@ export default function ChaptersPage({ userId: userIdProp }) {
   const userRole = useSelector(s => s.auth?.user?.role);
   const isResearcher = userRole === 'researcher';
 
+  const [confirmDelete, setConfirmDelete] = React.useState({
+    open: false,
+    id: null,
+    title: '',
+  });
+
+
   const nav = useNavigate();
 
   React.useEffect(() => {
@@ -100,6 +107,24 @@ export default function ChaptersPage({ userId: userIdProp }) {
   const handleDelete = async (id) => {
     await dispatch(deleteChapter(id));
   };
+
+  const handleDeleteClick = (id, title) => {
+    setConfirmDelete({ open: true, id, title });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!confirmDelete.id) return;
+
+    try {
+      await dispatch(deleteChapter(confirmDelete.id)).unwrap();
+      setToast({ severity: 'success', msg: 'Chapter deleted successfully' });
+    } catch (err) {
+      setToast({ severity: 'error', msg: err || 'Failed to delete chapter' });
+    } finally {
+      setConfirmDelete({ open: false, id: null, title: '' });
+    }
+  };
+
 
   const onDragEnd = (result) => {
     if (!result.destination) return;
@@ -388,7 +413,17 @@ export default function ChaptersPage({ userId: userIdProp }) {
                       <TableCell>
                         <Tooltip title="Edit"><IconButton size="small" onClick={() => nav(`/chapters/${c.id}`)}><EditIcon fontSize="inherit" /></IconButton></Tooltip>
                         <Tooltip title="Copy Title"><IconButton size="small" onClick={() => copyText(c.title)}><ContentCopyIcon fontSize="inherit" /></IconButton></Tooltip>
-                        <Tooltip title="Delete"><IconButton size="small" onClick={() => handleDelete(c.id)}><DeleteIcon fontSize="inherit" /></IconButton></Tooltip>
+                        {/* <Tooltip title="Delete"><IconButton size="small" onClick={() => handleDelete(c.id)}><DeleteIcon fontSize="inherit" /></IconButton></Tooltip> */}
+                        <Tooltip title="Delete">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleDeleteClick(c.id, c.title)}
+                          >
+                            <DeleteIcon fontSize="inherit" />
+                          </IconButton>
+                        </Tooltip>
+
+
                       </TableCell>
                     </TableRow>
                   ))}
@@ -438,6 +473,42 @@ export default function ChaptersPage({ userId: userIdProp }) {
           </Alert>
         )}
       </Snackbar>
+
+      <Dialog
+        open={confirmDelete.open}
+        onClose={() => setConfirmDelete({ open: false, id: null, title: '' })}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Delete Chapter</DialogTitle>
+
+        <DialogContent>
+          <Typography variant="body2" sx={{ mt: 1 }}>
+            Are you sure you want to delete the chapter
+            <strong> “{confirmDelete.title || 'this chapter'}”</strong>?
+            <br />
+            This action cannot be undone.
+          </Typography>
+        </DialogContent>
+
+        <DialogActions>
+          <Button
+            onClick={() =>
+              setConfirmDelete({ open: false, id: null, title: '' })
+            }
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleConfirmDelete}
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
 
 
     </Box>
