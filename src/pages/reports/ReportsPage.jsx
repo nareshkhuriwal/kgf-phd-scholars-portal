@@ -133,6 +133,7 @@ export default function SavedReports() {
           <Table stickyHeader size="small">
             <TableHead>
               <TableRow>
+                <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 60 }}>ID</TableCell> 
                 <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>Name</TableCell>
                 <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>Template</TableCell>
                 <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>Format</TableCell>
@@ -154,6 +155,7 @@ export default function SavedReports() {
                 </TableRow>
               ) : rows.map((r) => (
                 <TableRow hover key={r.id}>
+                  <TableCell>{r.id}</TableCell>
                   <TableCell>
                     <Stack direction="row" spacing={1} alignItems="center">
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>{r.name}</Typography>

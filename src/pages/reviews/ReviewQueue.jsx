@@ -38,7 +38,7 @@ export default function ReviewQueue() {
   const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
 
   const userRole = useSelector(s => s.auth?.user?.role);
-const isResearcher = userRole === 'researcher';
+  const isResearcher = userRole === 'researcher';
 
 
   React.useEffect(() => {
@@ -171,6 +171,12 @@ const isResearcher = userRole === 'researcher';
                 <TableRow>
                   <TableCell
                     sx={{ fontWeight: 600, bgcolor: '#f7f7f9', cursor: 'pointer' }}
+                    onClick={() => onSort('id')}
+                  >
+                    ID{sortIcon('id')}
+                  </TableCell>
+                  <TableCell
+                    sx={{ fontWeight: 600, bgcolor: '#f7f7f9', cursor: 'pointer' }}
                     onClick={() => onSort('title')}
                   >
                     Paper{sortIcon('title')}
@@ -203,10 +209,10 @@ const isResearcher = userRole === 'researcher';
                   </TableCell>
 
                   {!isResearcher && !isMobile && (
-  <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 160 }}>
-    Created By
-  </TableCell>
-)}
+                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 160 }}>
+                      Created By
+                    </TableCell>
+                  )}
 
 
                   {!isMobile && (
@@ -231,7 +237,10 @@ const isResearcher = userRole === 'researcher';
                   </TableRow>
                 ) : (
                   rows.map(r => (
-                    <TableRow hover key={r.id}>
+                    <TableRow hover key={r.id}> 
+                    <TableCell>
+                        {r.id}
+                      </TableCell>
                       <TableCell>
                         <ReviewCard paper={r} compact />
                       </TableCell>
@@ -253,41 +262,41 @@ const isResearcher = userRole === 'researcher';
                       </TableCell>
 
                       {!isResearcher && !isMobile && (
-  <TableCell>
-    <Tooltip title={r?.created_by || 'Unknown user'}>
-      <Stack direction="row" spacing={1} alignItems="center">
-        <Stack
-          alignItems="center"
-          justifyContent="center"
-          sx={{
-            width: 36,
-            height: 36,
-            borderRadius: '50%',
-            bgcolor: 'grey.100',
-            border: '1px solid',
-            borderColor: 'grey.300',
-            fontSize: 13,
-            fontWeight: 700,
-            color: 'text.primary',
-            letterSpacing: 0.5,
-            userSelect: 'none',
-          }}
-        >
-          {initialsOf(r?.created_by)}
-        </Stack>
+                        <TableCell>
+                          <Tooltip title={r?.created_by || 'Unknown user'}>
+                            <Stack direction="row" spacing={1} alignItems="center">
+                              <Stack
+                                alignItems="center"
+                                justifyContent="center"
+                                sx={{
+                                  width: 36,
+                                  height: 36,
+                                  borderRadius: '50%',
+                                  bgcolor: 'grey.100',
+                                  border: '1px solid',
+                                  borderColor: 'grey.300',
+                                  fontSize: 13,
+                                  fontWeight: 700,
+                                  color: 'text.primary',
+                                  letterSpacing: 0.5,
+                                  userSelect: 'none',
+                                }}
+                              >
+                                {initialsOf(r?.created_by)}
+                              </Stack>
 
-        {!isTablet && (
-          <Typography
-            variant="body2"
-            sx={{ fontWeight: 500, color: 'text.secondary' }}
-          >
-            {r?.creator?.name}
-          </Typography>
-        )}
-      </Stack>
-    </Tooltip>
-  </TableCell>
-)}
+                              {!isTablet && (
+                                <Typography
+                                  variant="body2"
+                                  sx={{ fontWeight: 500, color: 'text.secondary' }}
+                                >
+                                  {r?.creator?.name}
+                                </Typography>
+                              )}
+                            </Stack>
+                          </Tooltip>
+                        </TableCell>
+                      )}
 
 
                       {!isMobile && (
