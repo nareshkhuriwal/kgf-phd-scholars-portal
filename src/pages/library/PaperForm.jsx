@@ -47,7 +47,13 @@ export default function PaperForm({ mode = 'create' }) {
   const navigate = useNavigate();
   const { paperId } = useParams();
   const { current, loading, uploading, progress } = useSelector((s) => s.papers || {});
-  const { register, handleSubmit, reset, setError, formState: { errors, isSubmitting } } = useForm({ defaultValues: {} });
+
+  const { register, handleSubmit, reset, setError, formState: { errors, isSubmitting } } =
+    useForm({
+      defaultValues: {
+        place: 'N/A',
+      },
+    });
 
   const location = useLocation();
   const navState = location.state;
@@ -81,7 +87,7 @@ export default function PaperForm({ mode = 'create' }) {
         journal: current.journal ?? '',
         issn_isbn: current.issn_isbn ?? '',
         publisher: current.publisher ?? '',
-        place: current.place ?? '',
+        place: current.place ?? 'N/A',   
         area: current.area ?? '',
         volume: current.volume ?? '',
         issue: current.issue ?? '',
