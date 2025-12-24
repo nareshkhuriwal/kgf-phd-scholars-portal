@@ -317,7 +317,7 @@ export default function ChaptersPage({ userId: userIdProp }) {
               <Table stickyHeader size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 70 }}>#</TableCell>
+                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 70 }}>ID</TableCell>
                     <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>Title</TableCell>
                     {!isResearcher && !isMobile && (
                       <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 180 }}>
