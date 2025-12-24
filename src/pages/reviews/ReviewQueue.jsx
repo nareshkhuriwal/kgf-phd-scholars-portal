@@ -20,14 +20,29 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { useTheme, useMediaQuery } from '@mui/material';
 import { initialsOf } from '../../utils/text/cleanRich';
 
+const PAGINATION_KEY = 'reviewQueue.pagination';
+
 export default function ReviewQueue() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { queue, loading, error } = useSelector(s => s.reviews || { queue: [] });
 
   const [query, setQuery] = React.useState('');
-  const [page, setPage] = React.useState(0);
-  const [rpp, setRpp] = React.useState(10);
+  // const [page, setPage] = React.useState(0);
+  // const [rpp, setRpp] = React.useState(10);
+
+  const persisted = React.useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem(PAGINATION_KEY)) || {};
+    } catch {
+      return {};
+    }
+  }, []);
+
+  const [page, setPage] = React.useState(persisted.page ?? 0);
+  const [rpp, setRpp] = React.useState(persisted.rpp ?? 10);
+
+
   const [confirm, setConfirm] = React.useState(null);
 
   // 🔽 SORT STATE
@@ -44,6 +59,14 @@ export default function ReviewQueue() {
   React.useEffect(() => {
     dispatch(loadReviewQueue());
   }, [dispatch]);
+
+  React.useEffect(() => {
+    localStorage.setItem(
+      PAGINATION_KEY,
+      JSON.stringify({ page, rpp })
+    );
+  }, [page, rpp]);
+
 
   // 🔽 SORT HANDLER
   const onSort = (col) => {
@@ -100,7 +123,9 @@ export default function ReviewQueue() {
           .toLowerCase()
           .includes(q)
       );
+      if (page !== 0) setPage(0);
     }
+
 
     return sortRows(rows);
   }, [queue, query, sortRows]);
