@@ -140,7 +140,6 @@ export default function Papers() {
   const initialLoaded = React.useRef(false);
 
 
-
   // React.useEffect(() => {
   //   if (!initialLoaded.current) {
   //     dispatch(loadPapers({ page: 1, perPage: rowsPerPage, sort_by: sortBy, sort_dir: sortDir }));
@@ -149,7 +148,7 @@ export default function Papers() {
   // }, [dispatch, rowsPerPage, sortBy, sortDir]);
 
   React.useEffect(() => {
-  if (initialLoaded.current) return;
+    if (initialLoaded.current) return;
 
     dispatch(loadPapers({
       page: page + 1,
@@ -244,6 +243,13 @@ export default function Papers() {
 
   const clearSelection = () => setSelected([]);
 
+
+  const orderedIds = React.useMemo(
+    () => rows.map(r => idOf(r)).filter(Boolean),
+    [rows]
+  );
+
+
   // ----- single delete -----
   const handleDelete = async () => {
     if (!confirm) return;
@@ -304,7 +310,7 @@ export default function Papers() {
 
     // reset to first page
     // setPage(0);
-// 
+    // 
     // If there's an active search (client-side), we don't call server; sorting is applied client-side.
     if (query) {
       // rows will recompute because sortBy/sortDir changed (useMemo)
@@ -569,7 +575,19 @@ export default function Papers() {
                               <span>
                                 <IconButton
                                   size="small"
-                                  onClick={() => navigate(`/library/papers/${id}`)}
+                                  // onClick={() => navigate(`/library/papers/${id}`)}
+                                  onClick={() => {
+                                    const index = orderedIds.indexOf(id);
+
+                                    navigate(`/library/papers/${id}`, {
+                                      state: {
+                                        from: 'papers-list',
+                                        orderedIds,
+                                        index,
+                                      },
+                                    });
+                                  }}
+
                                 >
                                   <EditIcon fontSize="inherit" />
                                 </IconButton>
