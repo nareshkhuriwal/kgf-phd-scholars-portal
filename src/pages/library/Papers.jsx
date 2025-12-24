@@ -98,8 +98,23 @@ export default function Papers() {
 
   // local UI state
   const [query, setQuery] = React.useState('');
-  const [page, setPage] = React.useState(0);            // MUI 0-based
-  const [rowsPerPage, setRpp] = React.useState(10);
+  const PAPERS_PAGINATION_KEY = 'papers.pagination';
+
+  // const [page, setPage] = React.useState(0);            // MUI 0-based
+  // const [rowsPerPage, setRpp] = React.useState(10);
+
+  const savedPagination = React.useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem(PAPERS_PAGINATION_KEY)) || {};
+    } catch {
+      return {};
+    }
+  }, []);
+
+  const [page, setPage] = React.useState(savedPagination.page ?? 0);
+  const [rowsPerPage, setRpp] = React.useState(savedPagination.rowsPerPage ?? 10);
+
+
   const [confirm, setConfirm] = React.useState(null);
   const [bulkCfm, setBulkCfm] = React.useState(null);
   const [selected, setSelected] = React.useState([]);
@@ -108,6 +123,8 @@ export default function Papers() {
 
   const userRole = useSelector(s => s.auth?.user?.role);
   const isResearcher = userRole === 'researcher';
+
+
 
 
   // sorting state
@@ -121,12 +138,29 @@ export default function Papers() {
 
   // load once on mount — request server with current rowsPerPage & current sort
   const initialLoaded = React.useRef(false);
+
+
+
+  // React.useEffect(() => {
+  //   if (!initialLoaded.current) {
+  //     dispatch(loadPapers({ page: 1, perPage: rowsPerPage, sort_by: sortBy, sort_dir: sortDir }));
+  //     initialLoaded.current = true;
+  //   }
+  // }, [dispatch, rowsPerPage, sortBy, sortDir]);
+
   React.useEffect(() => {
-    if (!initialLoaded.current) {
-      dispatch(loadPapers({ page: 1, perPage: rowsPerPage, sort_by: sortBy, sort_dir: sortDir }));
-      initialLoaded.current = true;
-    }
-  }, [dispatch, rowsPerPage, sortBy, sortDir]);
+  if (initialLoaded.current) return;
+
+    dispatch(loadPapers({
+      page: page + 1,
+      perPage: rowsPerPage,
+      sort_by: sortBy,
+      sort_dir: sortDir
+    }));
+
+    initialLoaded.current = true;
+  }, [dispatch]); // 👈 run ONCE, using restored page
+
 
   // keep UI controls in sync with backend meta (when meta arrives)
   React.useEffect(() => {
@@ -139,6 +173,14 @@ export default function Papers() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [meta]);
+
+  React.useEffect(() => {
+    localStorage.setItem(
+      PAPERS_PAGINATION_KEY,
+      JSON.stringify({ page, rowsPerPage })
+    );
+  }, [page, rowsPerPage]);
+
 
   // ----- backend list -> array of rows -----
   const all = React.useMemo(() => {
@@ -261,8 +303,8 @@ export default function Papers() {
     setSortDir(nextDir);
 
     // reset to first page
-    setPage(0);
-
+    // setPage(0);
+// 
     // If there's an active search (client-side), we don't call server; sorting is applied client-side.
     if (query) {
       // rows will recompute because sortBy/sortDir changed (useMemo)
@@ -270,13 +312,22 @@ export default function Papers() {
     }
 
     // otherwise call backend to request fresh sorted page
+    // dispatch(loadPapers({
+    //   page: 1,
+    //   perPage: rowsPerPage,
+    //   query: undefined,
+    //   sort_by: field,
+    //   sort_dir: nextDir
+    // }));
+
     dispatch(loadPapers({
-      page: 1,
+      page: page + 1, // 👈 KEEP CURRENT PAGE
       perPage: rowsPerPage,
-      query: undefined,
       sort_by: field,
       sort_dir: nextDir
     }));
+
+
   };
 
 
