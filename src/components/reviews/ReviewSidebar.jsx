@@ -44,6 +44,7 @@ export default function ReviewSidebar({
   const fileName = meta.file_name ?? paper?.file_name ?? (pdfUrl ? pdfUrl.split('/').pop() : '—');
   const fileSize = meta.file_size ?? paper?.file_size ?? null;
   const filePath = meta.file_path ?? paper?.file_path ?? pdfUrl ?? '—';
+  const [expandedGuide, setExpandedGuide] = React.useState(null);
 
   return (
     <Paper
@@ -96,71 +97,152 @@ export default function ReviewSidebar({
       }}>
         {editorOrder.map((label, index) => {
           const filled = hasContent(sections[label]);
+          const hasGuide = Boolean(SECTION_GUIDELINES[label]);
 
           return (
-            <Box
-              key={label}
-              onClick={() => onSelectSection(index)}
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
-                px: 1.25,
-                py: 0.85,
-                borderRadius: 1.25,
-                cursor: 'pointer',
-                transition: 'background-color 0.15s ease, box-shadow 0.15s ease',
-                bgcolor: activeTab === index ? 'action.selected' : 'transparent',
-                '&:hover': {
-                  bgcolor: 'action.hover',
-                },
-              }}
-            >
-
-              {/* Number */}
+            <Box key={label}>
+              {/* SECTION ROW */}
               <Box
+                onClick={() => onSelectSection(index)}
                 sx={{
-                  width: 22,
-                  height: 22,
-                  borderRadius: '50%',
-                  bgcolor: activeTab === index ? 'primary.main' : 'grey.200',
-                  color: activeTab === index ? '#fff' : 'text.secondary',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 12,
-                  fontWeight: 600,
-                  flexShrink: 0,
+                  gap: 1,
+                  px: 1.25,
+                  py: 0.85,
+                  borderRadius: 1.25,
+                  cursor: 'pointer',
+                  transition: 'background-color 0.15s ease',
+                  bgcolor: activeTab === index ? 'action.selected' : 'transparent',
+                  '&:hover': { bgcolor: 'action.hover' },
                 }}
               >
-                {index + 1}
+                {/* Number */}
+                <Box
+                  sx={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: '50%',
+                    bgcolor: activeTab === index ? 'primary.main' : 'grey.200',
+                    color: activeTab === index ? '#fff' : 'text.secondary',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    flexShrink: 0,
+                  }}
+                >
+                  {index + 1}
+                </Box>
+
+                {/* Label */}
+                <Typography
+                  variant="body2"
+                  sx={{ flex: 1, fontWeight: activeTab === index ? 600 : 400 }}
+                >
+                  {label}
+                </Typography>
+
+                {/* EXPAND GUIDELINES ICON */}
+                {hasGuide && (
+                  <Tooltip title="Show guidelines">
+                    <IconButton
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation(); // 🔴 VERY IMPORTANT
+                        setExpandedGuide(expandedGuide === label ? null : label);
+                      }}
+                    >
+                      <ExpandMoreIcon
+                        sx={{
+                          fontSize: 18,
+                          transform:
+                            expandedGuide === label ? 'rotate(180deg)' : 'rotate(0deg)',
+                          transition: 'transform 0.2s ease',
+                        }}
+                      />
+                    </IconButton>
+                  </Tooltip>
+                )}
+
+                {/* COMPLETED TICK */}
+                {filled && (
+                  <Tooltip title="Completed">
+                    <CheckCircleIcon
+                      sx={{ fontSize: 18, color: 'success.main', opacity: 0.9 }}
+                    />
+                  </Tooltip>
+                )}
               </Box>
 
-
-              {/* Label */}
-              <Typography
-                variant="body2"
-                sx={{ flex: 1, fontWeight: activeTab === index ? 600 : 400 }}
-              >
-                {label}
-              </Typography>
-
-              {/* Tick */}
-              {filled && (
-                <Tooltip title="Completed">
-                  <CheckCircleIcon
+              {/* GUIDELINES BELOW SECTION */}
+              <Collapse in={expandedGuide === label} timeout="auto" unmountOnExit>
+                <Box
+                  sx={{
+                    mt: 0.75,
+                    mb: 1,
+                    px: 1.25,
+                    py: 1,
+                    borderRadius: 1,
+                    backgroundColor: (theme) => theme.palette.grey[50],
+                  }}
+                >
+                  {/* Optional header */}
+                  <Typography
+                    variant="overline"
                     sx={{
-                      fontSize: 18,
-                      color: 'success.main',
-                      opacity: 0.9,
+                      display: 'block',
+                      mb: 0.75,
+                      color: 'text.disabled',
+                      letterSpacing: 0.8,
                     }}
-                  />
-                </Tooltip>
-              )}
+                  >
+                    Guiding Questions
+                  </Typography>
+
+                  {SECTION_GUIDELINES[label]?.map((q, i) => (
+                    <Box
+                      key={i}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: 1,
+                        mb: 0.75,
+                      }}
+                    >
+                      {/* Number */}
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          minWidth: 18,
+                          textAlign: 'right',
+                          fontWeight: 600,
+                          color: 'text.secondary',
+                        }}
+                      >
+                        {i + 1}.
+                      </Typography>
+
+                      {/* Question */}
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: 'text.secondary',
+                          lineHeight: 1.5,
+                        }}
+                      >
+                        {q}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+              </Collapse>
 
             </Box>
           );
         })}
+
 
         {/* ================= DETAILS ================= */}
 
@@ -248,62 +330,8 @@ export default function ReviewSidebar({
 
       </Stack>
 
+      <Divider sx={{ mb: 1 }} />
 
-      {/* ================= GUIDELINES ================= */}
-      <Divider sx={{ my: 1 }} />
-
-      <Box>
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            cursor: 'pointer',
-            px: 0.5,
-            py: 0.25,
-          }}
-          onClick={() => setDetailsOpen(v => !v)}
-        >
-          <Typography
-            variant="subtitle2"
-            sx={{ fontWeight: 600, color: 'text.secondary' }}
-          >
-            Guidelines
-          </Typography>
-          <ExpandMoreIcon
-            sx={{
-              fontSize: 18,
-              transform: detailsOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-              transition: 'transform 0.2s ease',
-            }}
-          />
-        </Box>
-
-        <Collapse in={detailsOpen} timeout="auto" unmountOnExit>
-          <Box sx={{ mt: 0.5, pl: 1 }}>
-            {(SECTION_GUIDELINES[editorOrder[activeTab]] || []).map((q, i) => (
-              <Typography
-                key={i}
-                variant="caption"
-                sx={{
-                  display: 'block',
-                  mb: 0.75,
-                  color: 'text.secondary',
-                  lineHeight: 1.4,
-                }}
-              >
-                • {q}
-              </Typography>
-            ))}
-
-            {!SECTION_GUIDELINES[editorOrder[activeTab]] && (
-              <Typography variant="caption" color="text.secondary">
-                No specific guidelines for this section.
-              </Typography>
-            )}
-          </Box>
-        </Collapse>
-      </Box>
 
 
     </Paper>
