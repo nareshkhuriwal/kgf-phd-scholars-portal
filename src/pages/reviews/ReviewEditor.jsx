@@ -22,6 +22,7 @@ import { CKEditor } from '@ckeditor/ckeditor5-react';
 // import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
 import DecoupledEditor from '@ckeditor/ckeditor5-build-decoupled-document';
 import { SECTION_PLACEHOLDERS } from '../../components/reviews/sectionPlaceholders';
+import { SECTION_LIMITS } from '../../components/reviews/sectionLimits';
 
 import {
   loadReview,
@@ -69,57 +70,37 @@ const pickFirst = (obj, keys) => {
 const WORKPANE_VH = 50;   // fixed work area height (viewport-based)
 const WORKPANE_MIN = 600; // absolute minimum height
 
-const CHAR_WARN = 150;
-const CHAR_GOOD = 300;
-// Replace these constants (around line 67-69)
-const WORD_TARGET = 150;
-const CHAR_TARGET = 1000;
-
-const getCharMeta = (count) => {
-  if (count > CHAR_GOOD) {
-    return {
-      color: '#2e7d32', // MUI success.main (professional green)
-      label: `Characters: ${count} ✓`
-    };
-  }
-
-  if (count > CHAR_WARN) {
-    return {
-      color: '#ed6c02', // MUI warning.main
-      label: `Characters: ${count} / ${CHAR_GOOD}`
-    };
-  }
-
-  return {
-    color: '#6b7280', // text.secondary
-    label: `Characters: ${count}`
-  };
-};
 
 // Replace the getCountMeta function (around line 71-91)
-const getCountMeta = (wordCount, charCount) => {
-  const wordsMet = wordCount >= WORD_TARGET;
-  const charsMet = charCount >= CHAR_TARGET;
+const getCountMeta = (sectionLabel, wordCount, charCount) => {
+  const limits = SECTION_LIMITS[sectionLabel] || {};
+
+  const minWords = limits.minWords ?? 0;
+  const minChars = limits.minChars ?? 0;
+
+  const wordsMet = wordCount >= minWords;
+  const charsMet = charCount >= minChars;
 
   if (wordsMet && charsMet) {
     return {
-      color: '#2e7d32', // success green
-      label: `Words: ${wordCount} / ${WORD_TARGET}+ ✓ | Characters: ${charCount} / ${CHAR_TARGET}+ ✓`
+      color: '#2e7d32',
+      label: `Words: ${wordCount} / ${minWords}+ ✓ | Characters: ${charCount} / ${minChars}+ ✓`,
     };
   }
 
   if (wordsMet || charsMet) {
     return {
-      color: '#ed6c02', // warning orange
-      label: `Words: ${wordCount} / ${WORD_TARGET}+ ${wordsMet ? '✓' : ''} | Characters: ${charCount} / ${CHAR_TARGET}+ ${charsMet ? '✓' : ''}`
+      color: '#ed6c02',
+      label: `Words: ${wordCount} / ${minWords}+ ${wordsMet ? '✓' : ''} | Characters: ${charCount} / ${minChars}+ ${charsMet ? '✓' : ''}`,
     };
   }
 
   return {
-    color: '#6b7280', // text.secondary
-    label: `Words: ${wordCount} / ${WORD_TARGET}+ | Characters: ${charCount} / ${CHAR_TARGET}+`
+    color: '#6b7280',
+    label: `Words: ${wordCount} / ${minWords}+ | Characters: ${charCount} / ${minChars}+`,
   };
 };
+
 
 
 
@@ -419,7 +400,9 @@ export default function ReviewEditor() {
 
                       )}
                       {(() => {
-                        const meta = getCountMeta(wordCount, charCount);
+                        const activeLabel = EDITOR_ORDER[tab];
+                        const meta = getCountMeta(activeLabel, wordCount, charCount);
+
 
                         return (
                           <Typography
@@ -432,7 +415,8 @@ export default function ReviewEditor() {
                               color: meta.color,
                               backgroundColor: '#fafafa',
                               borderTop: '1px solid #eee',
-                              fontWeight: (wordCount >= WORD_TARGET || charCount >= CHAR_TARGET) ? 600 : 400,
+                              fontWeight: (meta.color === '#2e7d32') ? 600 : 400,
+
                               display: 'block'
                             }}
                           >
