@@ -21,6 +21,7 @@ import ReportPreviewDialog from '../../components/reports/ReportPreviewDialog';
 import { useTheme, useMediaQuery } from '@mui/material';
 import { initialsOf } from '../../utils/text/cleanRich';
 
+const PAGINATION_KEY = 'savedReports.pagination';
 
 export default function SavedReports() {
   const dispatch = useDispatch();
@@ -32,8 +33,20 @@ export default function SavedReports() {
 
 
   const [query, setQuery] = React.useState('');
-  const [page, setPage] = React.useState(0);
-  const [rpp, setRpp] = React.useState(10);
+  // const [page, setPage] = React.useState(0);
+  // const [rpp, setRpp] = React.useState(10);
+
+  const persisted = React.useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem(PAGINATION_KEY)) || {};
+    } catch {
+      return {};
+    }
+  }, []);
+
+  const [page, setPage] = React.useState(persisted.page ?? 0);
+  const [rpp, setRpp] = React.useState(persisted.rpp ?? 10);
+
   const [snack, setSnack] = React.useState(null);
   const [previewOpen, setPreviewOpen] = React.useState(false);
   const [previewData, setPreviewData] = React.useState(null);
@@ -53,9 +66,44 @@ export default function SavedReports() {
 
   React.useEffect(() => { dispatch(loadSavedReports()); }, [dispatch]);
 
-  const filtered = (saved || []).filter(r =>
-    [r.name, r.template, r.format, r.filename].filter(Boolean).join(' ').toLowerCase().includes(query.toLowerCase())
-  );
+  // const filtered = (saved || []).filter(r =>
+  //   [r.name, r.template, r.format, r.filename].filter(Boolean).join(' ').toLowerCase().includes(query.toLowerCase())
+  // );
+
+
+  React.useEffect(() => {
+    if (query) setPage(0);
+  }, [query]);
+
+
+  const filtered = React.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return saved || [];
+
+    return (saved || []).filter(r =>
+      [r.name, r.template, r.format, r.filename]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(q)
+    );
+  }, [saved, query]);
+
+  React.useEffect(() => {
+    localStorage.setItem(
+      PAGINATION_KEY,
+      JSON.stringify({ page, rpp })
+    );
+  }, [page, rpp]);
+
+  React.useEffect(() => {
+    if (!filtered.length) return;
+
+    const maxPage = Math.max(0, Math.ceil(filtered.length / rpp) - 1);
+    if (page > maxPage) setPage(maxPage);
+  }, [filtered.length, rpp]);
+
+
   const start = page * rpp;
   const rows = filtered.slice(start, start + rpp);
 
@@ -133,7 +181,7 @@ export default function SavedReports() {
           <Table stickyHeader size="small">
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 60 }}>ID</TableCell> 
+                <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 60 }}>ID</TableCell>
                 <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>Name</TableCell>
                 <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>Template</TableCell>
                 <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>Format</TableCell>
