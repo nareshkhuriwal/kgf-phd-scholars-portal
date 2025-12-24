@@ -799,14 +799,14 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
                               border: '1px solid #eee',
                             }}
                           >
-                            <Typography
+                            {/* <Typography
                               variant="subtitle2"
                               sx={{ fontWeight: 600, mb: 1 }}
                             >
                               {[item.title, item.authors, item.year]
                                 .filter(Boolean)
                                 .join(' • ')}
-                            </Typography>
+                            </Typography> */}
 
                             <Box
                               className="ck-content"

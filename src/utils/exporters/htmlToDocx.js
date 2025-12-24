@@ -195,11 +195,22 @@ export async function buildTitlePageDocx(html) {
    MAIN HTML → DOCX PARSER (UNCHANGED)
 --------------------------------------------------------- */
 
-export async function htmlToDocxParagraphs(html) {
+export async function htmlToDocxParagraphs(html, options = {}) {
   if (!html) return [];
 
   const container = document.createElement("div");
   container.innerHTML = html;
+
+  const EFFECTIVE_BODY_PARAGRAPH = {
+    ...BODY_PARAGRAPH,
+    ...(options.noFirstLineIndent && {
+      indent: { firstLine: 0, left: 0, right: 0 },
+    }),
+    ...(options.forceJustified && {
+      alignment: AlignmentType.JUSTIFIED,
+    }),
+  };
+
 
   const blocks = [];
 
@@ -209,7 +220,7 @@ export async function htmlToDocxParagraphs(html) {
       if (text) {
         blocks.push(
           new Paragraph({
-            ...BODY_PARAGRAPH,
+            ...EFFECTIVE_BODY_PARAGRAPH,
             children: [
               new TextRun({
                 text,
@@ -252,7 +263,7 @@ export async function htmlToDocxParagraphs(html) {
       if (runs.length) {
         blocks.push(
           new Paragraph({
-            ...BODY_PARAGRAPH,
+            ...EFFECTIVE_BODY_PARAGRAPH,
             children: runs,
           })
         );
