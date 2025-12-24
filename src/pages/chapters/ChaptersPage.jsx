@@ -28,6 +28,7 @@ import { initialsOf } from '../../utils/text/cleanRich';
 
 // Helper to copy text to clipboard
 
+const PAGINATION_KEY = 'chapters.pagination';
 
 const copyText = async (t) => { try { await navigator.clipboard.writeText(t || ''); } catch { } };
 
@@ -39,8 +40,21 @@ export default function ChaptersPage({ userId: userIdProp }) {
   const userId = userIdProp ?? authUserId ?? null;
 
   const [query, setQuery] = React.useState('');
-  const [page, setPage] = React.useState(0);
-  const [rowsPerPage, setRpp] = React.useState(10);
+  // const [page, setPage] = React.useState(0);
+  // const [rowsPerPage, setRpp] = React.useState(10);
+
+  const persisted = React.useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem(PAGINATION_KEY)) || {};
+    } catch {
+      return {};
+    }
+  }, []);
+
+  const [page, setPage] = React.useState(persisted.page ?? 0);
+  const [rowsPerPage, setRpp] = React.useState(persisted.rpp ?? 10);
+
+
   const [open, setOpen] = React.useState(false);
   const [title, setTitle] = React.useState('');
   const [reorderMode, setReorderMode] = React.useState(false);
@@ -74,17 +88,37 @@ export default function ChaptersPage({ userId: userIdProp }) {
     [chapters]
   );
 
+  // const filtered = React.useMemo(() => {
+  //   const q = query.trim().toLowerCase();
+  //   if (!q) return normalized;
+  //   return normalized.filter(c =>
+  //     [c.title, (c.updated_at || c.created_at || '')]
+  //       .filter(Boolean)
+  //       .join(' ')
+  //       .toLowerCase()
+  //       .includes(q)
+  //   );
+  // }, [normalized, query]);
+
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return normalized;
-    return normalized.filter(c =>
-      [c.title, (c.updated_at || c.created_at || '')]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase()
-        .includes(q)
-    );
+
+    let rows = normalized;
+    if (q) {
+      rows = normalized.filter(c =>
+        [c.title, (c.updated_at || c.created_at || '')]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+          .includes(q)
+      );
+
+      if (page !== 0) setPage(0);
+    }
+
+    return rows;
   }, [normalized, query]);
+
 
   // ✅ SAFE PLACE — filtered is initialized
   const canReorder =
@@ -95,6 +129,16 @@ export default function ChaptersPage({ userId: userIdProp }) {
 
   const start = page * rowsPerPage;
   const rows = filtered.slice(start, start + rowsPerPage);
+
+  React.useEffect(() => {
+    if (reorderMode) return; // do not persist while reordering
+
+    localStorage.setItem(
+      PAGINATION_KEY,
+      JSON.stringify({ page, rpp: rowsPerPage })
+    );
+  }, [page, rowsPerPage, reorderMode]);
+
 
   const handleCreate = async () => {
     if (!title.trim()) return;
@@ -124,6 +168,10 @@ export default function ChaptersPage({ userId: userIdProp }) {
       setConfirmDelete({ open: false, id: null, title: '' });
     }
   };
+
+  React.useEffect(() => {
+    if (reorderMode) setPage(0);
+  }, [reorderMode]);
 
 
   const onDragEnd = (result) => {
