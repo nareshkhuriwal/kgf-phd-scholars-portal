@@ -59,6 +59,35 @@ export const setReviewStatus = createAsyncThunk(
   }
 );
 
+export const syncReviewCitations = createAsyncThunk(
+  'reviews/syncReviewCitations',
+  async ({ reviewId, citation_keys }) => {
+    return await apiFetch(`/reviews/${reviewId}/citations/sync`, {
+      method: 'POST',
+      body: { citation_keys }
+    });
+  }
+);
+
+export const loadReviewCitations = createAsyncThunk(
+  'reviews/loadReviewCitations',
+  async (reviewId) => {
+    return await apiFetch(`/reviews/${reviewId}/citations`, {
+      method: 'GET'
+    });
+  }
+);
+
+export const loadReviewCitationsIEEE = createAsyncThunk(
+  'reviews/loadReviewCitationsIEEE',
+  async (reviewId) => {
+    return await apiFetch(`/reviews/${reviewId}/citations/ieee`, {
+      method: 'GET'
+    });
+  }
+);
+
+
 
 /* ---------- Slice ---------- */
 
@@ -67,6 +96,8 @@ const slice = createSlice({
   initialState: {
     queue: [],
     current: null, // { paperId, review_sections, html, ... }
+    citations: [],          // raw citation objects
+    citationRefs: [],       // formatted references (IEEE)
     loading: false,
     error: null
   },
@@ -149,7 +180,36 @@ const slice = createSlice({
       })
       .addCase(setReviewStatus.rejected, (s, a) => {
         s.error = a.error?.message || 'Failed to set status';
+      })
+
+      /* ---------- Citations ---------- */
+
+      .addCase(syncReviewCitations.pending, (s) => {
+        s.error = null;
+      })
+
+      .addCase(syncReviewCitations.rejected, (s, a) => {
+        s.error = a.error?.message || 'Failed to sync citations';
+      })
+
+
+      .addCase(loadReviewCitations.fulfilled, (s, a) => {
+        s.citations = a.payload?.data ?? a.payload ?? [];
+      })
+
+      .addCase(loadReviewCitations.rejected, (s, a) => {
+        s.error = a.error?.message || 'Failed to load citations';
+      })
+
+
+      .addCase(loadReviewCitationsIEEE.fulfilled, (s, a) => {
+        s.citationRefs = a.payload?.data ?? a.payload ?? [];
+      })
+
+      .addCase(loadReviewCitationsIEEE.rejected, (s, a) => {
+        s.error = a.error?.message || 'Failed to load references';
       });
+
 
   }
 });

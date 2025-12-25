@@ -7,12 +7,14 @@ import RedoIcon from '@mui/icons-material/Redo';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import FormatQuoteIcon from '@mui/icons-material/FormatQuote';
 
 export default function ReviewToolbar({
   onSave,
   saving,
   sidebarOpen,
-  onToggleSidebar
+  onToggleSidebar,
+  onInsertCitation
 }) {
   // example keyboard shortcut: ⌘/Ctrl + S
   React.useEffect(() => {
@@ -59,6 +61,11 @@ export default function ReviewToolbar({
         <span><IconButton size="small" onClick={() => document.execCommand('copy')}><ContentCopyIcon fontSize="small" /></IconButton></span>
       </Tooltip>
 
+      <Tooltip title="Insert Citation">
+        <IconButton onClick={onInsertCitation}>
+          <FormatQuoteIcon />
+        </IconButton>
+      </Tooltip>
       <Tooltip title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}>
         <IconButton
           size="small"
