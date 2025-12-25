@@ -117,6 +117,7 @@ export default function ReviewEditor() {
 
   const [autoSaving, setAutoSaving] = React.useState(false);
   const [lastSavedAt, setLastSavedAt] = React.useState(null);
+const lastSavedContentRef = React.useRef({});
 
 
 
@@ -211,63 +212,88 @@ export default function ReviewEditor() {
 
 
   // ---------------- AUTOSAVE CURRENT SECTION ----------------
-  React.useEffect(() => {
-    if (!pid) return;
-    if (!activeLabel) return;
-    if (!activeHtml) return;
+  // React.useEffect(() => {
+  //   if (!pid) return;
+  //   if (!activeLabel) return;
+  //   if (!activeHtml) return;
 
-    setAutoSaving(true);
+  //   setAutoSaving(true);
 
-    const t = setTimeout(async () => {
-      try {
-        await dispatch(
-          saveReviewSection({
-            paperId: pid,
-            section_key: activeLabel,
-            html: btoa(unescape(encodeURIComponent(activeHtml))),
-            autosave: true, // optional flag for backend
-          })
-        ).unwrap();
+  //   const t = setTimeout(async () => {
+  //     try {
+  //       await dispatch(
+  //         saveReviewSection({
+  //           paperId: pid,
+  //           section_key: activeLabel,
+  //           html: btoa(unescape(encodeURIComponent(activeHtml))),
+  //           autosave: true, // optional flag for backend
+  //         })
+  //       ).unwrap();
 
-        setSavedOnce(true);
-        setLastSavedAt(new Date());
-      } finally {
-        setAutoSaving(false);
-      }
-    }, 1500); // ⏱ debounce window (same as MyPaperEditor)
+  //       setSavedOnce(true);
+  //       setLastSavedAt(new Date());
+  //     } finally {
+  //       setAutoSaving(false);
+  //     }
+  //   }, 1000); // ⏱ debounce window (same as MyPaperEditor)
 
-    return () => clearTimeout(t);
-  }, [pid, activeLabel, activeHtml, dispatch]);
+  //   return () => clearTimeout(t);
+  // }, [pid, activeLabel, activeHtml, dispatch]);
 
+// After the line: const [lastSavedAt, setLastSavedAt] = React.useState(null);
 
+const triggerAutosave = React.useCallback(async (label, content) => {
+  if (!pid || !content) return;
+  
+  // Don't save if content hasn't changed
+  if (lastSavedContentRef.current[label] === content) return;
+
+  setAutoSaving(true);
+  
+  try {
+    await dispatch(
+      saveReviewSection({
+        paperId: pid,
+        section_key: label,
+        html: btoa(unescape(encodeURIComponent(content))),
+        autosave: true,
+      })
+    ).unwrap();
+
+    lastSavedContentRef.current[label] = content;
+    setSavedOnce(true);
+    setLastSavedAt(new Date());
+  } catch (error) {
+    console.error('Autosave failed:', error);
+  } finally {
+    setAutoSaving(false);
+  }
+}, [pid, dispatch]);
+
+// Debounced autosave
+const debouncedAutosave = React.useMemo(
+  () => debounce(triggerAutosave, 2000),
+  [triggerAutosave]
+);
 
   // Replace the onEditorChange callback (around line 162-171)
-  const onEditorChange = React.useCallback((label, editor) => {
-    const data = editor.getData();
-
-    // Strip HTML to count characters and words
-    const text = data.replace(/<[^>]*>/g, '').trim();
-    setCharCount(text.length);
-
-    // Count words (split by whitespace and filter empty strings)
-    const words = text.split(/\s+/).filter(word => word.length > 0);
-    setWordCount(words.length);
-
-    debouncedSetSectionsRef.current(label, data);
-  }, []);
+const onEditorChange = React.useCallback((label, editor) => {
+  const data = editor.getData();
+  debouncedSetSectionsRef.current(label, data);
+  debouncedAutosave(label, data);
+}, [debouncedAutosave]);
 
 
-  // Replace the useEffect for tab changes (around line 173-179)
+  // Add this effect after your other useEffects (around line 230)
   React.useEffect(() => {
     const activeLabel = EDITOR_ORDER[tab];
     const html = sections[activeLabel] || '';
     const text = html.replace(/<[^>]*>/g, '').trim();
     setCharCount(text.length);
-
-    // Count words
+    
     const words = text.split(/\s+/).filter(word => word.length > 0);
     setWordCount(words.length);
-  }, [tab, sections]);
+  }, [sections, tab]); // Update counts when sections change, not during typing
 
 
   // Save only CURRENT tab
@@ -559,17 +585,19 @@ export default function ReviewEditor() {
                               }
                             }}
                             // Update the onChange in CKEditor (around line 320-329)
-                            onChange={(_, editor) => {
-                              const data = editor.getData();
-                              const text = data.replace(/<[^>]*>/g, '').trim();
-                              setCharCount(text.length);
+                            // onChange={(_, editor) => {
+                            //   const data = editor.getData();
+                            //   const text = data.replace(/<[^>]*>/g, '').trim();
+                            //   setCharCount(text.length);
 
-                              // Count words
-                              const words = text.split(/\s+/).filter(word => word.length > 0);
-                              setWordCount(words.length);
+                            //   // Count words
+                            //   const words = text.split(/\s+/).filter(word => word.length > 0);
+                            //   setWordCount(words.length);
 
-                              debouncedSetSectionsRef.current(label, data);
-                            }}
+                            //   debouncedSetSectionsRef.current(label, data);
+                            // }}
+                            onChange={(_, editor) => onEditorChange(label, editor)}
+
 
                           />
                         </Box>
