@@ -53,7 +53,20 @@ export default function HighlightToolbar({
 
   return (
     <Stack direction="row" spacing={1} alignItems="center" useFlexGap
-      sx={{ flexWrap: 'wrap', rowGap: 1, columnGap: 1, minHeight: 48 }}>
+      sx={{
+      flexWrap: 'wrap',
+      rowGap: 1,
+      columnGap: 1,
+      minHeight: 48,
+      p: 0.5,
+      backgroundColor: theme.palette.background.default,
+      borderTopLeftRadius: 10,
+      borderTopRightRadius: 10,
+      borderBottom: '1px solid',
+      borderColor: 'divider',
+    }}
+
+      >
 
       {/* enable / mode */}
       <Tooltip title={enabled ? 'Highlighting: ON' : 'Enable Highlighting'}>

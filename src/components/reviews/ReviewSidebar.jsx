@@ -55,11 +55,9 @@ export default function ReviewSidebar({
         display: 'flex',
         flexDirection: 'column',
         overflowY: 'auto',
-
         '&::-webkit-scrollbar': { width: '6px' },
         '&::-webkit-scrollbar-thumb': {
           backgroundColor: '#c1c1c1',
-          borderRadius: '8px',
         },
         '&::-webkit-scrollbar-thumb:hover': {
           backgroundColor: '#a8a8a8',
@@ -83,7 +81,7 @@ export default function ReviewSidebar({
 
       <Stack spacing={0.5} sx={{
         mb: 1.5,
-        maxHeight: 500,
+        maxHeight: 510,
         overflowY: 'auto',
 
         '&::-webkit-scrollbar': { width: '6px' },
