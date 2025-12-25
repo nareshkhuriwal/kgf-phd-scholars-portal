@@ -2,14 +2,18 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { apiFetch } from '../services/api';
 
-// ─────────────────────────────────────────────────────────────
-// Existing settings thunks
-// ─────────────────────────────────────────────────────────────
+// Fetch available citation styles from backend
+export const fetchCitationStyles = createAsyncThunk(
+  'settings/fetchCitationStyles',
+  async () => {
+    const res = await apiFetch('/citation-styles');
+    return res.styles || {};
+  }
+);
 
-// server returns { settings: { ... } }
 export const fetchSettings = createAsyncThunk('settings/fetch', async () => {
   const res = await apiFetch('/settings');
-  return res.settings || {}; // <- IMPORTANT
+  return res.settings || {};
 });
 
 export const saveSettings = createAsyncThunk(
@@ -20,19 +24,12 @@ export const saveSettings = createAsyncThunk(
         method: 'PUT',
         body: payload,
       });
-      return res.settings || payload; // <- server echoes { settings }
+      return res.settings || payload;
     } catch (e) {
       return rejectWithValue(e.message || 'Save failed');
     }
   }
 );
-
-// ─────────────────────────────────────────────────────────────
-// NEW: change password thunk
-// Adjust endpoint `/auth/change-password` if your API uses a different path
-// Expects Laravel route to accept: current_password, password, password_confirmation
-// and return { message: "..."} on success.
-// ─────────────────────────────────────────────────────────────
 
 export const changePassword = createAsyncThunk(
   'settings/changePassword',
@@ -42,7 +39,6 @@ export const changePassword = createAsyncThunk(
         method: 'POST',
         body: payload,
       });
-      // You can shape this based on your API; keep it simple:
       return res.message || 'Password updated successfully.';
     } catch (e) {
       return rejectWithValue(e.message || 'Password change failed');
@@ -51,12 +47,13 @@ export const changePassword = createAsyncThunk(
 );
 
 const DEFAULTS = {
-  citationStyle: 'chicago-note-bibliography-short',
+  citationStyle: 'ieee',
   noteFormat: 'markdown+richtext',
   language: 'en-US',
   quickCopyAsHtml: false,
   includeUrls: false,
 };
+
 
 const settingsSlice = createSlice({
   name: 'settings',
@@ -66,7 +63,12 @@ const settingsSlice = createSlice({
     error: null,
     savedAt: null,
 
-    // NEW: change-password specific state
+    // Citation styles
+    citationStyles: {},
+    citationStylesLoading: false,
+    citationStylesError: null,
+
+    // Change password
     changePasswordLoading: false,
     changePasswordError: null,
     changePasswordSuccess: null,
@@ -75,7 +77,6 @@ const settingsSlice = createSlice({
     resetSettings(state) {
       state.data = DEFAULTS;
     },
-    // NEW: helper to clear change-password status when dialog closes
     resetChangePasswordStatus(state) {
       state.changePasswordLoading = false;
       state.changePasswordError = null;
@@ -83,27 +84,42 @@ const settingsSlice = createSlice({
     },
   },
   extraReducers: (b) => {
-    // ── existing settings fetch/save ──
+    // Fetch citation styles
+    b.addCase(fetchCitationStyles.pending, (s) => {
+      s.citationStylesLoading = true;
+      s.citationStylesError = null;
+    });
+    b.addCase(fetchCitationStyles.fulfilled, (s, a) => {
+      s.citationStylesLoading = false;
+      s.citationStyles = a.payload;
+    });
+    b.addCase(fetchCitationStyles.rejected, (s, a) => {
+      s.citationStylesLoading = false;
+      s.citationStylesError = a.error.message;
+    });
+
+    // Fetch settings
     b.addCase(fetchSettings.pending, (s) => {
       s.loading = true;
       s.error = null;
     });
     b.addCase(fetchSettings.fulfilled, (s, a) => {
       s.loading = false;
-      s.data = { ...DEFAULTS, ...a.payload }; // <- MERGE defaults + server
+      s.data = { ...DEFAULTS, ...a.payload };
     });
     b.addCase(fetchSettings.rejected, (s, a) => {
       s.loading = false;
       s.error = a.error.message;
     });
 
+    // Save settings
     b.addCase(saveSettings.pending, (s) => {
       s.loading = true;
       s.error = null;
     });
     b.addCase(saveSettings.fulfilled, (s, a) => {
       s.loading = false;
-      s.data = { ...DEFAULTS, ...a.payload }; // <- keep store in sync
+      s.data = { ...DEFAULTS, ...a.payload };
       s.savedAt = Date.now();
     });
     b.addCase(saveSettings.rejected, (s, a) => {
@@ -111,7 +127,7 @@ const settingsSlice = createSlice({
       s.error = a.payload || a.error.message;
     });
 
-    // ── NEW: change password reducers ──
+    // Change password
     b.addCase(changePassword.pending, (s) => {
       s.changePasswordLoading = true;
       s.changePasswordError = null;
@@ -119,14 +135,12 @@ const settingsSlice = createSlice({
     });
     b.addCase(changePassword.fulfilled, (s, a) => {
       s.changePasswordLoading = false;
-      s.changePasswordSuccess =
-        a.payload || 'Password updated successfully.';
+      s.changePasswordSuccess = a.payload || 'Password updated successfully.';
       s.changePasswordError = null;
     });
     b.addCase(changePassword.rejected, (s, a) => {
       s.changePasswordLoading = false;
-      s.changePasswordError =
-        a.payload || a.error.message || 'Password change failed';
+      s.changePasswordError = a.payload || a.error.message || 'Password change failed';
       s.changePasswordSuccess = null;
     });
   },
