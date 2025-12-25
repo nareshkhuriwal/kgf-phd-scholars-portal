@@ -101,14 +101,14 @@ export default function ReviewEditor() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const theme = useTheme();
-  
+
   // Responsive breakpoints
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
   const isDesktop = useMediaQuery(theme.breakpoints.up('lg'));
-  
+
   const { current, error } = useSelector((s) => s.reviews || {});
-  const [sidebarOpen, setSidebarOpen] = React.useState(false); // Start closed on mobile/tablet
+  const [sidebarOpen, setSidebarOpen] = React.useState(true); // Start closed on mobile/tablet
   const [pdfOpen, setPdfOpen] = React.useState(true);
   const [charCount, setCharCount] = React.useState(0);
   const [wordCount, setWordCount] = React.useState(0);
@@ -417,9 +417,9 @@ export default function ReviewEditor() {
           </Stack>
         }
         actions={
-          <Stack 
-            direction={{ xs: 'column', sm: 'row' }} 
-            spacing={1} 
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={1}
             sx={{ width: { xs: '100%', sm: 'auto' } }}
           >
             <SaveStatus
@@ -429,28 +429,28 @@ export default function ReviewEditor() {
               lastSavedAt={lastSavedAt}
             />
 
-            <Button 
-              variant="outlined" 
+            <Button
+              variant="outlined"
               onClick={() => navigate('/reviews/queue')}
               size={isMobile ? 'small' : 'medium'}
               fullWidth={isMobile}
             >
               Back
             </Button>
-            
-            <Button 
-              variant="contained" 
-              disabled={saving} 
+
+            <Button
+              variant="contained"
+              disabled={saving}
               onClick={onSaveCurrentTab}
               size={isMobile ? 'small' : 'medium'}
               fullWidth={isMobile}
             >
               {saving ? 'Saving…' : isMobile ? 'Save' : `Save: ${EDITOR_ORDER[tab]}`}
             </Button>
-            
-            <Button 
-              variant="outlined" 
-              color="success" 
+
+            <Button
+              variant="outlined"
+              color="success"
               onClick={Reviewed}
               size={isMobile ? 'small' : 'medium'}
               fullWidth={isMobile}
@@ -518,12 +518,12 @@ export default function ReviewEditor() {
         <Grid container spacing={{ xs: 1, md: 1.5 }} sx={{ height: '100%', overflow: 'hidden' }}>
           {/* LEFT: PDF - Desktop always shown, Mobile/Tablet conditional */}
           {(isDesktop || pdfOpen) && (
-            <Grid 
-              item 
-              xs={12} 
+            <Grid
+              item
+              xs={12}
               lg={sidebarOpen ? 6 : (isDesktop ? 6 : 12)}
-              sx={{ 
-                height: '100%', 
+              sx={{
+                height: '100%',
                 minHeight: { xs: 400, md: 300 },
                 display: { xs: pdfOpen ? 'block' : 'none', lg: 'block' }
               }}
@@ -675,9 +675,9 @@ export default function ReviewEditor() {
 
           {/* RIGHT: Metadata sidebar */}
           {sidebarOpen && (
-            <Grid 
-              item 
-              xs={12} 
+            <Grid
+              item
+              xs={12}
               lg={2}
               sx={{
                 display: { xs: sidebarOpen && !pdfOpen ? 'block' : 'none', lg: 'block' }
