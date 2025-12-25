@@ -6,18 +6,15 @@ import {
   FormControlLabel, Stack, Button, Alert, Typography, CircularProgress
 } from '@mui/material';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchSettings, saveSettings, resetSettings } from '../../store/settingsSlice';
-
-const CITATION_STYLES = [
-  { id: 'chicago-note-bibliography-short', label: 'Chicago (shortened notes & bibliography)' },
-  { id: 'ieee', label: 'IEEE' },
-  { id: 'apa-7', label: 'APA 7' },
-  { id: 'mla-9', label: 'MLA 9 (in-text)' },
-  { id: 'harvard-with-titles', label: 'Elsevier – Harvard (with titles)' },
-];
+import { 
+  fetchSettings, 
+  saveSettings, 
+  resetSettings,
+  fetchCitationStyles 
+} from '../../store/settingsSlice';
 
 const FALLBACK = {
-  citationStyle: 'chicago-note-bibliography-short',
+  citationStyle: 'ieee',
   noteFormat: 'markdown+richtext',
   language: 'en-US',
   quickCopyAsHtml: false,
@@ -26,14 +23,26 @@ const FALLBACK = {
 
 export default function SettingsDialog({ open, onClose }) {
   const dispatch = useDispatch();
-  const { data, loading, error } = useSelector((s) => s.settings);
+  const { 
+    data, 
+    loading, 
+    error,
+    citationStyles,
+    citationStylesLoading,
+    citationStylesError
+  } = useSelector((s) => s.settings);
 
   const [local, setLocal] = React.useState(FALLBACK);
 
-  // Fetch fresh when opened
-  React.useEffect(() => { if (open) dispatch(fetchSettings()); }, [open, dispatch]);
+  // Fetch settings and citation styles when opened
+  React.useEffect(() => {
+    if (open) {
+      dispatch(fetchSettings());
+      dispatch(fetchCitationStyles());
+    }
+  }, [open, dispatch]);
 
-  // Sync form when store data changes while open
+  // Sync form when store data changes
   React.useEffect(() => {
     if (open) setLocal({ ...FALLBACK, ...data });
   }, [data, open]);
@@ -54,29 +63,44 @@ export default function SettingsDialog({ open, onClose }) {
     setLocal(FALLBACK);
   };
 
+  // Convert citation styles object to array for rendering
+  const citationStyleOptions = React.useMemo(() => {
+    return Object.entries(citationStyles).map(([id, label]) => ({
+      id,
+      label
+    }));
+  }, [citationStyles]);
+
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
         Settings
-        {loading && <CircularProgress size={18} sx={{ ml: 1 }} />}
+        {(loading || citationStylesLoading) && <CircularProgress size={18} sx={{ ml: 1 }} />}
       </DialogTitle>
 
       <DialogContent dividers>
         <Stack spacing={2}>
           {error && <Alert severity="error">{String(error)}</Alert>}
+          {citationStylesError && <Alert severity="warning">Failed to load citation styles</Alert>}
 
           <Typography variant="overline">Export / Cite</Typography>
 
-          <FormControl fullWidth disabled={loading}>
+          <FormControl fullWidth disabled={loading || citationStylesLoading}>
             <InputLabel>Citation Style</InputLabel>
             <Select
               label="Citation Style"
               value={local.citationStyle}
               onChange={setField('citationStyle')}
             >
-              {CITATION_STYLES.map((s) => (
-                <MenuItem key={s.id} value={s.id}>{s.label}</MenuItem>
-              ))}
+              {citationStyleOptions.length > 0 ? (
+                citationStyleOptions.map((s) => (
+                  <MenuItem key={s.id} value={s.id}>
+                    {s.label}
+                  </MenuItem>
+                ))
+              ) : (
+                <MenuItem value="ieee">IEEE (Loading...)</MenuItem>
+              )}
             </Select>
           </FormControl>
 

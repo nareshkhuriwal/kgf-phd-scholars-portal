@@ -21,14 +21,16 @@ import DecoupledEditor from '@ckeditor/ckeditor5-build-decoupled-document';
 import { SECTION_PLACEHOLDERS } from '../../components/reviews/sectionPlaceholders';
 import { SECTION_LIMITS } from '../../components/reviews/sectionLimits';
 import { extractCitationKeys, renumberCitations } from '../../utils/citations';
-import { syncReviewCitations, loadReviewCitationsIEEE } from '../../store/reviewsSlice';
+import { fetchSettings  } from '../../store/settingsSlice';
 import CitationPickerDialog from '../../components/citations/CitationPickerDialog';
 
 
 import {
   loadReview,
   saveReviewSection,
-  setReviewStatus
+  setReviewStatus,
+  syncReviewCitations, 
+  loadReviewCitations
 } from '../../store/reviewsSlice';
 
 import { debounce } from '../../utils/debounce';
@@ -125,6 +127,9 @@ export default function ReviewEditor() {
   const [citationOpen, setCitationOpen] = React.useState(false);
   const editorRef = React.useRef(null);
   const [citeOpen, setCiteOpen] = React.useState(false);
+  const { data: settings, loading: settingsLoading } = useSelector((s) => s.settings);
+  const citationStyle = settings?.citationStyle || 'mla'; // ✅ Default to 'mla' to match backend
+
 
 
   const [tab, setTab] = React.useState(0);
@@ -148,6 +153,19 @@ export default function ReviewEditor() {
     () => (paperId ?? current?.id ?? current?.paper_id) ?? null,
     [paperId, current]
   );
+
+    // ✅ Load settings when component mounts
+  useEffect(() => {
+    console.log('Component mounted - loading settings...');
+    dispatch(fetchSettings());
+  }, [dispatch]);
+
+  // ✅ Log when settings change
+  useEffect(() => {
+    console.log('Settings updated:', settings);
+    console.log('Current citation style:', citationStyle);
+  }, [settings, citationStyle]);
+
 
   // Auto-close sidebar on mobile/tablet
   React.useEffect(() => {
@@ -220,14 +238,31 @@ export default function ReviewEditor() {
     if (!pid || !content) return;
     if (lastSavedContentRef.current[label] === content) return;
 
-    console.log("content: ", content)
-    const citationKeys = extractCitationKeys(content);
+  console.log("Autosaving section:", label);
+  console.log("Content:", content);
 
-    await dispatch(syncReviewCitations({
-      reviewId: pid,
-      citation_keys: citationKeys
-    }));
-
+  // ✅ Only extract and sync citations for Literature Review tab
+  let citationKeys = [];
+  if (label === 'Literature Review') {
+    citationKeys = extractCitationKeys(content);
+    
+    if (citationKeys.length > 0) {
+      console.log("Found citation keys:", citationKeys);
+      
+      try {
+        await dispatch(syncReviewCitations({
+          reviewId: pid,
+          citation_keys: citationKeys
+        }));
+        console.log("Citations synced successfully");
+      } catch (error) {
+        console.error("Failed to sync citations:", error);
+        // Continue with save even if sync fails
+      }
+    } else {
+      console.log("No citations found in Literature Review");
+    }
+  }
 
     setAutoSaving(true);
 
@@ -313,32 +348,56 @@ export default function ReviewEditor() {
     done: { label: 'Completed', color: 'success' },
   };
 
-  useEffect(() => {
-    if (EDITOR_ORDER[tab] !== 'Citations' || !pid) return;
+// Replace this useEffect
+useEffect(() => {
+  if (EDITOR_ORDER[tab] !== 'Citations' || !pid) return;
 
-    dispatch(loadReviewCitationsIEEE(pid))
-      .unwrap()
-      .then((citations) => {
-        if (citations && citations.length > 0) {
-          // Use the API response directly - assuming it has a 'text' field
-          const citationHtml = citations
-            .map((citation) => {
-              // Use the text field from API response
-              return `<p>${citation.text || ''}</p>`;
-            })
-            .join('');
+  // Don't load if settings are still loading
+  if (settingsLoading) {
+    console.log('Waiting for settings to load...');
+    return;
+  }
 
-          // Update the Citations section
-          setSections(prev => ({
-            ...prev,
-            'Citations': citationHtml
-          }));
-        }
-      })
-      .catch((error) => {
-        console.error('Failed to load citations:', error);
-      });
-  }, [tab, pid, dispatch]);
+  console.log('=== Loading Citations ===');
+  console.log('Paper ID:', pid);
+  console.log('Selected citation style:', citationStyle);
+
+  dispatch(loadReviewCitations({ paperId: pid, style: citationStyle }))
+    .unwrap()
+    .then((response) => {
+      console.log('Citations API response:', response);
+      
+      // ✅ Extract citations array from response object
+      const citations = response.citations || [];
+      
+      if (citations.length > 0) {
+        const citationHtml = citations
+          .map((citation) => `<p>${citation.text}</p>`)
+          .join('');
+
+        console.log('Setting citations HTML');
+        setSections(prev => ({
+          ...prev,
+          'Citations': citationHtml
+        }));
+      } else {
+        console.log('No citations found');
+        setSections(prev => ({
+          ...prev,
+          'Citations': '<p><em>No citations found for this review.</em></p>'
+        }));
+      }
+    })
+    .catch((error) => {
+      console.error('Error loading citations:', error);
+      setSections(prev => ({
+        ...prev,
+        'Citations': '<p><em>Error loading citations. Please try again.</em></p>'
+      }));
+    });
+}, [tab, pid, citationStyle, settingsLoading, dispatch]);
+
+
   function insertCitationAtCursor(citation) {
     const editor = editorRef.current;
     if (!editor) return;
