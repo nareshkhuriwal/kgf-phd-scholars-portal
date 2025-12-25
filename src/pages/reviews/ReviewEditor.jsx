@@ -418,9 +418,9 @@ export default function ReviewEditor() {
         }
         actions={
           <Stack
-            direction={{ xs: 'column', sm: 'row' }}
+            direction={{ xs: 'column', sm: 'column', lg: 'row' }}  // Changed to lg breakpoint
             spacing={1}
-            sx={{ width: { xs: '100%', sm: 'auto' } }}
+            sx={{ width: { xs: '100%', sm: '100%', lg: 'auto' } }}  // Changed to lg breakpoint
           >
             <SaveStatus
               saving={saving}
@@ -433,7 +433,7 @@ export default function ReviewEditor() {
               variant="outlined"
               onClick={() => navigate('/reviews/queue')}
               size={isMobile ? 'small' : 'medium'}
-              fullWidth={isMobile}
+              fullWidth={!isDesktop}  // Changed: fullWidth when NOT desktop
             >
               Back
             </Button>
@@ -443,7 +443,7 @@ export default function ReviewEditor() {
               disabled={saving}
               onClick={onSaveCurrentTab}
               size={isMobile ? 'small' : 'medium'}
-              fullWidth={isMobile}
+              fullWidth={!isDesktop}  // Changed: fullWidth when NOT desktop
             >
               {saving ? 'Saving…' : isMobile ? 'Save' : `Save: ${EDITOR_ORDER[tab]}`}
             </Button>
@@ -453,7 +453,7 @@ export default function ReviewEditor() {
               color="success"
               onClick={Reviewed}
               size={isMobile ? 'small' : 'medium'}
-              fullWidth={isMobile}
+              fullWidth={!isDesktop}  // Changed: fullWidth when NOT desktop
             >
               Reviewed
             </Button>
