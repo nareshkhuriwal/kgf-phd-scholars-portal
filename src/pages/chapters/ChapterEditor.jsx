@@ -96,6 +96,10 @@ export default function ChapterEditor() {
   const [charCount, setCharCount] = React.useState(0);
   const [wordCount, setWordCount] = React.useState(0);
 
+  const [autoSaving, setAutoSaving] = React.useState(false);
+  const [lastSavedAt, setLastSavedAt] = React.useState(null);
+
+
 
   // Fetch once if needed (unconditional hook)
   React.useEffect(() => {
@@ -180,6 +184,93 @@ export default function ChapterEditor() {
     }
   };
 
+  // ---------------- AUTOSAVE CHAPTER ----------------
+  React.useEffect(() => {
+    if (!isLoaded) return;
+    if (!isDirty) return;
+    if (!body) return;
+
+    setAutoSaving(true);
+
+    const t = setTimeout(async () => {
+      try {
+        await dispatch(
+          updateChapter({
+            id: cid,
+            changes: {
+              title,
+              body_html: btoa(unescape(encodeURIComponent(body))),
+            },
+            autosave: true, // optional backend hint
+          })
+        ).unwrap();
+
+        setLastSavedAt(new Date());
+      } finally {
+        setAutoSaving(false);
+      }
+    }, 1500); // ⏱ debounce window
+
+    return () => clearTimeout(t);
+  }, [cid, title, body, isLoaded, isDirty, dispatch]);
+
+  const SaveStatus = ({ saving, autoSaving, isDirty, lastSavedAt }) => {
+    if (saving || autoSaving) {
+      return (
+        <Stack direction="row" spacing={0.75} alignItems="center">
+          <LinearProgress
+            sx={{
+              width: 60,
+              height: 3,
+              borderRadius: 1,
+            }}
+          />
+          <Typography variant="caption" color="text.secondary">
+            Saving…
+          </Typography>
+        </Stack>
+      );
+    }
+
+    if (isDirty) {
+      return (
+        <Stack direction="row" spacing={0.75} alignItems="center">
+          <Box
+            sx={{
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              bgcolor: '#ed6c02', // warning
+            }}
+          />
+          <Typography variant="caption" color="text.secondary">
+            Unsaved changes
+          </Typography>
+        </Stack>
+      );
+    }
+
+    if (lastSavedAt) {
+      return (
+        <Stack direction="row" spacing={0.75} alignItems="center">
+          <Box
+            sx={{
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              bgcolor: '#2e7d32', // success
+            }}
+          />
+          <Typography variant="caption" color="text.secondary">
+            Saved {lastSavedAt.toLocaleTimeString()}
+          </Typography>
+        </Stack>
+      );
+    }
+
+    return null;
+  };
+
 
   // ------------- render (no early return) -------------
   return (
@@ -200,6 +291,7 @@ export default function ChapterEditor() {
         <Box sx={{ px: 2, py: 1 }}>
           <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={2}>
             <Stack direction="row" alignItems="center" spacing={1}>
+
               <Tooltip title="Back">
                 <IconButton onClick={handleCancel}><ArrowBackIcon /></IconButton>
               </Tooltip>
@@ -214,6 +306,15 @@ export default function ChapterEditor() {
             </Stack>
 
             <Stack direction="row" spacing={1}>
+
+
+              <SaveStatus
+                saving={saving}
+                autoSaving={autoSaving}
+                isDirty={isDirty}
+                lastSavedAt={lastSavedAt}
+              />
+
               <Button onClick={handleCancel} disabled={!isLoaded}>Cancel</Button>
               <Button
                 startIcon={<SaveIcon />}
