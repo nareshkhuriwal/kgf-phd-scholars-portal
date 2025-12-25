@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useParams, useNavigate } from 'react-router-dom';
 
@@ -20,6 +20,10 @@ import { CKEditor } from '@ckeditor/ckeditor5-react';
 import DecoupledEditor from '@ckeditor/ckeditor5-build-decoupled-document';
 import { SECTION_PLACEHOLDERS } from '../../components/reviews/sectionPlaceholders';
 import { SECTION_LIMITS } from '../../components/reviews/sectionLimits';
+import { extractCitationKeys, renumberCitations } from '../../utils/citations';
+import { syncReviewCitations, loadReviewCitationsIEEE } from '../../store/reviewsSlice';
+import CitationPickerDialog from '../../components/citations/CitationPickerDialog';
+
 
 import {
   loadReview,
@@ -118,6 +122,10 @@ export default function ReviewEditor() {
   const [lastSavedAt, setLastSavedAt] = React.useState(null);
   const lastSavedContentRef = React.useRef({});
   const hydratedRef = React.useRef(false);
+  const [citationOpen, setCitationOpen] = React.useState(false);
+  const editorRef = React.useRef(null);
+  const [citeOpen, setCiteOpen] = React.useState(false);
+
 
   const [tab, setTab] = React.useState(0);
 
@@ -207,9 +215,19 @@ export default function ReviewEditor() {
     return sections[activeLabel] !== (current.review_sections?.[activeLabel] || '');
   }, [sections, activeLabel, current]);
 
+
   const triggerAutosave = React.useCallback(async (label, content) => {
     if (!pid || !content) return;
     if (lastSavedContentRef.current[label] === content) return;
+
+    console.log("content: ", content)
+    const citationKeys = extractCitationKeys(content);
+
+    await dispatch(syncReviewCitations({
+      reviewId: pid,
+      citation_keys: citationKeys
+    }));
+
 
     setAutoSaving(true);
 
@@ -219,7 +237,7 @@ export default function ReviewEditor() {
           paperId: pid,
           section_key: label,
           html: btoa(unescape(encodeURIComponent(content))),
-          autosave: true,
+          citation_keys: citationKeys,
         })
       ).unwrap();
 
@@ -240,13 +258,17 @@ export default function ReviewEditor() {
 
   const onEditorChange = React.useCallback((label, editor) => {
     const data = editor.getData();
-    debouncedSetSectionsRef.current(label, data);
-    debouncedAutosave(label, data);
+    console.log("before normalized: ", data)
+    const normalizedHtml = renumberCitations(data);
+    console.log("normalizedHtml: ", normalizedHtml)
+    debouncedSetSectionsRef.current(label, normalizedHtml);
+    debouncedAutosave(label, normalizedHtml);
   }, [debouncedAutosave]);
 
   React.useEffect(() => {
     const activeLabel = EDITOR_ORDER[tab];
     const html = sections[activeLabel] || '';
+    console.log("html before clean: ", html)
     const text = html.replace(/<[^>]*>/g, '').trim();
     setCharCount(text.length);
 
@@ -290,6 +312,66 @@ export default function ReviewEditor() {
     in_progress: { label: 'In Progress', color: 'warning' },
     done: { label: 'Completed', color: 'success' },
   };
+
+  useEffect(() => {
+    if (EDITOR_ORDER[tab] !== 'Citations' || !pid) return;
+
+    dispatch(loadReviewCitationsIEEE(pid))
+      .unwrap()
+      .then((citations) => {
+        if (citations && citations.length > 0) {
+          // Use the API response directly - assuming it has a 'text' field
+          const citationHtml = citations
+            .map((citation) => {
+              // Use the text field from API response
+              return `<p>${citation.text || ''}</p>`;
+            })
+            .join('');
+
+          // Update the Citations section
+          setSections(prev => ({
+            ...prev,
+            'Citations': citationHtml
+          }));
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to load citations:', error);
+      });
+  }, [tab, pid, dispatch]);
+  function insertCitationAtCursor(citation) {
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    editor.model.change((writer) => {
+      const selection = editor.model.document.selection;
+      const position = selection.getFirstPosition();
+
+      // Create the span element with attributes
+      const span = writer.createElement('htmlSpan', {
+        dataCite: citation.citation_key,
+        className: 'citation-token'
+      });
+
+      // Create text node and append to span
+      const textNode = writer.createText(`[${citation.citation_key}]`);
+      writer.append(textNode, span);
+
+      // Insert the span
+      writer.insert(span, position);
+
+      // Insert non-breaking space after
+      const nbsp = writer.createText('\u00A0');
+      const afterSpan = writer.createPositionAfter(span);
+      writer.insert(nbsp, afterSpan);
+
+      // Move selection after the space
+      const finalPosition = writer.createPositionAfter(nbsp);
+      writer.setSelection(finalPosition);
+    });
+
+    console.log("Citation inserted:", citation.citation_key);
+  }
 
   const SaveStatus = ({ saving, autoSaving, isDirty, lastSavedAt }) => {
     if (saving || autoSaving) {
@@ -564,6 +646,7 @@ export default function ReviewEditor() {
                   saving={saving}
                   sidebarOpen={sidebarOpen}
                   onToggleSidebar={() => setSidebarOpen(v => !v)}
+                  onInsertCitation={() => setCiteOpen(true)}
                 />
 
                 <Tabs
@@ -631,6 +714,10 @@ export default function ReviewEditor() {
                               data={sections[label] || ''}
                               config={editorConfig}
                               onReady={(editor) => {
+                                editorRef.current = editor;
+                                editor.on('openCitationPicker', () => {
+                                  setCitationOpen(true);
+                                })
                                 if (toolbarRef.current) {
                                   toolbarRef.current.innerHTML = '';
                                   toolbarRef.current.appendChild(editor.ui.view.toolbar.element);
@@ -696,6 +783,18 @@ export default function ReviewEditor() {
           )}
         </Grid>
       </Box>
+
+
+      <CitationPickerDialog
+        open={citeOpen}
+        onClose={() => setCiteOpen(false)}
+        onSelect={(citation) => {
+          insertCitationAtCursor(citation);
+          setCiteOpen(false);
+        }}
+      />
+
+
 
       {/* COMMENTS below work pane */}
       <Box sx={{ mt: 2, px: { xs: 1, sm: 1.5 }, pb: 4 }}>
