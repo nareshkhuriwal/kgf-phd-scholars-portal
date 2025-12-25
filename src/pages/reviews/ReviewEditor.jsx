@@ -2,14 +2,13 @@ import React from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useParams, useNavigate } from 'react-router-dom';
 
-
 import {
   Box, Paper, Grid, Typography, Button, Stack, Chip, Alert,
-  Tabs, Tab, Divider, IconButton, Tooltip
+  Tabs, Tab, Divider, IconButton, Tooltip, useMediaQuery, useTheme
 } from '@mui/material';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import MenuIcon from '@mui/icons-material/Menu';
 import makeEditorConfig from '../../pages/reviews/EditorConfig';
-
 
 import PageHeader from '../../components/PageHeader';
 import ReviewToolbar from '../../components/reviews/ReviewToolbar';
@@ -17,17 +16,15 @@ import ReviewSidebar from '../../components/reviews/ReviewSidebar';
 import PdfPane from '../../components/pdf/PdfPane';
 import CommentsPanel from '../../components/comments/CommentsPanel';
 
-
 import { CKEditor } from '@ckeditor/ckeditor5-react';
-// import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
 import DecoupledEditor from '@ckeditor/ckeditor5-build-decoupled-document';
 import { SECTION_PLACEHOLDERS } from '../../components/reviews/sectionPlaceholders';
 import { SECTION_LIMITS } from '../../components/reviews/sectionLimits';
 
 import {
   loadReview,
-  saveReviewSection,   // save only the active tab
-  setReviewStatus      // mark complete / pending
+  saveReviewSection,
+  setReviewStatus
 } from '../../store/reviewsSlice';
 
 import { debounce } from '../../utils/debounce';
@@ -67,11 +64,9 @@ const pickFirst = (obj, keys) => {
 };
 
 // ---- Height dials ----
-const WORKPANE_VH = 50;   // fixed work area height (viewport-based)
-const WORKPANE_MIN = 600; // absolute minimum height
+const WORKPANE_VH = 50;
+const WORKPANE_MIN = 600;
 
-
-// Replace the getCountMeta function (around line 71-91)
 const getCountMeta = (sectionLabel, wordCount, charCount) => {
   const limits = SECTION_LIMITS[sectionLabel] || {};
 
@@ -101,38 +96,40 @@ const getCountMeta = (sectionLabel, wordCount, charCount) => {
   };
 };
 
-
-
-
 export default function ReviewEditor() {
   const { paperId } = useParams();
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const theme = useTheme();
+  
+  // Responsive breakpoints
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
+  const isDesktop = useMediaQuery(theme.breakpoints.up('lg'));
+  
   const { current, error } = useSelector((s) => s.reviews || {});
-  const [sidebarOpen, setSidebarOpen] = React.useState(true);
+  const [sidebarOpen, setSidebarOpen] = React.useState(false); // Start closed on mobile/tablet
+  const [pdfOpen, setPdfOpen] = React.useState(true);
   const [charCount, setCharCount] = React.useState(0);
-  const toolbarRef = React.useRef(null);
-  // Add this state variable (around line 108)
   const [wordCount, setWordCount] = React.useState(0);
+  const toolbarRef = React.useRef(null);
 
   const [autoSaving, setAutoSaving] = React.useState(false);
   const [lastSavedAt, setLastSavedAt] = React.useState(null);
-const lastSavedContentRef = React.useRef({});
-const hydratedRef = React.useRef(false);
+  const lastSavedContentRef = React.useRef({});
+  const hydratedRef = React.useRef(false);
 
-
-
-  console.log("current: ", current)
   const [tab, setTab] = React.useState(0);
 
   const [sections, setSections] = React.useState(() => {
-    const init = {}; EDITOR_ORDER.forEach((k) => (init[k] = ''));
+    const init = {};
+    EDITOR_ORDER.forEach((k) => (init[k] = ''));
     return init;
   });
 
-
   const [editorKeys] = React.useState(() => {
-    const o = {}; EDITOR_ORDER.forEach((k) => (o[k] = `ck-${k.replace(/\W+/g, '_')}`));
+    const o = {};
+    EDITOR_ORDER.forEach((k) => (o[k] = `ck-${k.replace(/\W+/g, '_')}`));
     return o;
   });
 
@@ -144,6 +141,16 @@ const hydratedRef = React.useRef(false);
     [paperId, current]
   );
 
+  // Auto-close sidebar on mobile/tablet
+  React.useEffect(() => {
+    if (!isDesktop) {
+      setSidebarOpen(false);
+      setPdfOpen(false);
+    } else {
+      setPdfOpen(true);
+    }
+  }, [isDesktop]);
+
   React.useEffect(() => {
     const blockEnterSubmit = (e) => {
       if (e.key === 'Enter' && e.target?.closest('.ck')) {
@@ -154,7 +161,6 @@ const hydratedRef = React.useRef(false);
     return () => document.removeEventListener('keydown', blockEnterSubmit, true);
   }, []);
 
-
   const editorConfig = React.useMemo(() => {
     const label = EDITOR_ORDER[tab];
     return makeEditorConfig(
@@ -163,15 +169,12 @@ const hydratedRef = React.useRef(false);
     );
   }, [pid, tab]);
 
+  React.useEffect(() => {
+    dispatch(loadReview(paperId));
+  }, [dispatch, paperId]);
 
-
-  // Load paper/review once
-  React.useEffect(() => { dispatch(loadReview(paperId)); }, [dispatch, paperId]);
-
-  // Hydrate editor data when review loads/changes
   React.useEffect(() => {
     if (!current || hydratedRef.current) return;
-    if (!current) return;
     const obj = {};
     if (current.review_sections && typeof current.review_sections === 'object') {
       EDITOR_ORDER.forEach((k) => (obj[k] = current.review_sections[k] || ''));
@@ -185,11 +188,10 @@ const hydratedRef = React.useRef(false);
     hydratedRef.current = true;
   }, [current]);
 
-  // Debounced change handler – prevents parent re-render on every keystroke
   const debouncedSetSectionsRef = React.useRef(
     debounce((label, value) => {
       setSections(prev => (prev[label] === value ? prev : { ...prev, [label]: value }));
-    }, 250) // tweak delay as needed
+    }, 250)
   );
 
   React.useEffect(() => {
@@ -197,15 +199,7 @@ const hydratedRef = React.useRef(false);
     return () => d && d.cancel && d.cancel();
   }, []);
 
-  // const onEditorChange = React.useCallback((label, editor) => {
-  //   debouncedSetSectionsRef.current(label, editor.getData());
-  // }, []);
-
-  const activeLabel = React.useMemo(
-    () => EDITOR_ORDER[tab],
-    [tab]
-  );
-
+  const activeLabel = React.useMemo(() => EDITOR_ORDER[tab], [tab]);
   const activeHtml = sections[activeLabel] || '';
 
   const isDirty = React.useMemo(() => {
@@ -213,116 +207,83 @@ const hydratedRef = React.useRef(false);
     return sections[activeLabel] !== (current.review_sections?.[activeLabel] || '');
   }, [sections, activeLabel, current]);
 
+  const triggerAutosave = React.useCallback(async (label, content) => {
+    if (!pid || !content) return;
+    if (lastSavedContentRef.current[label] === content) return;
 
-  // ---------------- AUTOSAVE CURRENT SECTION ----------------
-  // React.useEffect(() => {
-  //   if (!pid) return;
-  //   if (!activeLabel) return;
-  //   if (!activeHtml) return;
+    setAutoSaving(true);
 
-  //   setAutoSaving(true);
+    try {
+      await dispatch(
+        saveReviewSection({
+          paperId: pid,
+          section_key: label,
+          html: btoa(unescape(encodeURIComponent(content))),
+          autosave: true,
+        })
+      ).unwrap();
 
-  //   const t = setTimeout(async () => {
-  //     try {
-  //       await dispatch(
-  //         saveReviewSection({
-  //           paperId: pid,
-  //           section_key: activeLabel,
-  //           html: btoa(unescape(encodeURIComponent(activeHtml))),
-  //           autosave: true, // optional flag for backend
-  //         })
-  //       ).unwrap();
+      lastSavedContentRef.current[label] = content;
+      setSavedOnce(true);
+      setLastSavedAt(new Date());
+    } catch (error) {
+      console.error('Autosave failed:', error);
+    } finally {
+      setAutoSaving(false);
+    }
+  }, [pid, dispatch]);
 
-  //       setSavedOnce(true);
-  //       setLastSavedAt(new Date());
-  //     } finally {
-  //       setAutoSaving(false);
-  //     }
-  //   }, 1000); // ⏱ debounce window (same as MyPaperEditor)
+  const debouncedAutosave = React.useMemo(
+    () => debounce(triggerAutosave, 2000),
+    [triggerAutosave]
+  );
 
-  //   return () => clearTimeout(t);
-  // }, [pid, activeLabel, activeHtml, dispatch]);
+  const onEditorChange = React.useCallback((label, editor) => {
+    const data = editor.getData();
+    debouncedSetSectionsRef.current(label, data);
+    debouncedAutosave(label, data);
+  }, [debouncedAutosave]);
 
-// After the line: const [lastSavedAt, setLastSavedAt] = React.useState(null);
-
-const triggerAutosave = React.useCallback(async (label, content) => {
-  if (!pid || !content) return;
-  
-  // Don't save if content hasn't changed
-  if (lastSavedContentRef.current[label] === content) return;
-
-  setAutoSaving(true);
-  
-  try {
-    await dispatch(
-      saveReviewSection({
-        paperId: pid,
-        section_key: label,
-        html: btoa(unescape(encodeURIComponent(content))),
-        autosave: true,
-      })
-    ).unwrap();
-
-    lastSavedContentRef.current[label] = content;
-    setSavedOnce(true);
-    setLastSavedAt(new Date());
-  } catch (error) {
-    console.error('Autosave failed:', error);
-  } finally {
-    setAutoSaving(false);
-  }
-}, [pid, dispatch]);
-
-// Debounced autosave
-const debouncedAutosave = React.useMemo(
-  () => debounce(triggerAutosave, 2000),
-  [triggerAutosave]
-);
-
-  // Replace the onEditorChange callback (around line 162-171)
-const onEditorChange = React.useCallback((label, editor) => {
-  const data = editor.getData();
-  debouncedSetSectionsRef.current(label, data);
-  debouncedAutosave(label, data);
-}, [debouncedAutosave]);
-
-
-  // Add this effect after your other useEffects (around line 230)
   React.useEffect(() => {
     const activeLabel = EDITOR_ORDER[tab];
     const html = sections[activeLabel] || '';
     const text = html.replace(/<[^>]*>/g, '').trim();
     setCharCount(text.length);
-    
+
     const words = text.split(/\s+/).filter(word => word.length > 0);
     setWordCount(words.length);
-  }, [sections, tab]); // Update counts when sections change, not during typing
+  }, [sections, tab]);
 
-
-  // Save only CURRENT tab
   const onSaveCurrentTab = async () => {
     const activeLabel = EDITOR_ORDER[tab];
     const activeHtml = sections[activeLabel] || '';
     setSaving(true);
     try {
       await dispatch(
-        saveReviewSection({ paperId, section_key: activeLabel, html: btoa(unescape(encodeURIComponent(activeHtml))) })
+        saveReviewSection({
+          paperId,
+          section_key: activeLabel,
+          html: btoa(unescape(encodeURIComponent(activeHtml)))
+        })
       ).unwrap();
       setSavedOnce(true);
-    } finally { setSaving(false); }
+    } finally {
+      setSaving(false);
+    }
   };
 
-  // Reviewed
   const Reviewed = async () => {
     setSaving(true);
     try {
       await dispatch(setReviewStatus({ paperId, status: 'done' })).unwrap();
       setSavedOnce(true);
-    } finally { setSaving(false); }
+    } finally {
+      setSaving(false);
+    }
   };
+
   const ellipsize = (str, max = 40) =>
     str && str.length > max ? `${str.slice(0, max)}…` : str;
-
 
   const STATUS_META = {
     draft: { label: 'Draft', color: 'default' },
@@ -339,7 +300,7 @@ const onEditorChange = React.useCallback((label, editor) => {
           alignItems="center"
           sx={{ transition: 'opacity 0.2s ease-in-out' }}
         >
-          <Box sx={{ width: 60 }}>
+          <Box sx={{ width: { xs: 40, sm: 60 } }}>
             <Divider
               sx={{
                 height: 3,
@@ -348,7 +309,7 @@ const onEditorChange = React.useCallback((label, editor) => {
               }}
             />
           </Box>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' } }}>
             Saving…
           </Typography>
         </Stack>
@@ -363,10 +324,10 @@ const onEditorChange = React.useCallback((label, editor) => {
               width: 8,
               height: 8,
               borderRadius: '50%',
-              bgcolor: '#ed6c02', // warning amber
+              bgcolor: '#ed6c02',
             }}
           />
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' } }}>
             Unsaved changes
           </Typography>
         </Stack>
@@ -381,10 +342,10 @@ const onEditorChange = React.useCallback((label, editor) => {
               width: 8,
               height: 8,
               borderRadius: '50%',
-              bgcolor: '#2e7d32', // success green
+              bgcolor: '#2e7d32',
             }}
           />
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' } }}>
             Saved {lastSavedAt.toLocaleTimeString()}
           </Typography>
         </Stack>
@@ -394,16 +355,18 @@ const onEditorChange = React.useCallback((label, editor) => {
     return null;
   };
 
-
   return (
-    // Use minHeight so the page can grow with comments below
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      {/* Responsive Header */}
       <PageHeader
-        title={current?.title || 'Review Editor'}
+        title={
+          <Typography variant={isMobile ? 'h6' : 'h5'} sx={{ fontWeight: 600 }}>
+            {current?.title || 'Review Editor'}
+          </Typography>
+        }
         subtitle={
           <Stack spacing={0.5}>
-            {/* Line 1: Authors / Year / Journal */}
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
               {[
                 current?.authors,
                 current?.year,
@@ -411,13 +374,13 @@ const onEditorChange = React.useCallback((label, editor) => {
               ].filter(Boolean).join(' • ') || 'Compose your literature review'}
             </Typography>
 
-            {/* Line 2: Meta chips */}
             <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap">
               {current?.area && (
                 <Chip
                   size="small"
                   label={current.area}
                   variant="outlined"
+                  sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}
                 />
               )}
 
@@ -426,15 +389,17 @@ const onEditorChange = React.useCallback((label, editor) => {
                   size="small"
                   label={current.category}
                   variant="outlined"
+                  sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}
                 />
               )}
 
-              {current?.doi && (
+              {!isMobile && current?.doi && (
                 <Tooltip title={current.doi}>
                   <Chip
                     size="small"
                     label={`DOI: ${ellipsize(current.doi, 20)}`}
                     variant="outlined"
+                    sx={{ fontSize: '0.75rem' }}
                   />
                 </Tooltip>
               )}
@@ -445,16 +410,18 @@ const onEditorChange = React.useCallback((label, editor) => {
                   label={STATUS_META[current.status]?.label ?? current.status}
                   color={STATUS_META[current.status]?.color ?? 'default'}
                   variant="outlined"
+                  sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}
                 />
               )}
             </Stack>
           </Stack>
         }
-
         actions={
-          <Stack direction="row" spacing={1}>
-            {/* {savedOnce && <Chip label="Saved" size="small" color="success" variant="outlined" />} */}
-
+          <Stack 
+            direction={{ xs: 'column', sm: 'row' }} 
+            spacing={1} 
+            sx={{ width: { xs: '100%', sm: 'auto' } }}
+          >
             <SaveStatus
               saving={saving}
               autoSaving={autoSaving}
@@ -462,11 +429,32 @@ const onEditorChange = React.useCallback((label, editor) => {
               lastSavedAt={lastSavedAt}
             />
 
-            <Button variant="outlined" onClick={() => navigate('/reviews/queue')}>Back to Queue</Button>
-            <Button variant="contained" disabled={saving} onClick={onSaveCurrentTab}>
-              {saving ? 'Saving…' : `Save: ${EDITOR_ORDER[tab]}`}
+            <Button 
+              variant="outlined" 
+              onClick={() => navigate('/reviews/queue')}
+              size={isMobile ? 'small' : 'medium'}
+              fullWidth={isMobile}
+            >
+              Back
             </Button>
-            <Button variant="outlined" color="success" onClick={Reviewed}>
+            
+            <Button 
+              variant="contained" 
+              disabled={saving} 
+              onClick={onSaveCurrentTab}
+              size={isMobile ? 'small' : 'medium'}
+              fullWidth={isMobile}
+            >
+              {saving ? 'Saving…' : isMobile ? 'Save' : `Save: ${EDITOR_ORDER[tab]}`}
+            </Button>
+            
+            <Button 
+              variant="outlined" 
+              color="success" 
+              onClick={Reviewed}
+              size={isMobile ? 'small' : 'medium'}
+              fullWidth={isMobile}
+            >
               Reviewed
             </Button>
           </Stack>
@@ -475,176 +463,226 @@ const onEditorChange = React.useCallback((label, editor) => {
 
       {error && <Alert severity="error" sx={{ mx: 1.5, mb: 1 }}>{String(error)}</Alert>}
 
+      {/* Mobile/Tablet View Toggle Buttons */}
+      {!isDesktop && (
+        <Stack direction="row" spacing={1} sx={{ px: 1.5, py: 1 }}>
+          <Button
+            variant={pdfOpen ? 'contained' : 'outlined'}
+            size="small"
+            onClick={() => {
+              setPdfOpen(true);
+              setSidebarOpen(false);
+            }}
+            fullWidth
+          >
+            PDF
+          </Button>
+          <Button
+            variant={!pdfOpen && !sidebarOpen ? 'contained' : 'outlined'}
+            size="small"
+            onClick={() => {
+              setPdfOpen(false);
+              setSidebarOpen(false);
+            }}
+            fullWidth
+          >
+            Editor
+          </Button>
+          <Button
+            variant={sidebarOpen ? 'contained' : 'outlined'}
+            size="small"
+            onClick={() => {
+              setPdfOpen(false);
+              setSidebarOpen(true);
+            }}
+            fullWidth
+          >
+            Info
+          </Button>
+        </Stack>
+      )}
+
       {/* WORK PANE */}
       <Box
         sx={{
           flex: '0 0 auto',
-          height: { xs: 'min(150vh, 900px)', md: `${WORKPANE_VH}vh` },
-          minHeight: WORKPANE_MIN,
-          p: 1.5,
-          position: 'relative',          // ⬅️ for the floating reopen button
+          height: {
+            xs: 'auto',
+            md: `${WORKPANE_VH}vh`
+          },
+          minHeight: { xs: 400, md: WORKPANE_MIN },
+          p: { xs: 1, md: 1.5 },
+          position: 'relative',
         }}
       >
-
-        <Grid container spacing={1.5} sx={{ p: 1.5, height: '100%', overflow: 'hidden' }}>
-          {/* LEFT: PDF */}
-          <Grid item xs={12} lg={6} sx={{ height: '100%', minHeight: 300 }}>
-            <PdfPane
-              fileUrl={current?.pdf_url || current?.file_url || ''}
-              paperId={pid}
-            />
-          </Grid>
-
-          {/* CENTER: Editors – grow when sidebar is hidden */}
-          <Grid
-            item
-            xs={12}
-            lg={sidebarOpen ? 4 : 6}
-            sx={{
-              height: '100%',
-              minHeight: 320,
-              display: 'flex',
-              flexDirection: 'column',
-              transition: 'all 0.25s ease-in-out', // smooth resize
-            }}
-          >
-            <Paper
-              sx={{
-                flex: 1,
-                minHeight: 0,
-                border: '1px solid #eee',
-                borderRadius: 2,
-                display: 'flex',
-                flexDirection: 'column',
+        <Grid container spacing={{ xs: 1, md: 1.5 }} sx={{ height: '100%', overflow: 'hidden' }}>
+          {/* LEFT: PDF - Desktop always shown, Mobile/Tablet conditional */}
+          {(isDesktop || pdfOpen) && (
+            <Grid 
+              item 
+              xs={12} 
+              lg={sidebarOpen ? 6 : (isDesktop ? 6 : 12)}
+              sx={{ 
+                height: '100%', 
+                minHeight: { xs: 400, md: 300 },
+                display: { xs: pdfOpen ? 'block' : 'none', lg: 'block' }
               }}
             >
-              <ReviewToolbar
-                onSave={onSaveCurrentTab}
-                saving={saving}
-                sidebarOpen={sidebarOpen}
-                onToggleSidebar={() => setSidebarOpen(v => !v)}
+              <PdfPane
+                fileUrl={current?.pdf_url || current?.file_url || ''}
+                paperId={pid}
               />
+            </Grid>
+          )}
 
-              <Tabs
-                value={tab}
-                onChange={(_, v) => setTab(v)}
-                variant="scrollable"
-                scrollButtons
-                allowScrollButtonsMobile
-                sx={{ px: 1, '.MuiTabs-flexContainer': { flexWrap: 'nowrap' }, minHeight: 40 }}
-              >
-                {EDITOR_ORDER.map((label) => (
-                  <Tab key={label} label={label} sx={{ minHeight: 40 }} />
-                ))}
-              </Tabs>
-
-              <Divider />
-
-              <Box
-                ref={toolbarRef}
+          {/* CENTER: Editors */}
+          {(isDesktop || (!pdfOpen && !sidebarOpen)) && (
+            <Grid
+              item
+              xs={12}
+              lg={sidebarOpen ? 4 : 6}
+              sx={{
+                height: '100%',
+                minHeight: { xs: 400, md: 320 },
+                display: 'flex',
+                flexDirection: 'column',
+                transition: 'all 0.25s ease-in-out',
+              }}
+            >
+              <Paper
                 sx={{
-                  borderBottom: '1px solid #eee',
-                  backgroundColor: '#fafafa',
-                  px: 1,
-                  py: 0.5,
-                  '& .ck-toolbar': { border: 'none' }
+                  flex: 1,
+                  minHeight: 0,
+                  border: '1px solid #eee',
+                  borderRadius: 2,
+                  display: 'flex',
+                  flexDirection: 'column',
                 }}
-              />
+              >
+                <ReviewToolbar
+                  onSave={onSaveCurrentTab}
+                  saving={saving}
+                  sidebarOpen={sidebarOpen}
+                  onToggleSidebar={() => setSidebarOpen(v => !v)}
+                />
 
+                <Tabs
+                  value={tab}
+                  onChange={(_, v) => setTab(v)}
+                  variant="scrollable"
+                  scrollButtons
+                  allowScrollButtonsMobile
+                  sx={{
+                    px: 1,
+                    '.MuiTabs-flexContainer': { flexWrap: 'nowrap' },
+                    minHeight: { xs: 36, sm: 40 },
+                    '.MuiTab-root': {
+                      fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                      minHeight: { xs: 36, sm: 40 },
+                      px: { xs: 1, sm: 2 }
+                    }
+                  }}
+                >
+                  {EDITOR_ORDER.map((label) => (
+                    <Tab key={label} label={label} />
+                  ))}
+                </Tabs>
 
-              <Box sx={{ flex: 1, minHeight: 0, p: 1.5 }}>
-                {EDITOR_ORDER.map((label, i) => (
-                  <Box key={editorKeys[label]} role="tabpanel" hidden={tab !== i} sx={{ height: '100%' }}>
-                    <Box
-                      sx={{
-                        height: '100%',
-                        display: 'flex',
-                        flexDirection: 'column',
-                      }}
-                    >
+                <Divider />
 
-                      {tab === i && (
-                        <Box
-                          sx={{
-                            flex: 1,
-                            minHeight: 0,
-                            overflow: 'auto',
-                            '& .ck-editor__editable': {
-                              minHeight: '300px',
-                              padding: '16px',
-                              borderRadius: 6,
-                            },
-                          }}
-                        >
-                          <CKEditor
-                            key={editorKeys[label]}
-                            editor={DecoupledEditor}
-                            data={sections[label] || ''}
-                            config={editorConfig}
-                            onReady={(editor) => {
-                              if (toolbarRef.current) {
-                                toolbarRef.current.innerHTML = '';
-                                toolbarRef.current.appendChild(editor.ui.view.toolbar.element);
-                              }
-                            }}
-                            // Update the onChange in CKEditor (around line 320-329)
-                            // onChange={(_, editor) => {
-                            //   const data = editor.getData();
-                            //   const text = data.replace(/<[^>]*>/g, '').trim();
-                            //   setCharCount(text.length);
+                <Box
+                  ref={toolbarRef}
+                  sx={{
+                    borderBottom: '1px solid #eee',
+                    backgroundColor: '#fafafa',
+                    px: { xs: 0.5, sm: 1 },
+                    py: 0.5,
+                    '& .ck-toolbar': { border: 'none' }
+                  }}
+                />
 
-                            //   // Count words
-                            //   const words = text.split(/\s+/).filter(word => word.length > 0);
-                            //   setWordCount(words.length);
-
-                            //   debouncedSetSectionsRef.current(label, data);
-                            // }}
-                            onChange={(_, editor) => onEditorChange(label, editor)}
-
-
-                          />
-                        </Box>
-
-                      )}
-                      {(() => {
-                        const activeLabel = EDITOR_ORDER[tab];
-                        const meta = getCountMeta(activeLabel, wordCount, charCount);
-
-
-                        return (
-                          <Typography
-                            variant="caption"
+                <Box sx={{ flex: 1, minHeight: 0, p: { xs: 1, sm: 1.5 } }}>
+                  {EDITOR_ORDER.map((label, i) => (
+                    <Box key={editorKeys[label]} role="tabpanel" hidden={tab !== i} sx={{ height: '100%' }}>
+                      <Box
+                        sx={{
+                          height: '100%',
+                          display: 'flex',
+                          flexDirection: 'column',
+                        }}
+                      >
+                        {tab === i && (
+                          <Box
                             sx={{
-                              mt: 0.5,
-                              px: 1,
-                              py: 0.25,
-                              textAlign: 'right',
-                              color: meta.color,
-                              backgroundColor: '#fafafa',
-                              borderTop: '1px solid #eee',
-                              fontWeight: (meta.color === '#2e7d32') ? 600 : 400,
-
-                              display: 'block'
+                              flex: 1,
+                              minHeight: 0,
+                              overflow: 'auto',
+                              '& .ck-editor__editable': {
+                                minHeight: { xs: '250px', sm: '300px' },
+                                padding: { xs: '12px', sm: '16px' },
+                                borderRadius: 6,
+                                fontSize: { xs: '0.875rem', sm: '1rem' }
+                              },
                             }}
                           >
-                            {meta.label}
-                          </Typography>
-                        );
-                      })()}
+                            <CKEditor
+                              key={editorKeys[label]}
+                              editor={DecoupledEditor}
+                              data={sections[label] || ''}
+                              config={editorConfig}
+                              onReady={(editor) => {
+                                if (toolbarRef.current) {
+                                  toolbarRef.current.innerHTML = '';
+                                  toolbarRef.current.appendChild(editor.ui.view.toolbar.element);
+                                }
+                              }}
+                              onChange={(_, editor) => onEditorChange(label, editor)}
+                            />
+                          </Box>
+                        )}
 
+                        {(() => {
+                          const activeLabel = EDITOR_ORDER[tab];
+                          const meta = getCountMeta(activeLabel, wordCount, charCount);
 
-
+                          return (
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                mt: 0.5,
+                                px: 1,
+                                py: 0.25,
+                                textAlign: 'right',
+                                color: meta.color,
+                                backgroundColor: '#fafafa',
+                                borderTop: '1px solid #eee',
+                                fontWeight: (meta.color === '#2e7d32') ? 600 : 400,
+                                display: 'block',
+                                fontSize: { xs: '0.65rem', sm: '0.75rem' }
+                              }}
+                            >
+                              {meta.label}
+                            </Typography>
+                          );
+                        })()}
+                      </Box>
                     </Box>
-                  </Box>
-                ))}
-              </Box>
-            </Paper>
-          </Grid>
+                  ))}
+                </Box>
+              </Paper>
+            </Grid>
+          )}
 
-          {/* RIGHT: Metadata sidebar – hidden completely when closed */}
+          {/* RIGHT: Metadata sidebar */}
           {sidebarOpen && (
-
-            <Grid item xs={12} lg={2}>
+            <Grid 
+              item 
+              xs={12} 
+              lg={2}
+              sx={{
+                display: { xs: sidebarOpen && !pdfOpen ? 'block' : 'none', lg: 'block' }
+              }}
+            >
               <ReviewSidebar
                 paper={current}
                 open={sidebarOpen}
@@ -657,11 +695,10 @@ const onEditorChange = React.useCallback((label, editor) => {
             </Grid>
           )}
         </Grid>
-
       </Box>
 
-      {/* COMMENTS below work pane (page scrolls) */}
-      <Box sx={{ mt: 2, px: 1.5, pb: 4 }}>
+      {/* COMMENTS below work pane */}
+      <Box sx={{ mt: 2, px: { xs: 1, sm: 1.5 }, pb: 4 }}>
         <CommentsPanel paperId={paperId} />
       </Box>
     </Box>
