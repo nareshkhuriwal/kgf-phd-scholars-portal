@@ -115,6 +115,11 @@ export default function ReviewEditor() {
   // Add this state variable (around line 108)
   const [wordCount, setWordCount] = React.useState(0);
 
+  const [autoSaving, setAutoSaving] = React.useState(false);
+  const [lastSavedAt, setLastSavedAt] = React.useState(null);
+
+
+
   console.log("current: ", current)
   const [tab, setTab] = React.useState(0);
 
@@ -192,6 +197,50 @@ export default function ReviewEditor() {
   //   debouncedSetSectionsRef.current(label, editor.getData());
   // }, []);
 
+  const activeLabel = React.useMemo(
+    () => EDITOR_ORDER[tab],
+    [tab]
+  );
+
+  const activeHtml = sections[activeLabel] || '';
+
+  const isDirty = React.useMemo(() => {
+    if (!current) return false;
+    return sections[activeLabel] !== (current.review_sections?.[activeLabel] || '');
+  }, [sections, activeLabel, current]);
+
+
+  // ---------------- AUTOSAVE CURRENT SECTION ----------------
+  React.useEffect(() => {
+    if (!pid) return;
+    if (!activeLabel) return;
+    if (!activeHtml) return;
+
+    setAutoSaving(true);
+
+    const t = setTimeout(async () => {
+      try {
+        await dispatch(
+          saveReviewSection({
+            paperId: pid,
+            section_key: activeLabel,
+            html: btoa(unescape(encodeURIComponent(activeHtml))),
+            autosave: true, // optional flag for backend
+          })
+        ).unwrap();
+
+        setSavedOnce(true);
+        setLastSavedAt(new Date());
+      } finally {
+        setAutoSaving(false);
+      }
+    }, 1500); // ⏱ debounce window (same as MyPaperEditor)
+
+    return () => clearTimeout(t);
+  }, [pid, activeLabel, activeHtml, dispatch]);
+
+
+
   // Replace the onEditorChange callback (around line 162-171)
   const onEditorChange = React.useCallback((label, editor) => {
     const data = editor.getData();
@@ -250,6 +299,70 @@ export default function ReviewEditor() {
     draft: { label: 'Draft', color: 'default' },
     in_progress: { label: 'In Progress', color: 'warning' },
     done: { label: 'Completed', color: 'success' },
+  };
+
+  const SaveStatus = ({ saving, autoSaving, isDirty, lastSavedAt }) => {
+    if (saving || autoSaving) {
+      return (
+        <Stack
+          direction="row"
+          spacing={0.75}
+          alignItems="center"
+          sx={{ transition: 'opacity 0.2s ease-in-out' }}
+        >
+          <Box sx={{ width: 60 }}>
+            <Divider
+              sx={{
+                height: 3,
+                borderRadius: 1,
+                bgcolor: 'primary.main',
+              }}
+            />
+          </Box>
+          <Typography variant="caption" color="text.secondary">
+            Saving…
+          </Typography>
+        </Stack>
+      );
+    }
+
+    if (isDirty) {
+      return (
+        <Stack direction="row" spacing={0.75} alignItems="center">
+          <Box
+            sx={{
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              bgcolor: '#ed6c02', // warning amber
+            }}
+          />
+          <Typography variant="caption" color="text.secondary">
+            Unsaved changes
+          </Typography>
+        </Stack>
+      );
+    }
+
+    if (lastSavedAt) {
+      return (
+        <Stack direction="row" spacing={0.75} alignItems="center">
+          <Box
+            sx={{
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              bgcolor: '#2e7d32', // success green
+            }}
+          />
+          <Typography variant="caption" color="text.secondary">
+            Saved {lastSavedAt.toLocaleTimeString()}
+          </Typography>
+        </Stack>
+      );
+    }
+
+    return null;
   };
 
 
@@ -311,7 +424,15 @@ export default function ReviewEditor() {
 
         actions={
           <Stack direction="row" spacing={1}>
-            {savedOnce && <Chip label="Saved" size="small" color="success" variant="outlined" />}
+            {/* {savedOnce && <Chip label="Saved" size="small" color="success" variant="outlined" />} */}
+
+            <SaveStatus
+              saving={saving}
+              autoSaving={autoSaving}
+              isDirty={isDirty}
+              lastSavedAt={lastSavedAt}
+            />
+
             <Button variant="outlined" onClick={() => navigate('/reviews/queue')}>Back to Queue</Button>
             <Button variant="contained" disabled={saving} onClick={onSaveCurrentTab}>
               {saving ? 'Saving…' : `Save: ${EDITOR_ORDER[tab]}`}
