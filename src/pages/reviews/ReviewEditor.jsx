@@ -118,6 +118,7 @@ export default function ReviewEditor() {
   const [autoSaving, setAutoSaving] = React.useState(false);
   const [lastSavedAt, setLastSavedAt] = React.useState(null);
 const lastSavedContentRef = React.useRef({});
+const hydratedRef = React.useRef(false);
 
 
 
@@ -169,6 +170,7 @@ const lastSavedContentRef = React.useRef({});
 
   // Hydrate editor data when review loads/changes
   React.useEffect(() => {
+    if (!current || hydratedRef.current) return;
     if (!current) return;
     const obj = {};
     if (current.review_sections && typeof current.review_sections === 'object') {
@@ -180,6 +182,7 @@ const lastSavedContentRef = React.useRef({});
       });
     }
     setSections(obj);
+    hydratedRef.current = true;
   }, [current]);
 
   // Debounced change handler – prevents parent re-render on every keystroke
