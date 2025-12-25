@@ -9,6 +9,8 @@ import {
   uploadPaperFile,
   deletePapersBulk
 } from '../services/papersService';
+import { apiFetch } from '../services/api';
+
 
 const arr = (v) => (Array.isArray(v) ? v : Array.isArray(v?.data) ? v.data : []);
 const obj = (v) => (v && typeof v === 'object' && 'data' in v ? v.data : v);
@@ -124,6 +126,20 @@ export const removePapersBulk = createAsyncThunk('papers/removeBulk', async (ids
   }
 });
 
+// ✅ NEW: Load citation types
+export const loadCitationTypes = createAsyncThunk(
+  'papers/loadCitationTypes',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await apiFetch('/citation-types');
+      return Array.isArray(response) ? response : response?.data || [];
+    } catch (e) {
+      return rejectWithValue(msg(e));
+    }
+  }
+);
+
+
 // ───────────────────────────── State ─────────────────────────────
 const initial = {
   list: [],
@@ -135,6 +151,13 @@ const initial = {
   // upload states (for create/edit with file or attachFile)
   uploading: false,
   progress: null, // 0..100 (number) or null
+
+    // ✅ NEW: Citation types state
+  citationTypes: [],
+  citationTypesLoading: false,
+  citationTypesError: null,
+
+
 };
 
 const papersSlice = createSlice({
@@ -143,7 +166,13 @@ const papersSlice = createSlice({
   reducers: {
     clearCurrent: (s) => { s.current = null; },
     // allow services to dispatch progress updates if they wish
-    setUploadProgress: (s, a) => { s.progress = typeof a.payload === 'number' ? a.payload : null; }
+    setUploadProgress: (s, a) => { s.progress = typeof a.payload === 'number' ? a.payload : null; },
+        // ✅ NEW: Clear citation types (optional)
+    clearCitationTypes: (s) => {
+      s.citationTypes = [];
+      s.citationTypesError = null;
+    }
+
   },
   extraReducers: (b) => {
     b
@@ -211,7 +240,24 @@ const papersSlice = createSlice({
         const removedIds = a.payload || [];
         s.list = s.list.filter((p) => !removedIds.includes(p.id));
         if (s.current && removedIds.includes(s.current.id)) s.current = null;
+      })
+
+      // ✅ NEW: Citation Types
+      .addCase(loadCitationTypes.pending, (s) => {
+        s.citationTypesLoading = true;
+        s.citationTypesError = null;
+      })
+      .addCase(loadCitationTypes.fulfilled, (s, a) => {
+        s.citationTypesLoading = false;
+        s.citationTypes = a.payload;
+        console.log('Citation types loaded:', a.payload.length);
+      })
+      .addCase(loadCitationTypes.rejected, (s, a) => {
+        s.citationTypesLoading = false;
+        s.citationTypesError = a.payload;
+        console.error('Failed to load citation types:', a.payload);
       });
+
   }
 });
 

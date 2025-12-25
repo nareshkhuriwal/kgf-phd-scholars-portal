@@ -1,17 +1,24 @@
 // src/pages/PaperForm.jsx
 import React from 'react';
-import { useForm } from 'react-hook-form';
 import { useDispatch, useSelector } from 'react-redux';
-import { addPaper, editPaper, loadPaper, clearCurrent } from '../../store/papersSlice';
+import { useForm, Controller } from 'react-hook-form';
+
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   AppBar, Toolbar, Paper as MUIPaper, Box, Typography, Grid,
-  TextField, Button, CircularProgress, Divider, Stack, Chip
+  TextField, Button, CircularProgress, Divider, Stack, Chip, FormControl, InputLabel, Select, MenuItem, FormHelperText
 } from '@mui/material';
 import AttachmentIcon from '@mui/icons-material/Attachment';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { attachPaperFile } from '../../store/papersSlice';
 import { useLocation } from 'react-router-dom';
+import { 
+  addPaper, 
+  editPaper, 
+  loadPaper, 
+  clearCurrent,
+  loadCitationTypes // ✅ Add this import
+} from '../../store/papersSlice';
 
 
 
@@ -46,14 +53,29 @@ export default function PaperForm({ mode = 'create' }) {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { paperId } = useParams();
-  const { current, loading, uploading, progress } = useSelector((s) => s.papers || {});
 
-  const { register, handleSubmit, reset, setError, formState: { errors, isSubmitting } } =
+  // ✅ Load citation types
+  const [loadingTypes, setLoadingTypes] = React.useState(false);
+
+  // ✅ Get citation types from Redux
+  const { 
+    current, 
+    loading, 
+    uploading, 
+    progress,
+    citationTypes = [], // ✅ Default to empty array
+    citationTypesLoading = false,
+    citationTypesError = null
+  } = useSelector((s) => s.papers || {});
+
+  const { register, handleSubmit, reset, setError, control, formState: { errors, isSubmitting } } =
     useForm({
       defaultValues: {
         place: 'N/A',
+        citation_type_code: '',
       },
     });
+
 
   const location = useLocation();
   const navState = location.state;
@@ -69,6 +91,29 @@ export default function PaperForm({ mode = 'create' }) {
     if (current?.pdf_url) return { url: current.pdf_url, name: 'Attached PDF', size: null };
     return null;
   }, [current]);
+
+  // ✅ Load citation types on mount with debug logging
+  React.useEffect(() => {
+    console.log('Dispatching loadCitationTypes...');
+    dispatch(loadCitationTypes())
+      .then((result) => {
+        console.log('loadCitationTypes result:', result);
+      })
+      .catch((error) => {
+        console.error('loadCitationTypes error:', error);
+      });
+  }, [dispatch]);
+
+  // ✅ Debug log when citation types change
+  React.useEffect(() => {
+    console.log('Citation types updated:', {
+      citationTypes,
+      length: citationTypes?.length,
+      loading: citationTypesLoading,
+      error: citationTypesError
+    });
+  }, [citationTypes, citationTypesLoading, citationTypesError]);
+
 
   React.useEffect(() => {
     if (mode === 'edit' && paperId) dispatch(loadPaper(paperId));
@@ -93,6 +138,8 @@ export default function PaperForm({ mode = 'create' }) {
         issue: current.issue ?? '',
         page_no: current.page_no ?? '',
         category: current.category ?? '',
+        citation_type_code: current.citation_type_code ?? '',
+
       });
     }
   }, [current, mode, reset]);
@@ -192,6 +239,7 @@ export default function PaperForm({ mode = 'create' }) {
             </Box>
           ) : (
             <Grid container spacing={2}>
+
               {SINGLE_LINE_FIELDS.map(({ key, label }) => {
                 const rules = key === 'title' ? { required: 'Title is required' } : {};
 
@@ -208,6 +256,43 @@ export default function PaperForm({ mode = 'create' }) {
                   </Grid>
                 );
               })}
+
+
+                            {/* ✅ Citation Type Dropdown */}
+              <Grid item xs={12} md={6}>
+                <Controller
+                  name="citation_type_code"
+                  control={control}
+                  rules={{ required: 'Citation type is required' }}
+                  render={({ field }) => (
+                    <FormControl fullWidth error={!!errors.citation_type_code}>
+                      <InputLabel shrink>Citation Type *</InputLabel>
+                      <Select
+                        {...field}
+                        label="Citation Type"
+                        displayEmpty
+                        disabled={citationTypesLoading}
+                      >
+                        <MenuItem value="">
+                          <em>{citationTypesLoading ? 'Loading...' : 'Select Citation Type'}</em>
+                        </MenuItem>
+                        {citationTypes.map((type) => (
+                          <MenuItem key={type.code} value={type.code}>
+                            {type.label}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                      {errors.citation_type_code && (
+                        <FormHelperText>{errors.citation_type_code.message}</FormHelperText>
+                      )}
+                      {citationTypesError && (
+                        <FormHelperText>Failed to load citation types</FormHelperText>
+                      )}
+                    </FormControl>
+                  )}
+                />
+              </Grid>
+
 
             </Grid>
           )}
