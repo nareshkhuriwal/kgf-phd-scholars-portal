@@ -81,14 +81,14 @@ export function buildCitationMap(citations) {
     
     if (citationKey) {
       map[citationKey] = {
-        id: citation.id,
+        id: citation.citation_id,
         citation_key: citationKey,
         title: citation.title,
         authors: citation.authors,
         year: citation.year,
         ...citation
       };
-      console.log(`Mapped citation: ${citationKey} -> ID ${citation.id}`);
+      console.log(`Mapped citation: ${citationKey} -> ID ${citation.citation_id}`);
     } else {
       console.warn('Citation missing citation_key:', citation);
     }
