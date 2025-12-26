@@ -42,6 +42,7 @@ import {
   Pie,
   Cell,
 } from 'recharts';
+import { hasRoleAccess } from '../../utils/rbac';
 
 const StatCard = ({ label, value }) => (
   <Paper sx={{ p: 2, border: '1px solid #eee', borderRadius: 2 }}>
@@ -61,9 +62,12 @@ export default function Overview() {
   let mode = 'overview'; // /dashboard
   if (path.includes('/dashboard/researchers')) mode = 'researchers';
   else if (path.includes('/dashboard/supervisors')) mode = 'supervisors';
+  else if (path.includes('/dashboard/admins')) mode = 'admins';
 
   const { user } = useSelector((s) => s.auth || {});
-  const role = user?.role; // 'researcher' | 'supervisor' | 'admin'
+  const role = user?.role; // 'researcher' | 'supervisor' | 'admin' | 'superuser'
+  
+  console.log('Dashboard mode:', mode, 'for role:', role);
 
   const {
     loadingSummary,
@@ -82,6 +86,7 @@ export default function Overview() {
 
   const supervisors = filters?.supervisors || [];
   const researchers = filters?.researchers || [];
+  const admins = filters?.admins || [];
 
   const [viewMode, setViewMode] = React.useState('daily'); // 'daily' | 'weekly'
 
@@ -90,9 +95,10 @@ export default function Overview() {
   // Secondary dropdown: specific user id
   const [selectedUserId, setSelectedUserId] = React.useState('');
 
-  // -------- Load filters whenever we might need specific users --------
+  // -------- Load filters for supervisor/admin/superuser --------
   React.useEffect(() => {
-    if (role === 'admin' || role === 'supervisor') {
+    if (role === 'supervisor' || role === 'admin' || role === 'superuser') {
+      console.log('Loading filters for role:', role);
       dispatch(loadDashboardFilters());
     }
   }, [dispatch, role]);
@@ -102,22 +108,30 @@ export default function Overview() {
     if (!role) return;
 
     if (mode === 'overview') {
-      if (role === 'admin') {
-        setPrimaryKey('OV_ALL'); // org overview
+      if (role === 'superuser' || role === 'admin') {
+        setPrimaryKey('OV_ALL');
+      } else if (role === 'supervisor') {
+        setPrimaryKey('OV_SELF');
       } else {
-        setPrimaryKey('OV_SELF'); // own dashboard
+        setPrimaryKey('OV_SELF');
       }
     } else if (mode === 'researchers') {
       if (role === 'supervisor') {
-        setPrimaryKey('RES_ALL_MY'); // all my researchers
-      } else if (role === 'admin') {
-        setPrimaryKey('RES_ALL'); // all researchers
+        setPrimaryKey('RES_ALL_MY');
+      } else if (role === 'admin' || role === 'superuser') {
+        setPrimaryKey('RES_ALL');
       } else {
         setPrimaryKey('OV_SELF');
       }
     } else if (mode === 'supervisors') {
-      if (role === 'admin') {
-        setPrimaryKey('SUP_ALL'); // all supervisors
+      if (role === 'admin' || role === 'superuser') {
+        setPrimaryKey('SUP_ALL');
+      } else {
+        setPrimaryKey('OV_SELF');
+      }
+    } else if (mode === 'admins') {
+      if (role === 'superuser') {
+        setPrimaryKey('ADM_ALL');
       } else {
         setPrimaryKey('OV_SELF');
       }
@@ -128,31 +142,71 @@ export default function Overview() {
 
   // -------- Primary dropdown options per (mode, role) --------
   const primaryOptions = React.useMemo(() => {
-    if (role === 'researcher') return [];
+    console.log('🔍 primaryOptions calculating...', {
+      role,
+      mode,
+    });
+
+    // Researcher should NOT see dropdowns
+    if (role === 'researcher') {
+      console.log('❌ Returning empty - is researcher');
+      return [];
+    }
 
     if (mode === 'overview') {
-      if (role === 'admin') {
+      console.log('✅ Mode is overview, checking role...');
+      
+      if (role === 'superuser') {
+        console.log('✅ Is superuser');
         return [
-          { value: 'OV_ALL', label: 'All supervisors & researchers' },
+          { value: 'OV_SELF', label: 'My own activity' },
+          { value: 'OV_ALL', label: 'All users (admins + supervisors + researchers)' },
+          { value: 'OV_SPEC_ADMIN', label: 'Specific admin' },
           { value: 'OV_SPEC_SUP', label: 'Specific supervisor' },
           { value: 'OV_SPEC_RES', label: 'Specific researcher' },
         ];
       }
+      
+      if (role === 'admin') {
+        console.log('✅ Is admin');
+        return [
+          { value: 'OV_SELF', label: 'My own activity' },
+          { value: 'OV_ALL', label: 'All my supervisors & researchers' },
+          { value: 'OV_SPEC_SUP', label: 'Specific supervisor' },
+          { value: 'OV_SPEC_RES', label: 'Specific researcher' },
+        ];
+      }
+      
       if (role === 'supervisor') {
+        console.log('✅ Is supervisor - returning options');
         return [
           { value: 'OV_SELF', label: 'My own activity' },
           { value: 'OV_MY_RESEARCHERS', label: 'All my researchers' },
+          { value: 'OV_ALL', label: 'Me + All my researchers' },
+          { value: 'OV_SPEC_RES', label: 'Specific researcher' },
         ];
       }
+      
+      console.log('❌ Role not matched in overview:', role);
     }
 
     if (mode === 'researchers') {
+      console.log('✅ Mode is researchers');
+      
+      if (role === 'superuser') {
+        return [
+          { value: 'RES_ALL', label: 'All researchers' },
+          { value: 'RES_SPEC', label: 'Specific researcher' },
+        ];
+      }
+      
       if (role === 'supervisor') {
         return [
           { value: 'RES_ALL_MY', label: 'All my researchers' },
           { value: 'RES_SPEC', label: 'Specific researcher' },
         ];
       }
+      
       if (role === 'admin') {
         return [
           { value: 'RES_ALL', label: 'All researchers' },
@@ -162,7 +216,9 @@ export default function Overview() {
     }
 
     if (mode === 'supervisors') {
-      if (role === 'admin') {
+      console.log('✅ Mode is supervisors');
+      
+      if (role === 'superuser' || role === 'admin') {
         return [
           { value: 'SUP_ALL', label: 'All supervisors' },
           { value: 'SUP_SPEC', label: 'Specific supervisor' },
@@ -170,6 +226,18 @@ export default function Overview() {
       }
     }
 
+    if (mode === 'admins') {
+      console.log('✅ Mode is admins');
+      
+      if (role === 'superuser') {
+        return [
+          { value: 'ADM_ALL', label: 'All admins' },
+          { value: 'ADM_SPEC', label: 'Specific admin' },
+        ];
+      }
+    }
+
+    console.log('❌ Returning empty - no condition matched');
     return [];
   }, [mode, role]);
 
@@ -177,27 +245,34 @@ export default function Overview() {
   const { showUserDropdown, userDropdownLabel, userOptions } = React.useMemo(() => {
     const labelUser = (u) => u?.name || u?.email || `User #${u?.id}`;
 
-    // default
     let show = false;
     let label = '';
     let options = [];
 
+    // Researcher should NOT see any dropdowns
     if (role === 'researcher') {
       return { showUserDropdown: false, userDropdownLabel: '', userOptions: [] };
     }
 
-    // overview: only admin can pick specific
-    if (mode === 'overview' && role === 'admin') {
-      if (primaryKey === 'OV_SPEC_SUP') {
+    // Overview mode
+    if (mode === 'overview') {
+      if (primaryKey === 'OV_SPEC_ADMIN') {
         show = true;
-        label = 'Supervisor';
+        label = 'Select Admin';
+        options = admins.map((a) => ({
+          value: String(a.id),
+          label: labelUser(a),
+        }));
+      } else if (primaryKey === 'OV_SPEC_SUP') {
+        show = true;
+        label = 'Select Supervisor';
         options = supervisors.map((s) => ({
           value: String(s.id),
           label: labelUser(s),
         }));
       } else if (primaryKey === 'OV_SPEC_RES') {
         show = true;
-        label = 'Researcher';
+        label = 'Select Researcher';
         options = researchers.map((r) => ({
           value: String(r.id),
           label: labelUser(r),
@@ -205,11 +280,11 @@ export default function Overview() {
       }
     }
 
-    // researchers dashboard
+    // Researchers dashboard
     if (mode === 'researchers') {
       if (primaryKey === 'RES_SPEC') {
         show = true;
-        label = 'Researcher';
+        label = 'Select Researcher';
         options = researchers.map((r) => ({
           value: String(r.id),
           label: labelUser(r),
@@ -217,11 +292,11 @@ export default function Overview() {
       }
     }
 
-    // supervisors dashboard
+    // Supervisors dashboard
     if (mode === 'supervisors') {
       if (primaryKey === 'SUP_SPEC') {
         show = true;
-        label = 'Supervisor';
+        label = 'Select Supervisor';
         options = supervisors.map((s) => ({
           value: String(s.id),
           label: labelUser(s),
@@ -229,8 +304,20 @@ export default function Overview() {
       }
     }
 
+    // Admins dashboard
+    if (mode === 'admins') {
+      if (primaryKey === 'ADM_SPEC') {
+        show = true;
+        label = 'Select Admin';
+        options = admins.map((a) => ({
+          value: String(a.id),
+          label: labelUser(a),
+        }));
+      }
+    }
+
     return { showUserDropdown: show, userDropdownLabel: label, userOptions: options };
-  }, [mode, role, primaryKey, supervisors, researchers]);
+  }, [mode, role, primaryKey, supervisors, researchers, admins]);
 
   // -------- Map selection -> API scope + targetUserId + header labels --------
   const config = React.useMemo(() => {
@@ -242,7 +329,7 @@ export default function Overview() {
     let scope = 'self';
     let targetUserId = null;
 
-    // researcher: always self
+    // Researcher: always self
     if (role === 'researcher') {
       if (mode === 'researchers') {
         title = 'Researchers Dashboard';
@@ -256,13 +343,61 @@ export default function Overview() {
     // OVERVIEW mode
     if (mode === 'overview') {
       title = 'Dashboard';
-      if (role === 'admin') {
+
+      if (role === 'superuser') {
+        title = 'Dashboard – Overview';
+        subtitle = 'System-wide activity at a glance';
+
+        if (primaryKey === 'OV_SELF') {
+          scope = 'self';
+          chip = 'My dashboard';
+        } else if (primaryKey === 'OV_ALL' || !primaryKey) {
+          scope = 'all';
+          chip = 'All users (admins + supervisors + researchers)';
+        } else if (primaryKey === 'OV_SPEC_ADMIN') {
+          if (!selectedUserId) {
+            scope = null;
+            chip = 'Select an admin';
+          } else {
+            const id = Number(selectedUserId);
+            const a = admins.find((x) => x.id === id);
+            scope = 'admin';
+            targetUserId = id;
+            chip = a ? `Admin – ${labelUser(a)}` : `Admin #${id}`;
+          }
+        } else if (primaryKey === 'OV_SPEC_SUP') {
+          if (!selectedUserId) {
+            scope = null;
+            chip = 'Select a supervisor';
+          } else {
+            const id = Number(selectedUserId);
+            const s = supervisors.find((x) => x.id === id);
+            scope = 'supervisor';
+            targetUserId = id;
+            chip = s ? `Supervisor – ${labelUser(s)}` : `Supervisor #${id}`;
+          }
+        } else if (primaryKey === 'OV_SPEC_RES') {
+          if (!selectedUserId) {
+            scope = null;
+            chip = 'Select a researcher';
+          } else {
+            const id = Number(selectedUserId);
+            const r = researchers.find((x) => x.id === id);
+            scope = 'researcher';
+            targetUserId = id;
+            chip = r ? `Researcher – ${labelUser(r)}` : `Researcher #${id}`;
+          }
+        }
+      } else if (role === 'admin') {
         title = 'Dashboard – Overview';
         subtitle = 'Organisation-wide activity at a glance';
 
-        if (primaryKey === 'OV_ALL' || !primaryKey) {
+        if (primaryKey === 'OV_SELF') {
+          scope = 'self';
+          chip = 'My dashboard';
+        } else if (primaryKey === 'OV_ALL' || !primaryKey) {
           scope = 'all';
-          chip = 'All supervisors & researchers';
+          chip = 'All my supervisors & researchers';
         } else if (primaryKey === 'OV_SPEC_SUP') {
           if (!selectedUserId) {
             scope = null;
@@ -288,13 +423,27 @@ export default function Overview() {
         }
       } else if (role === 'supervisor') {
         subtitle = 'Your research activity and your team at a glance';
+
         if (primaryKey === 'OV_SELF' || !primaryKey) {
           scope = 'self';
           chip = 'My dashboard';
         } else if (primaryKey === 'OV_MY_RESEARCHERS') {
           scope = 'my_researchers';
-          targetUserId = user?.id || null;
           chip = 'All my researchers';
+        } else if (primaryKey === 'OV_ALL') {
+          scope = 'all';
+          chip = 'Me + All my researchers';
+        } else if (primaryKey === 'OV_SPEC_RES') {
+          if (!selectedUserId) {
+            scope = null;
+            chip = 'Select a researcher';
+          } else {
+            const id = Number(selectedUserId);
+            const r = researchers.find((x) => x.id === id);
+            scope = 'researcher';
+            targetUserId = id;
+            chip = r ? `Researcher – ${labelUser(r)}` : `Researcher #${id}`;
+          }
         }
       }
 
@@ -309,7 +458,6 @@ export default function Overview() {
       if (role === 'supervisor') {
         if (primaryKey === 'RES_ALL_MY' || !primaryKey) {
           scope = 'my_researchers';
-          targetUserId = user?.id || null;
           chip = 'All my researchers';
         } else if (primaryKey === 'RES_SPEC') {
           if (!selectedUserId) {
@@ -323,7 +471,7 @@ export default function Overview() {
             chip = r ? `Researcher – ${labelUser(r)}` : `Researcher #${id}`;
           }
         }
-      } else if (role === 'admin') {
+      } else if (role === 'admin' || role === 'superuser') {
         if (primaryKey === 'RES_ALL' || !primaryKey) {
           scope = 'all_researchers';
           chip = 'All researchers';
@@ -349,7 +497,7 @@ export default function Overview() {
       title = 'Supervisors Dashboard';
       subtitle = 'Monitor supervisor activity and coverage';
 
-      if (role === 'admin') {
+      if (role === 'admin' || role === 'superuser') {
         if (primaryKey === 'SUP_ALL' || !primaryKey) {
           scope = 'all_supervisors';
           chip = 'All supervisors';
@@ -370,16 +518,34 @@ export default function Overview() {
       return { title, subtitle, chip, scope, targetUserId };
     }
 
+    // ADMINS dashboard
+    if (mode === 'admins') {
+      title = 'Admins Dashboard';
+      subtitle = 'Monitor admin activity and management';
+
+      if (role === 'superuser') {
+        if (primaryKey === 'ADM_ALL' || !primaryKey) {
+          scope = 'all_admins';
+          chip = 'All admins';
+        } else if (primaryKey === 'ADM_SPEC') {
+          if (!selectedUserId) {
+            scope = null;
+            chip = 'Select an admin';
+          } else {
+            const id = Number(selectedUserId);
+            const a = admins.find((x) => x.id === id);
+            scope = 'admin';
+            targetUserId = id;
+            chip = a ? `Admin – ${labelUser(a)}` : `Admin #${id}`;
+          }
+        }
+      }
+
+      return { title, subtitle, chip, scope, targetUserId };
+    }
+
     return { title, subtitle, chip, scope, targetUserId };
-  }, [
-    mode,
-    role,
-    primaryKey,
-    selectedUserId,
-    user,
-    supervisors,
-    researchers,
-  ]);
+  }, [mode, role, primaryKey, selectedUserId, supervisors, researchers, admins]);
 
   const { title, subtitle, chip, scope, targetUserId } = config;
 
@@ -399,10 +565,12 @@ export default function Overview() {
     const L = daily?.labels || [];
     const A = daily?.added || [];
     const R = daily?.reviewed || [];
+    const S = daily?.started || [];
     return L.map((x, i) => ({
       label: x,
       added: A[i] ?? 0,
       reviewed: R[i] ?? 0,
+      started: S[i] ?? 0,
     }));
   }, [daily]);
 
@@ -410,10 +578,12 @@ export default function Overview() {
     const L = weekly?.labels || [];
     const A = weekly?.added || [];
     const R = weekly?.reviewed || [];
+    const S = weekly?.started || [];
     return L.map((x, i) => ({
       label: x,
       added: A[i] ?? 0,
       reviewed: R[i] ?? 0,
+      started: S[i] ?? 0,
     }));
   }, [weekly]);
 
@@ -431,7 +601,14 @@ export default function Overview() {
     '#A78BFA',
   ];
 
+  // Show dropdown for supervisor, admin, and superuser ONLY
   const showPrimaryDropdown = role !== 'researcher' && primaryOptions.length > 0;
+  
+  console.log('🔍 Dropdown visibility:', {
+    role,
+    showPrimaryDropdown,
+    primaryOptionsCount: primaryOptions.length,
+  });
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -461,7 +638,7 @@ export default function Overview() {
             <Typography variant="body2" color="text.secondary">
               {subtitle}
             </Typography>
-            {/* {chip && (
+            {chip && (
               <Chip
                 size="small"
                 label={chip}
@@ -469,7 +646,7 @@ export default function Overview() {
                 variant="outlined"
                 sx={{ mt: 0.5, alignSelf: 'flex-start' }}
               />
-            )} */}
+            )}
           </Stack>
 
           {/* Right side: dropdown(s) */}
@@ -627,6 +804,15 @@ export default function Overview() {
                       dot={false}
                       name="Reviewed"
                     />
+                    <Line
+                      type="monotone"
+                      dataKey="started"
+                      stroke="#F59E0B"
+                      strokeWidth={2}
+                      dot={false}
+                      name="In Review"
+                    />  
+
                   </LineChart>
                 </ResponsiveContainer>
               </Box>
@@ -735,6 +921,8 @@ export default function Overview() {
                     <Legend />
                     <Bar dataKey="added" name="Added" fill="#60A5FA" />
                     <Bar dataKey="reviewed" name="Reviewed" fill="#34D399" />
+                    <Bar dataKey="started" name="In Review" fill="#FBBF24" />
+
                   </BarChart>
                 </ResponsiveContainer>
               </Box>

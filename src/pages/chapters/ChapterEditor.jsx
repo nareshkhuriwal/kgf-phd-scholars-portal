@@ -23,7 +23,8 @@ import { CKEditor } from '@ckeditor/ckeditor5-react';
 import DecoupledEditor from '@ckeditor/ckeditor5-build-decoupled-document';
 
 const CHAR_WARN = 150;
-const CHAR_GOOD = 300;
+const CHAR_GOOD = 1000;
+const WORD_TARGET = 150;   // recommended minimum words
 
 const getCharMeta = (count) => {
   if (count > CHAR_GOOD) {
@@ -46,6 +47,33 @@ const getCharMeta = (count) => {
   };
 };
 
+
+const getWordCharMeta = (wordCount, charCount) => {
+  const wordsOk = wordCount >= WORD_TARGET;
+  const charsOk = charCount >= CHAR_GOOD;
+
+  if (wordsOk && charsOk) {
+    return {
+      color: '#2e7d32',
+      label: `Words: ${wordCount} ✓ | Characters: ${charCount} ✓`
+    };
+  }
+
+  if (wordsOk || charsOk) {
+    return {
+      color: '#ed6c02',
+      label: `Words: ${wordCount}${wordsOk ? ' ✓' : ''} | Characters: ${charCount}${charsOk ? ' ✓' : ''}`
+    };
+  }
+
+  return {
+    color: '#6b7280',
+    label: `Words: ${wordCount} / ${WORD_TARGET}+ | Characters: ${charCount} / ${CHAR_GOOD}+`
+  };
+};
+
+
+
 export default function ChapterEditor() {
   const { id } = useParams();
   const cid = Number(id);
@@ -66,6 +94,11 @@ export default function ChapterEditor() {
   const openToast = (severity, msg) => setToast({ open: true, severity, msg });
   const closeToast = () => setToast((t) => ({ ...t, open: false }));
   const [charCount, setCharCount] = React.useState(0);
+  const [wordCount, setWordCount] = React.useState(0);
+
+  const [autoSaving, setAutoSaving] = React.useState(false);
+  const [lastSavedAt, setLastSavedAt] = React.useState(null);
+
 
 
   // Fetch once if needed (unconditional hook)
@@ -77,6 +110,7 @@ export default function ChapterEditor() {
     if (chapter?.body_html) {
       const text = chapter.body_html.replace(/<[^>]*>/g, '').trim();
       setCharCount(text.length);
+      setWordCount(text ? text.split(/\s+/).length : 0);
     }
   }, [chapter?.id]);
 
@@ -150,6 +184,93 @@ export default function ChapterEditor() {
     }
   };
 
+  // ---------------- AUTOSAVE CHAPTER ----------------
+  React.useEffect(() => {
+    if (!isLoaded) return;
+    if (!isDirty) return;
+    if (!body) return;
+
+    setAutoSaving(true);
+
+    const t = setTimeout(async () => {
+      try {
+        await dispatch(
+          updateChapter({
+            id: cid,
+            changes: {
+              title,
+              body_html: btoa(unescape(encodeURIComponent(body))),
+            },
+            autosave: true, // optional backend hint
+          })
+        ).unwrap();
+
+        setLastSavedAt(new Date());
+      } finally {
+        setAutoSaving(false);
+      }
+    }, 1500); // ⏱ debounce window
+
+    return () => clearTimeout(t);
+  }, [cid, title, body, isLoaded, isDirty, dispatch]);
+
+  const SaveStatus = ({ saving, autoSaving, isDirty, lastSavedAt }) => {
+    if (saving || autoSaving) {
+      return (
+        <Stack direction="row" spacing={0.75} alignItems="center">
+          <LinearProgress
+            sx={{
+              width: 60,
+              height: 3,
+              borderRadius: 1,
+            }}
+          />
+          <Typography variant="caption" color="text.secondary">
+            Saving…
+          </Typography>
+        </Stack>
+      );
+    }
+
+    if (isDirty) {
+      return (
+        <Stack direction="row" spacing={0.75} alignItems="center">
+          <Box
+            sx={{
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              bgcolor: '#ed6c02', // warning
+            }}
+          />
+          <Typography variant="caption" color="text.secondary">
+            Unsaved changes
+          </Typography>
+        </Stack>
+      );
+    }
+
+    if (lastSavedAt) {
+      return (
+        <Stack direction="row" spacing={0.75} alignItems="center">
+          <Box
+            sx={{
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              bgcolor: '#2e7d32', // success
+            }}
+          />
+          <Typography variant="caption" color="text.secondary">
+            Saved {lastSavedAt.toLocaleTimeString()}
+          </Typography>
+        </Stack>
+      );
+    }
+
+    return null;
+  };
+
 
   // ------------- render (no early return) -------------
   return (
@@ -170,6 +291,7 @@ export default function ChapterEditor() {
         <Box sx={{ px: 2, py: 1 }}>
           <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={2}>
             <Stack direction="row" alignItems="center" spacing={1}>
+
               <Tooltip title="Back">
                 <IconButton onClick={handleCancel}><ArrowBackIcon /></IconButton>
               </Tooltip>
@@ -184,6 +306,15 @@ export default function ChapterEditor() {
             </Stack>
 
             <Stack direction="row" spacing={1}>
+
+
+              <SaveStatus
+                saving={saving}
+                autoSaving={autoSaving}
+                isDirty={isDirty}
+                lastSavedAt={lastSavedAt}
+              />
+
               <Button onClick={handleCancel} disabled={!isLoaded}>Cancel</Button>
               <Button
                 startIcon={<SaveIcon />}
@@ -319,15 +450,16 @@ export default function ChapterEditor() {
                 onChange={(_, editor) => {
                   const data = editor.getData();
                   setBody(data);
-
                   const text = data.replace(/<[^>]*>/g, '').trim();
                   setCharCount(text.length);
+                  setWordCount(text ? text.split(/\s+/).length : 0);
+
                 }}
 
               />
 
               {(() => {
-                const meta = getCharMeta(charCount);
+                const meta = getWordCharMeta(wordCount, charCount);
 
                 return (
                   <Box
@@ -348,15 +480,17 @@ export default function ChapterEditor() {
                       variant="caption"
                       sx={{
                         color: meta.color,
-                        fontWeight: charCount > 150 ? 600 : 400,
+                        fontWeight: (wordCount >= WORD_TARGET || charCount >= CHAR_GOOD) ? 600 : 400,
                       }}
                     >
                       {meta.label}
                     </Typography>
 
+
                     <Typography variant="caption" color="text.secondary">
-                      Recommended: 300+
+                      Recommended: {WORD_TARGET}+ words • {CHAR_GOOD}+ characters
                     </Typography>
+
                   </Box>
                 );
               })()}

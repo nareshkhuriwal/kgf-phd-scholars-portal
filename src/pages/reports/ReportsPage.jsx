@@ -18,6 +18,10 @@ import EditIcon from '@mui/icons-material/Edit';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ReportPreviewDialog from '../../components/reports/ReportPreviewDialog';
+import { useTheme, useMediaQuery } from '@mui/material';
+import { initialsOf } from '../../utils/text/cleanRich';
+
+const PAGINATION_KEY = 'savedReports.pagination';
 
 export default function SavedReports() {
   const dispatch = useDispatch();
@@ -29,21 +33,77 @@ export default function SavedReports() {
 
 
   const [query, setQuery] = React.useState('');
-  const [page, setPage] = React.useState(0);
-  const [rpp, setRpp] = React.useState(10);
+  // const [page, setPage] = React.useState(0);
+  // const [rpp, setRpp] = React.useState(10);
+
+  const persisted = React.useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem(PAGINATION_KEY)) || {};
+    } catch {
+      return {};
+    }
+  }, []);
+
+  const [page, setPage] = React.useState(persisted.page ?? 0);
+  const [rpp, setRpp] = React.useState(persisted.rpp ?? 10);
+
   const [snack, setSnack] = React.useState(null);
   const [previewOpen, setPreviewOpen] = React.useState(false);
   const [previewData, setPreviewData] = React.useState(null);
   const [selectedReport, setSelectedReport] = React.useState(null);
+  const [previewError, setPreviewError] = React.useState(null);
+
+  const userRole = useSelector(s => s.auth?.user?.role);
+  const isResearcher = userRole === 'researcher';
+
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
+
 
   // NEW: delete confirm state
   const [confirm, setConfirm] = React.useState(null); // { id, name } | null
 
   React.useEffect(() => { dispatch(loadSavedReports()); }, [dispatch]);
 
-  const filtered = (saved || []).filter(r =>
-    [r.name, r.template, r.format, r.filename].filter(Boolean).join(' ').toLowerCase().includes(query.toLowerCase())
-  );
+  // const filtered = (saved || []).filter(r =>
+  //   [r.name, r.template, r.format, r.filename].filter(Boolean).join(' ').toLowerCase().includes(query.toLowerCase())
+  // );
+
+
+  React.useEffect(() => {
+    if (query) setPage(0);
+  }, [query]);
+
+
+  const filtered = React.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return saved || [];
+
+    return (saved || []).filter(r =>
+      [r.name, r.template, r.format, r.filename]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(q)
+    );
+  }, [saved, query]);
+
+  React.useEffect(() => {
+    localStorage.setItem(
+      PAGINATION_KEY,
+      JSON.stringify({ page, rpp })
+    );
+  }, [page, rpp]);
+
+  React.useEffect(() => {
+    if (!filtered.length) return;
+
+    const maxPage = Math.max(0, Math.ceil(filtered.length / rpp) - 1);
+    if (page > maxPage) setPage(maxPage);
+  }, [filtered.length, rpp]);
+
+
   const start = page * rpp;
   const rows = filtered.slice(start, start + rpp);
 
@@ -65,16 +125,42 @@ export default function SavedReports() {
   };
 
   const onPreview = async (row) => {
-    console.log('Previewing', row);
+    console.log('👁️ Previewing report:', row);
+
+    // Clear previous error
+    setPreviewError(null);
+
+    // Prepare payload with userId explicitly in filters
+    const payload = {
+      ...row,
+      filters: {
+        areas: row.filters?.areas || [],
+        years: row.filters?.years || [],
+        venues: row.filters?.venues || [],
+        userId: row.filters?.userId ? parseInt(row.filters.userId, 10) : null,
+      }
+    };
+
+    console.log('📤 Preview payload with filters:', payload);
+
     try {
-      const res = await dispatch(previewSavedReport({ id: row.id, payload: { ...row } })).unwrap();
+      const res = await dispatch(previewSavedReport({ id: row.id, payload })).unwrap();
       // if your API wraps data, normalize it here:
       setPreviewData(res?.data ?? res ?? null);
       setPreviewOpen(true);
       setSelectedReport(row);
     } catch (err) {
-      // optional: toast/log
-      console.error('Preview failed', err);
+      // Set error state and open dialog to show error
+      console.error('❌ Preview failed', err);
+      setPreviewError(err?.response?.data?.message || err?.message || 'Failed to load preview');
+      setPreviewOpen(true); // Still open dialog to show error
+      setSelectedReport(row);
+
+      // Also show snackbar
+      setSnack({
+        severity: 'error',
+        msg: 'Preview failed: ' + (err?.response?.data?.message || err?.message || 'Unknown error')
+      });
     }
   };
 
@@ -95,9 +181,15 @@ export default function SavedReports() {
           <Table stickyHeader size="small">
             <TableHead>
               <TableRow>
+                <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 60 }}>ID</TableCell>
                 <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>Name</TableCell>
                 <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>Template</TableCell>
                 <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>Format</TableCell>
+                {!isResearcher && !isMobile && (
+                  <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 180 }}>
+                    Created By
+                  </TableCell>
+                )}
                 <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>Updated</TableCell>
                 <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 220 }}>Actions</TableCell>
               </TableRow>
@@ -111,6 +203,7 @@ export default function SavedReports() {
                 </TableRow>
               ) : rows.map((r) => (
                 <TableRow hover key={r.id}>
+                  <TableCell>{r.id}</TableCell>
                   <TableCell>
                     <Stack direction="row" spacing={1} alignItems="center">
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>{r.name}</Typography>
@@ -119,6 +212,34 @@ export default function SavedReports() {
                   </TableCell>
                   <TableCell>{r.template}</TableCell>
                   <TableCell>{r.format || '—'}</TableCell>
+
+                  {!isResearcher && !isMobile && (
+                    <TableCell>
+                      <Tooltip title={r?.creator?.name || 'Unknown user'}>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Stack
+                            alignItems="center"
+                            justifyContent="center"
+                            sx={{
+                              width: 34,
+                              height: 34,
+                              borderRadius: '50%',
+                              bgcolor: 'grey.100',
+                              border: '1px solid',
+                              borderColor: 'grey.300',
+                              fontSize: 13,
+                              fontWeight: 700,
+                              userSelect: 'none',
+                            }}
+                          >
+                            {initialsOf(r?.creator?.name)}
+                          </Stack>
+
+                        </Stack>
+                      </Tooltip>
+                    </TableCell>
+                  )}
+
                   <TableCell>{r.updated_at ? new Date(r.updated_at).toLocaleString() : '—'}</TableCell>
                   <TableCell>
                     <Stack direction="row" spacing={1}>
@@ -164,15 +285,19 @@ export default function SavedReports() {
         </Alert>
       )}
       <Snackbar open={!!snack} autoHideDuration={3000} onClose={() => setSnack(null)}>
-        {snack && <Alert severity="success">{snack.msg}</Alert>}
+        {snack && <Alert severity={snack?.severity || 'success'}>{snack?.msg}</Alert>}
       </Snackbar>
 
       {/* Preview modal */}
       <ReportPreviewDialog
         open={previewOpen}
         loading={previewLoading}
-        onClose={() => setPreviewOpen(false)}
+        onClose={() => {
+          setPreviewOpen(false);
+          setPreviewError(null); // Clear error when closing
+        }}
         data={{ ...previewData, selectedReport }}
+        error={previewError}
       />
 
       {/* DELETE CONFIRMATION */}
@@ -188,6 +313,8 @@ export default function SavedReports() {
           <Button color="error" variant="contained" onClick={confirmDelete}>Delete</Button>
         </DialogActions>
       </Dialog>
+
+
     </Box>
   );
 }

@@ -34,3 +34,20 @@ export function cleanRich(input = "") {
 
   return s;
 }
+
+
+export const initialsOf = (name) => {
+  if (typeof name !== 'string') return 'U';
+
+  const trimmed = name.trim();
+  if (!trimmed) return 'U';
+
+  const parts = trimmed.split(/\s+/);
+
+  const first = parts[0]?.[0];
+  const last = parts.length > 1 ? parts[parts.length - 1]?.[0] : null;
+
+  if (!first) return 'U';
+
+  return (first + (last ?? '')).toUpperCase();
+};

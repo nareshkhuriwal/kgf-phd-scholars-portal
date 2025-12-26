@@ -92,6 +92,7 @@ export default function Users() {
             <Table stickyHeader size="small">
               <TableHead>
                 <TableRow>
+                  <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>ID</TableCell>
                   <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>Name</TableCell>
                   <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>Email</TableCell>
                   <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>Role</TableCell>
@@ -105,6 +106,7 @@ export default function Users() {
               <TableBody>
                 {rows.length === 0 ? <TableRow><TableCell colSpan={7}><EmptyState hint="No users found." /></TableCell></TableRow> : rows.map((u) => (
                   <TableRow hover key={u.id}>
+                    <TableCell>{u.id}</TableCell>
                     <TableCell>
                       <Stack direction="row" spacing={1} alignItems="center">
                         {u.avatar ? <Avatar src={u.avatar} sx={{ width: 28, height: 28 }} /> : <Avatar sx={{ width: 28, height: 28, fontSize: 13 }}>{(u.name || 'U').split(' ').map(x => x?.[0]).slice(0,2).join('').toUpperCase()}</Avatar>}
@@ -112,7 +114,7 @@ export default function Users() {
                       </Stack>
                     </TableCell>
                     <TableCell>{u.email || '-'}</TableCell>
-                    <TableCell><Chip size="small" label={u.role || '-'} variant="outlined" color={u.role === 'admin' ? 'error' : u.role === 'supervisor' ? 'secondary' : u.role === 'super_admin' ? 'primary' : 'default'} /></TableCell>
+                    <TableCell><Chip size="small" label={u.role || '-'} variant="outlined" color={u.role === 'admin' ? 'error' : u.role === 'supervisor' ? 'secondary' : u.role === 'superuser' ? 'primary' : 'default'} /></TableCell>
                     <TableCell>{u.plan_key || '-'}</TableCell>
                     <TableCell><Chip size="small" label={u.subscription_status || (u.status || '-')} variant="outlined" color={u.subscription_status === 'active' ? 'success' : u.subscription_status === 'trial' ? 'warning' : 'default'} /></TableCell>
                     <TableCell>{u.is_on_trial ? (u.trial_days_remaining != null ? `${u.trial_days_remaining} days` : 'On trial') : '—'}</TableCell>

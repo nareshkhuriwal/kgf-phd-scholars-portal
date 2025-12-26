@@ -11,15 +11,85 @@ import DownloadIcon from '@mui/icons-material/Download';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import SlideshowIcon from '@mui/icons-material/Slideshow';
 import * as XLSX from 'xlsx';
-import { downloadSynopsisDocx } from '../../utils/docx/synopsisDocx';
 import { cleanRich } from '../../utils/text/cleanRich';
 import { exportSynopsisDocx } from '../../utils/docx/exportSynopsisDocx';
 import { exportReportPptx } from '../../utils/pptx/exportReportPptx';
 import { htmlToExcelText } from '../../utils/exporters/htmlToExcelText';
+import { DOCUMENT_TYPOGRAPHY } from '../../config/reportFormatting.config';
 
-export default function ReportPreviewDialog({ open, loading, onClose, data }) {
+
+function extractTitlePage(html) {
+  const container = document.createElement('div');
+  container.innerHTML = html;
+
+  const getText = (selector) =>
+    container.querySelector(selector)?.innerText?.trim() || '';
+
+  const strongs = Array.from(container.querySelectorAll('strong'))
+    .map(el => el.innerText.trim())
+    .filter(Boolean);
+
+  const img = container.querySelector('img')?.getAttribute('src') || '';
+
+  return {
+    title: getText('h2'),
+    scholar: container.innerText.match(/by\s+(.*)\s+\(/)?.[1] || '',
+    regNo: container.innerText.match(/\(([^)]+)\)/)?.[1] || '',
+    supervisorBlock: {
+      name: strongs.find(t => t.startsWith('Dr.')) || '',
+      department: strongs.find(t => t.includes('Department of Engineering')) || '',
+      school: strongs.find(t => t.includes('School of')) || '',
+      university: strongs.find(t => t.includes('University')) || '',
+    },
+    date: strongs.find(t => /\d{4}$/.test(t)) || '',
+    logo: img,
+  };
+}
+
+
+
+export default function ReportPreviewDialog({ open, loading, onClose, data, error }) {
+  // If there's an error, show it
+  if (error && open) {
+    return (
+      <Dialog
+        open={open}
+        onClose={onClose}
+        maxWidth="sm"
+        fullWidth
+      >
+        <Box sx={{ px: 2, py: 1.25, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Typography variant="h6" sx={{ fontWeight: 600, flex: 1 }}>
+            Preview Error
+          </Typography>
+          <IconButton onClick={onClose} title="Close"><CloseIcon /></IconButton>
+        </Box>
+        <Divider />
+        <Box sx={{ p: 3 }}>
+          <Alert severity="error">
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+              Failed to load preview
+            </Typography>
+            <Typography variant="body2">
+              {typeof error === 'string' ? error : error?.message || 'An unknown error occurred'}
+            </Typography>
+            {error?.response?.data?.message && (
+              <Typography variant="body2" sx={{ mt: 1, fontStyle: 'italic' }}>
+                Server message: {error.response.data.message}
+              </Typography>
+            )}
+          </Alert>
+        </Box>
+      </Dialog>
+    );
+  }
+
   // Merge nested selectedReport if present
   const merged = React.useMemo(() => ({ ...(data || {}), ...(data?.selectedReport || {}) }), [data]);
+
+  if (!merged || typeof merged !== 'object') {
+    return null;
+  }
 
   const {
     name = 'Preview',
@@ -36,10 +106,26 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
     kpis = [],
     chapters = [],
     literature = [],
+    citations = [],
+    // Header/Footer settings
+    headerFooter = {},
   } = merged;
 
   const fmt = String(format || '').toLowerCase();
   const tpl = String(template || '').toLowerCase();
+
+  // Extract header/footer with defaults - FIXED: Ensure proper fallbacks
+  const safeHeaderFooter = headerFooter && typeof headerFooter === 'object' ? headerFooter : {};
+
+  const {
+    headerTitle = name || 'Report',
+    headerRight = 'SET',
+    footerLeft = 'Poornima University, Jaipur',
+    footerCenter = new Date().toLocaleDateString('en-US', {
+      month: 'long',
+      year: 'numeric',
+    }),
+  } = safeHeaderFooter;
 
   const officeViewer = (fileUrl) =>
     `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(fileUrl)}`;
@@ -51,6 +137,7 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
   const isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(fmt);
   const isSynopsis = tpl === 'synopsis' || tpl === 'presentation';
   const hasSynopsisContent = (chapters?.length || 0) > 0 || (literature?.length || 0) > 0;
+  const showDocumentLayout = isSynopsis || fmt === 'docx' || fmt === 'pdf';
 
   const effectiveDownload = downloadUrl || url || null;
 
@@ -66,19 +153,80 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
   // Printable area ref (for Save as PDF)
   const printRef = React.useRef(null);
   const onPrintPdf = () => {
-    // Simple print of the visible preview; users can select "Save as PDF"
-    // (No external libs to keep it lean.)
     const w = window.open('', '_blank');
     if (!w) return;
     const title = (name || 'Report') + ' — Preview';
     const html = printRef.current ? printRef.current.innerHTML : '<p>No content</p>';
+
+    // FIXED: Proper escaping of header/footer values in print template
+    const escapeHtml = (str) => {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    };
+
     w.document.write(`
       <html>
         <head>
-          <title>${title}</title>
+          <title>${escapeHtml(title)}</title>
           <meta charset="utf-8"/>
           <style>
-            body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; padding: 24px; }
+            @page {
+              size: A4;
+              margin: 1in;
+            }
+            body { 
+              font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; 
+              margin: 0; 
+              padding: 0; 
+            }
+            .page { 
+              width: 210mm;
+              min-height: 297mm;
+              display: flex; 
+              flex-direction: column; 
+              page-break-after: always; 
+              background: white;
+            }
+            .page-header { 
+              border-bottom: 3px solid #999; 
+              padding: 16px 24px; 
+              display: flex; 
+              align-items: center; 
+              justify-content: space-between; 
+            }
+            .page-header-title {
+              flex: 1;
+              text-align: center;
+              font-weight: 700;
+              color: #808080;
+              font-size: 14px;
+            }
+            .page-header-right {
+              margin-left: 16px;
+              padding-left: 16px;
+              border-left: 3px solid #999;
+              min-width: 80px;
+              text-align: center;
+              font-weight: 700;
+              color: #808080;
+              font-size: 14px;
+            }
+            .page-footer { 
+              border-top: 3px solid #D6B27C; 
+              padding: 12px 24px; 
+              margin-top: auto; 
+            }
+            .page-footer-content {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+            }
+            .page-footer-content > * {
+              color: #999;
+              font-size: 11px;
+            }
+            .page-content { flex: 1; padding: 24px; }
             h1,h2,h3 { margin: 0 0 8px; }
             .kpi { display:inline-block; margin:4px 8px 4px 0; padding:4px 8px; border:1px solid #ddd; border-radius:8px; }
             .card { border:1px solid #eee; border-radius:8px; padding:12px; margin:8px 0; }
@@ -86,6 +234,10 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
             th, td { border: 1px solid #ddd; padding: 6px 8px; }
             th { background: #f7f7f9; }
             pre { white-space: pre-wrap; }
+            @media print {
+              .page { page-break-after: always; margin: 0; }
+              body { margin: 0; }
+            }
           </style>
         </head>
         <body>${html}</body>
@@ -118,7 +270,6 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
           return;
         }
 
-        // Convert review sections to Excel-friendly text
         if (!metaKeys.has(c.key)) {
           val = htmlToExcelText(val);
         }
@@ -141,20 +292,16 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
     XLSX.writeFile(wb, `${safeName}.xlsx`);
   };
 
-
   // Client-side DOCX download (for Synopsis)
   const onDownloadSynopsis = () => {
     const safe = String(name || 'Synopsis').replace(/[^A-Za-z0-9._-]+/g, '_') || 'Synopsis';
-    // Either of your exporters is fine; keeping the explicit one you added:
-    exportSynopsisDocx(merged, `${safe}.docx`);
-    // or: downloadSynopsisDocx({ name, kpis, chapters, literature }, `${safe}.docx`);
+    exportSynopsisDocx({ ...merged, headerFooter: safeHeaderFooter }, `${safe}.docx`);
   };
 
   // ---- Decide which download buttons to show based on format ----
   const renderDownloadButtons = () => {
     const btns = [];
 
-    // If the API already returned a file link, always show direct Download.
     if (effectiveDownload) {
       btns.push(
         <Button key="dl-file" size="small" variant="contained" startIcon={<DownloadIcon />}
@@ -164,7 +311,6 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
       );
     }
 
-    // Format-specific fallbacks when no server file is given:
     if (fmt === 'xlsx') {
       if (!effectiveDownload && hasDataset && rows.length > 0) {
         btns.push(
@@ -205,7 +351,6 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
               >
                 Download PPTX
               </Button>
-
             </span>
           </Tooltip>
         );
@@ -215,10 +360,179 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
     return btns;
   };
 
+
+  function sanitizeTitlePageHtml(html) {
+    if (!html) return '';
+
+    return html
+      // Remove margin-left, margin-right, margin
+      .replace(/margin-left\s*:\s*[^;"]+;?/gi, '')
+      .replace(/margin-right\s*:\s*[^;"]+;?/gi, '')
+      .replace(/margin\s*:\s*[^;"]+;?/gi, '')
+      // Normalize empty paragraphs
+      .replace(/<p[^>]*>(&nbsp;|\s)*<\/p>/gi, '<p class="spacer"></p>');
+  }
+
+
   const validChapters = Array.isArray(chapters)
     ? chapters.filter(ch => ch.body_html && ch.body_html.trim() !== '')
     : [];
 
+  // FIXED: Document-style header component with proper text handling
+  const DocumentHeader = ({ pageNum }) => (
+    <Box
+      className="page-header"
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        py: 1.5,
+        px: 3,
+        borderBottom: '3px solid #999',
+        bgcolor: '#fff',
+      }}
+    >
+      <Typography
+        className="page-header-title"
+        variant="subtitle1"
+        component="div"
+        sx={{
+          fontWeight: 700,
+          color: '#808080',
+          flex: 1,
+          textAlign: 'center',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+        }}
+      >
+        {String(headerTitle || name || 'Report')}
+      </Typography>
+      <Box
+        className="page-header-right"
+        sx={{
+          ml: 2,
+          px: 2,
+          py: 1,
+          borderLeft: '3px solid #999',
+          minWidth: '80px',
+          textAlign: 'center',
+        }}
+      >
+        <Typography
+          variant="subtitle1"
+          component="div"
+          sx={{
+            fontWeight: 700,
+            color: '#808080',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {String(headerRight || 'SET')}
+        </Typography>
+      </Box>
+    </Box>
+  );
+
+  // FIXED: Document-style footer component with proper text handling
+  const DocumentFooter = ({ pageNum }) => {
+    return (
+      <Box
+        className="page-footer"
+        sx={{
+          borderTop: '3px solid #D6B27C',
+          py: 1.5,
+          px: 3,
+          bgcolor: '#fff',
+        }}
+      >
+        <Box
+          className="page-footer-content"
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 2,
+          }}
+        >
+          <Typography
+            variant="body2"
+            component="div"
+            sx={{
+              color: '#999',
+              fontSize: '11px',
+              flex: '1 1 0',
+              minWidth: 0,
+            }}
+          >
+            {String(footerLeft || 'Poornima University, Jaipur')}
+          </Typography>
+          <Typography
+            variant="body2"
+            component="div"
+            sx={{
+              color: '#999',
+              fontSize: '11px',
+              flex: '1 1 0',
+              textAlign: 'center',
+              minWidth: 0,
+            }}
+          >
+            {String(footerCenter || new Date().toLocaleDateString('en-US', {
+              month: 'long',
+              year: 'numeric',
+            }))}
+          </Typography>
+          <Typography
+            variant="body2"
+            component="div"
+            sx={{
+              color: '#999',
+              fontSize: '11px',
+              flex: '1 1 0',
+              textAlign: 'right',
+              minWidth: 0,
+            }}
+          >
+            Page {pageNum}
+          </Typography>
+        </Box>
+      </Box>
+    );
+  };
+
+  // Page wrapper component with A4 dimensions
+  const DocumentPage = ({ children, pageNum, hideHeader = false, hideFooter = false,
+  }) => (
+    <Box
+      className="page"
+      sx={{
+        width: '210mm',
+        minHeight: '297mm',
+        display: 'flex',
+        flexDirection: 'column',
+        bgcolor: '#fff',
+        mb: 3,
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+        mx: 'auto',
+      }}
+    >
+      {isSynopsis && !hideHeader && <DocumentHeader pageNum={pageNum} />}
+
+      <Box
+        className="page-content"
+        sx={{
+          flex: 1,
+          p: 3,
+          overflow: 'hidden',
+          ...DOCUMENT_TYPOGRAPHY,
+        }}
+      >
+        {children}
+      </Box>
+      {isSynopsis && !hideFooter && <DocumentFooter pageNum={pageNum} />}
+    </Box>
+  );
 
   return (
     <Dialog
@@ -231,7 +545,7 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
         sx: {
           width: '100vw',
           height: '90vh',
-          maxWidth: '1200px',
+          maxWidth: '1400px',
           borderRadius: 2,
           overflow: 'hidden',
           display: 'flex',
@@ -239,7 +553,7 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
         }
       }}
     >
-      {/* Header */}
+      {/* Dialog Header (toolbar) */}
       <Box sx={{ px: 2, py: 1.25, display: 'flex', alignItems: 'center', gap: 1.5, bgcolor: 'background.paper' }}>
         <Typography
           variant="h6"
@@ -268,7 +582,6 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
           </IconButton>
         )}
 
-        {/* Dynamically chosen buttons */}
         <Stack direction="row" spacing={1}>
           {renderDownloadButtons()}
         </Stack>
@@ -279,79 +592,284 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
       {loading && <LinearProgress />}
       <Divider />
 
-      {/* Viewer Area */}
-      <Box ref={printRef} sx={{ flex: 1, bgcolor: '#f7f7f9', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+      {/* Document Preview with A4 Pages */}
+      <Box
+        sx={{
+          flex: 1,
+          bgcolor: '#525659',
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: 0,
+          overflow: 'auto',
+          p: 3,
+        }}
+      >
         {loading ? null : (
-          <>
+          <Box ref={printRef}>
             {/* SYNOPSIS PREVIEW */}
             {isSynopsis && (
-              <Box sx={{ p: 2, overflow: 'auto' }}>
-                {/* KPIs */}
-                {Array.isArray(kpis) && kpis.length > 0 && (
-                  <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', mb: 2 }}>
-                    {kpis.map((k, i) => (<Chip key={i} label={`${k.label}: ${k.value}`} className="kpi" />))}
-                  </Stack>
-                )}
-
-                {/* Chapters */}
-                {validChapters.length > 0 && (
-                  <Box sx={{ mb: 3 }}>
-                    {validChapters.map((ch) => (
-                      <Box
-                        key={ch.id}
-                        className="card"
-                        sx={{
-                          mb: 1.5,
-                          p: 1.5,
-                          bgcolor: '#fff',
-                          borderRadius: 1,
-                          border: '1px solid #eee',
-                        }}
-                      >
-                        <Box
-                          className="ck-content"
+              <>
+                {/* First Page - KPIs and first chapter or declaration */}
+                <DocumentPage pageNum="i" hideHeader hideFooter>
+                  {/* KPIs */}
+                  {Array.isArray(kpis) && kpis.length > 0 && (
+                    <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', mb: 3 }}>
+                      {kpis.map((k, i) => (
+                        <Chip
+                          key={i}
+                          label={`${k.label}: ${k.value}`}
+                          className="kpi"
                           sx={{
-                            backgroundColor: '#fff',
-                            padding: 2,
+                            border: '1px solid #ddd',
+                            borderRadius: '8px',
                           }}
-                          dangerouslySetInnerHTML={{ __html: ch.body_html }}
                         />
-                      </Box>
-                    ))}
-                  </Box>
-                )}
+                      ))}
+                    </Stack>
+                  )}
 
+                  {/* First chapter if exists */}
+                  {validChapters.length > 0 && (() => {
+                    const ch = validChapters[0];
+                    const isTitlePage = ch.title?.toUpperCase() === 'TITLE PAGE';
 
-                {/* Literature Review */}
-                {Array.isArray(literature) && literature.length > 0 && (
-                  <Box>
-                    <Typography variant="h6" sx={{ mb: 1 }}>Literature Review</Typography>
-                    {literature.map((item) => (
-                      <Box key={item.paper_id} className="card" sx={{ mb: 2, p: 1.5, bgcolor: '#fff', borderRadius: 1, border: '1px solid #eee' }}>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: .5 }}>
-                          {[item.title, item.authors, item.year].filter(Boolean).join(' • ')}
-                        </Typography>
-                        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                    if (!isTitlePage) {
+                      return (
+                        <Box
+                          className="card"
+                          sx={{
+                            p: 2,
+                            bgcolor: '#fff',
+                            borderRadius: 1,
+                            border: '1px solid #eee',
+                          }}
+                        >
                           <Box
                             className="ck-content"
-                            sx={{
-                              '& p': { margin: '0 0 8px' },
-                              '& ul, & ol': { paddingLeft: 2 },
-                              '& h1, & h2, & h3': { margin: '8px 0' },
-                            }}
-                            dangerouslySetInnerHTML={{ __html: item.text || '<p>—</p>' }}
+                            sx={DOCUMENT_TYPOGRAPHY}
+                            dangerouslySetInnerHTML={{ __html: ch.body_html }}
                           />
+                        </Box>
+                      );
+                    }
 
+                    const tp = extractTitlePage(ch.body_html);
+
+                    return (
+                      <Box
+                        sx={{
+                          minHeight: '100%',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          textAlign: 'center',
+                          fontFamily: 'Times New Roman, serif',
+
+                          // Real thesis margins
+                          pt: 10,   // more top space
+                          pb: 10,   // more bottom space
+                          gap: 4,   // more spacing between sections
+                          px: 6,
+
+                        }}
+                      >
+
+                        {/* Title */}
+                        <Typography sx={{ fontSize: 16, fontWeight: 700, mt: 6 }}>
+                          {tp.title}
                         </Typography>
+
+                        {/* Degree Block */}
+                        <Box>
+
+                          <Typography sx={{ fontSize: 16, fontWeight: 700, mt: 1 }}>
+                            Doctor of Philosophy
+                          </Typography>
+
+                          <Typography sx={{ fontSize: 14, mt: 1 }}>
+                            in
+                          </Typography>
+
+                          <Typography sx={{ fontSize: 14, fontWeight: 700 }}>
+                            Department of Engineering & Technology
+                          </Typography>
+
+                          <Typography sx={{ fontSize: 14, mt: 1 }}>
+                            by {tp.scholar}
+                          </Typography>
+
+                          <Typography sx={{ fontSize: 14 }}>
+                            ({tp.regNo})
+                          </Typography>
+                        </Box>
+
+                        {/* Logo */}
+                        {tp.logo && (
+                          <img src={tp.logo} alt="University Logo" style={{ width: 140 }} />
+                        )}
+
+                        {/* Supervisor */}
+
+
+                        <Box sx={{ mb: 6 }}>
+                          <Typography sx={{ fontSize: 14, fontWeight: 700 }}>
+                            Under the supervision of
+                          </Typography>
+
+                          {tp.supervisorBlock.name && (
+                            <Typography sx={{ fontSize: 14, fontWeight: 700 }}>
+                              {tp.supervisorBlock.name}
+                            </Typography>
+                          )}
+
+                          {tp.supervisorBlock.department && (
+                            <Typography sx={{ fontSize: 14 }}>
+                              {tp.supervisorBlock.department}
+                            </Typography>
+                          )}
+
+                          {tp.supervisorBlock.school && (
+                            <Typography sx={{ fontSize: 14 }}>
+                              {tp.supervisorBlock.school}
+                            </Typography>
+                          )}
+
+                          {tp.supervisorBlock.university && (
+                            <Typography sx={{ fontSize: 14, mt: 1 }}>
+                              {tp.supervisorBlock.university}
+                            </Typography>
+                          )}
+
+                          {tp.date && (
+                            <Typography sx={{ fontSize: 14, mt: 1 }}>
+                              {tp.date}
+                            </Typography>
+                          )}
+
+
+
+                        </Box>
+                      </Box>
+                    );
+                  })()}
+
+
+                </DocumentPage>
+
+                {/* Subsequent chapters - each on its own page */}
+                {validChapters.slice(1).map((ch, idx) => (
+                  <DocumentPage key={ch.id} pageNum={idx + 2}>
+                    <Box
+                      className="card"
+                      sx={{
+                        p: 2,
+                        bgcolor: '#fff',
+                        borderRadius: 1,
+                        border: '1px solid #eee',
+                      }}
+                    >
+                      <Box
+                        className="ck-content"
+                        sx={DOCUMENT_TYPOGRAPHY}
+                        dangerouslySetInnerHTML={{ __html: ch.body_html }}
+                      />
+                    </Box>
+                  </DocumentPage>
+                ))}
+
+                {/* Literature Review - continuous section */}
+                {Array.isArray(literature) && literature.length > 0 && (
+                  <DocumentPage pageNum={validChapters.length + 1}>
+                    <Box>
+                      <Typography
+                        variant="h6"
+                        sx={{ mb: 2, fontWeight: 600 }}
+                      >
+                        LITERATURE REVIEW
+                      </Typography>
+
+                      <Stack spacing={2}>
+                        {literature.map((item, idx) => (
+                          <Box
+                            key={item.paper_id || idx}
+                            className="card"
+                            sx={{
+                              p: 2,
+                              bgcolor: '#fff',
+                              borderRadius: 1,
+                              border: '1px solid #eee',
+                            }}
+                          >
+                            {/* <Typography
+                              variant="subtitle2"
+                              sx={{ fontWeight: 600, mb: 1 }}
+                            >
+                              {[item.title, item.authors, item.year]
+                                .filter(Boolean)
+                                .join(' • ')}
+                            </Typography> */}
+
+                            <Box
+                              className="ck-content"
+                              sx={DOCUMENT_TYPOGRAPHY}
+                              dangerouslySetInnerHTML={{ __html: item.text || '<p>—</p>' }}
+                            />
+                          </Box>
+                        ))}
+                      </Stack>
+                    </Box>
+                  </DocumentPage>
+                )}
+
+                {/* REFERENCES */}
+                {Array.isArray(citations) && citations.length > 0 && (
+                  <DocumentPage pageNum={validChapters.length + 2}>
+                    <Typography
+                        variant="h6"
+                        sx={{ mb: 2, fontWeight: 600 }}
+                      >
+                        REFERENCES
+                      </Typography>
+
+                    {citations.map((ref, idx) => (
+                      <Box
+                        key={ref.order ?? idx}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: 1,
+                          fontSize: 13,
+                          lineHeight: 1.6,
+                          textAlign: 'justify',
+                        }}
+                      >
+                        {/* Sequence number */}
+                        <Box
+                          sx={{
+                            minWidth: 24,
+                            fontWeight: 600,
+                          }}
+                        >
+                          {ref.order ?? idx + 1}.
+                        </Box>
+
+                        {/* Citation text */}
+                        <Box sx={{ flex: 1 }}>
+                          {ref.text}
+                        </Box>
                       </Box>
                     ))}
-                  </Box>
+
+                  </DocumentPage>
                 )}
 
+
                 {(!chapters?.length && !literature?.length) && (
-                  <Alert severity="info">No content found for Synopsis. Adjust filters/chapters and try again.</Alert>
+                  <DocumentPage pageNum="i">
+                    <Alert severity="info">No content found for Synopsis. Adjust filters/chapters and try again.</Alert>
+                  </DocumentPage>
                 )}
-              </Box>
+              </>
             )}
 
             {/* DATASET (e.g., ROL JSON) */}
@@ -384,12 +902,11 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
                               ) : (
                                 <Box
                                   className="ck-content"
-                                  sx={{ '& p': { m: 0 }, '& ol, & ul': { pl: 2 } }}
+                                  sx={DOCUMENT_TYPOGRAPHY}
                                   dangerouslySetInnerHTML={{ __html: row[col.key] }}
                                 />
                               )}
                             </TableCell>
-
                           ))}
                         </TableRow>
                       ))}
@@ -397,7 +914,7 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
                   </Table>
                 </TableContainer>
 
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', bgcolor: '#fff', p: 1 }}>
                   <TablePagination
                     component="div"
                     count={rows.length}
@@ -461,7 +978,7 @@ export default function ReportPreviewDialog({ open, loading, onClose, data }) {
                 )}
               </>
             )}
-          </>
+          </Box>
         )}
       </Box>
     </Dialog>

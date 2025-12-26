@@ -97,6 +97,7 @@ const initialState = {
   filters: {
     supervisors: [],
     researchers: [],
+    admins: [],
   },
 };
 
@@ -119,7 +120,11 @@ const slice = createSlice({
       s.loadingSummary = false;
       const d = a.payload || {};
       if (d.totals) s.totals = { ...s.totals, ...d.totals };
-      if (Array.isArray(d.byCategory)) s.byCategory = d.byCategory;
+      // if (Array.isArray(d.byCategory)) s.byCategory = d.byCategory;
+      if (Array.isArray(d.byCreatedBy)) {
+        s.byCategory = d.byCreatedBy;
+      }
+
     });
     b.addCase(loadDashboardSummary.rejected, (s, a) => {
       s.loadingSummary = false;
@@ -139,6 +144,7 @@ const slice = createSlice({
         labels: Array.isArray(d.labels) ? d.labels : [],
         added: Array.isArray(d.added) ? d.added : [],
         reviewed: Array.isArray(d.reviewed) ? d.reviewed : [],
+        started: Array.isArray(d.started) ? d.started : [],
       };
     });
     b.addCase(loadDashboardDaily.rejected, (s, a) => {
@@ -159,6 +165,7 @@ const slice = createSlice({
         labels: Array.isArray(d.labels) ? d.labels : [],
         added: Array.isArray(d.added) ? d.added : [],
         reviewed: Array.isArray(d.reviewed) ? d.reviewed : [],
+        started: Array.isArray(d.started) ? d.started : [], 
       };
     });
     b.addCase(loadDashboardWeekly.rejected, (s, a) => {
@@ -178,6 +185,7 @@ const slice = createSlice({
       s.filters = {
         supervisors: Array.isArray(d.supervisors) ? d.supervisors : [],
         researchers: Array.isArray(d.researchers) ? d.researchers : [],
+        admins: Array.isArray(d.admins) ? d.admins : [],
       };
     });
     b.addCase(loadDashboardFilters.rejected, (s, a) => {

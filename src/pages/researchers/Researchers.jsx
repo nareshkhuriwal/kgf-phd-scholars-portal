@@ -140,6 +140,7 @@ export default function Researchers() {
           <Table size="small">
             <TableHead>
               <TableRow>
+                <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 60 }}>ID</TableCell> 
                 <TableCell>Researcher</TableCell>
                 <TableCell>Email</TableCell>
                 <TableCell>Sent On</TableCell>
@@ -160,6 +161,7 @@ export default function Researchers() {
 
               {rows.map((r) => (
                 <TableRow key={r.id}>
+                  <TableCell>{r.id}</TableCell>
                   <TableCell>{r.researcher_name || '-'}</TableCell>
                   <TableCell>{r.researcher_email}</TableCell>
                   <TableCell>{r.sent_at_display || r.sent_at}</TableCell>
