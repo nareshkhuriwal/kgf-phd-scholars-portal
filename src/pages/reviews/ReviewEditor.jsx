@@ -1,11 +1,13 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useBlocker } from 'react-router-dom';
 
 import {
   Box, Paper, Grid, Typography, Button, Stack, Chip, Alert,
-  Tabs, Tab, Divider, IconButton, Tooltip, useMediaQuery, useTheme
+  Tabs, Tab, Divider, IconButton, Tooltip, useMediaQuery, useTheme,
+  Dialog, DialogTitle, DialogContent, DialogActions  // <-- ADD THESE 3
 } from '@mui/material';
+
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import MenuIcon from '@mui/icons-material/Menu';
 import makeEditorConfig from '../../pages/reviews/EditorConfig';
@@ -120,15 +122,22 @@ export default function ReviewEditor() {
   const [wordCount, setWordCount] = React.useState(0);
   const toolbarRef = React.useRef(null);
 
-  const [autoSaving, setAutoSaving] = React.useState(false);
+  // const [autoSaving, setAutoSaving] = React.useState(false);
   const [lastSavedAt, setLastSavedAt] = React.useState(null);
-  const lastSavedContentRef = React.useRef({});
-  const hydratedRef = React.useRef(false);
+  // const lastSavedContentRef = React.useRef({});
+
   const [citationOpen, setCitationOpen] = React.useState(false);
   const editorRef = React.useRef(null);
   const [citeOpen, setCiteOpen] = React.useState(false);
   const { data: settings, loading: settingsLoading } = useSelector((s) => s.settings);
   const citationStyle = settings?.citationStyle || 'mla'; // ✅ Default to 'mla' to match backend
+
+  const [unsavedChanges, setUnsavedChanges] = useState(false);
+
+  const savedContentRef = useRef({});
+  const hydratedRef = useRef(false);
+  const initialLoadRef = useRef(false);
+  const previousTabRef = useRef(0);
 
 
   // ✅ NEW: Store citation map for ID lookup
@@ -148,12 +157,28 @@ export default function ReviewEditor() {
   });
 
   const [saving, setSaving] = React.useState(false);
-  const [savedOnce, setSavedOnce] = React.useState(false);
+
 
   const pid = React.useMemo(
     () => (paperId ?? current?.id ?? current?.paper_id) ?? null,
     [paperId, current]
   );
+
+
+
+  // ✅ Warn user before closing/refreshing browser
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (unsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+        return 'You have unsaved changes. Are you sure you want to leave?';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [unsavedChanges]);
 
   // ✅ Load settings when component mounts
   useEffect(() => {
@@ -173,7 +198,7 @@ export default function ReviewEditor() {
 
     const needsMap = EDITOR_ORDER[tab] === 'Literature Review';
     const needsCitationTab = EDITOR_ORDER[tab] === 'Citations';
-    
+
     if (!needsMap && !needsCitationTab) return;
 
     console.log('Loading review citations for:', needsMap ? 'citation mapping' : 'Citations tab');
@@ -183,20 +208,20 @@ export default function ReviewEditor() {
         console.log('Full API response:', response);
         const citations = response.citations || [];
         console.log('Extracted citations array:', citations);
-        
+
         // Build citation key -> citation object map for Literature Review tab
         if (needsMap) {
           const map = buildCitationMap(citations);
           setCitationMap(map);
         }
-        
+
         // Build HTML for Citations tab
         if (needsCitationTab) {
           if (citations.length > 0) {
             const citationHtml = citations
               .map((citation) => `<p>${citation.text}</p>`)
               .join('');
-            
+
             console.log('Setting citations HTML for tab');
             setSections(prev => ({
               ...prev,
@@ -252,7 +277,13 @@ export default function ReviewEditor() {
     );
   }, [pid, tab]);
 
-  React.useEffect(() => {
+  useEffect(() => {
+    if (!paperId) return;
+
+    console.log('Loading review for paper ID:', paperId);
+    hydratedRef.current = false; // ✅ ADD - Reset hydration flag
+    initialLoadRef.current = false; // ✅ ADD
+
     dispatch(loadReview(paperId));
   }, [dispatch, paperId]);
 
@@ -272,91 +303,78 @@ export default function ReviewEditor() {
       });
     }
     setSections(obj);
+    savedContentRef.current = { ...obj }; // ✅ ADD THIS - Initialize saved content
     hydratedRef.current = true;
+    initialLoadRef.current = true;  // ✅ ADD THIS
+    setUnsavedChanges(false);  // ✅ ADD THIS
+
+    console.log('Sections hydrated successfully');  // ✅ ADD THIS (optional)
+
   }, [current, citationMap]);
 
-  const debouncedSetSectionsRef = React.useRef(
-    debounce((label, value) => {
-      setSections(prev => (prev[label] === value ? prev : { ...prev, [label]: value }));
-    }, 250)
-  );
 
-  React.useEffect(() => {
-    const d = debouncedSetSectionsRef.current;
-    return () => d && d.cancel && d.cancel();
-  }, []);
 
   const activeLabel = React.useMemo(() => EDITOR_ORDER[tab], [tab]);
   const activeHtml = sections[activeLabel] || '';
 
-  const isDirty = React.useMemo(() => {
-    if (!current) return false;
-    return sections[activeLabel] !== (current.review_sections?.[activeLabel] || '');
-  }, [sections, activeLabel, current]);
 
 
-  const triggerAutosave = React.useCallback(async (label, content) => {
-    if (!pid || !content) return;
-    if (lastSavedContentRef.current[label] === content) return;
+  // ✅ Track content changes without auto-saving
+  const onEditorChange = useCallback((label, editor) => {
+    const data = editor.getData();
+    const normalizedHtml = label === 'Literature Review'
+      ? renumberCitations(data, citationMap)
+      : data;
 
-    console.log("Autosaving section:", label);
-    console.log("Content:", content);
+    setSections(prev => ({ ...prev, [label]: normalizedHtml }));
 
-    // ✅ Only extract and sync citations for Literature Review tab
-    let citationKeys = [];
-    if (label === 'Literature Review') {
-      citationKeys = extractCitationKeys(content);
+    // Check if content is different from saved version
+    const savedContent = savedContentRef.current[label] || '';
+    setUnsavedChanges(normalizedHtml !== savedContent);
+  }, [citationMap]);
 
-      if (citationKeys.length > 0) {
-        console.log("Found citation keys:", citationKeys);
 
-        try {
-          const syncResult = await dispatch(syncReviewCitations({
-            reviewId: pid,
-            citation_keys: citationKeys
-          })).unwrap();
 
-          console.log("Citations sync result:", syncResult);
 
-          // ✅ Extract citations from sync response
-          // The sync response might contain the citations directly
-          let syncedCitations = syncResult?.citations || [];
 
-          // if (syncedCitations.length > 0) {
-          //   console.log("Using citations from sync response:", syncedCitations);
-          //   const newMap = buildCitationMap(syncedCitations);
-          //   setCitationMap(newMap);
-          // } else {
-          //   // ✅ Fallback: Reload citations to update the map with new IDs
-          //   console.log("No citations in sync response, reloading...");
-          //   const reloadResult = await dispatch(loadReviewCitations({
-          //     paperId: pid,
-          //     style: citationStyle
-          //   })).unwrap();
+  // ✅ ADD: Save current tab before switching
+  const saveCurrentTab = useCallback(async (label, content) => {
+    if (!pid || !content) return false;
 
-          //   const citations = reloadResult.citations || [];
-          //   console.log("Reloaded citations:", citations);
-          //   const newMap = buildCitationMap(citations);
-          //   setCitationMap(newMap);
-          // }
-
-          // ✅ Re-number citations with updated map
-          // const renumberedContent = renumberCitations(content, citationMap);
-          // if (renumberedContent !== content) {
-          //   console.log("Updating content with renumbered citations");
-          //   setSections(prev => ({ ...prev, [label]: renumberedContent }));
-          // }
-        } catch (error) {
-          console.error("Failed to sync citations:", error);
-        }
-      } else {
-        console.log("No citations found in Literature Review");
-      }
+    const savedContent = savedContentRef.current[label] || '';
+    if (content === savedContent) {
+      console.log('No changes to save for:', label);
+      return true;
     }
 
-    setAutoSaving(true);
+    console.log('Saving section:', label);
+    setSaving(true);
 
     try {
+      // Extract and sync citations if Literature Review
+      let citationKeys = [];
+      if (label === 'Literature Review') {
+        citationKeys = extractCitationKeys(content);
+
+        if (citationKeys.length > 0) {
+          try {
+            const syncResult = await dispatch(syncReviewCitations({
+              reviewId: pid,
+              citation_keys: citationKeys
+            })).unwrap();
+
+            const syncedCitations = syncResult?.citations || [];
+            if (syncedCitations.length > 0) {
+              const newMap = buildCitationMap(syncedCitations);
+              setCitationMap(newMap);
+            }
+          } catch (error) {
+            console.error('Failed to sync citations:', error);
+          }
+        }
+      }
+
+      // Save the section
       await dispatch(
         saveReviewSection({
           paperId: pid,
@@ -366,38 +384,52 @@ export default function ReviewEditor() {
         })
       ).unwrap();
 
-      lastSavedContentRef.current[label] = content;
-      setSavedOnce(true);
+      savedContentRef.current[label] = content;
       setLastSavedAt(new Date());
+      setUnsavedChanges(false);
+
+      console.log('Section saved successfully:', label);
+      return true;
     } catch (error) {
-      console.error('Autosave failed:', error);
+      console.error('Save failed:', error);
+      return false;
     } finally {
-      setAutoSaving(false);
+      setSaving(false);
     }
-  }, [pid, dispatch, citationStyle]);
+  }, [pid, dispatch]);
+
+  // ✅ ADD: Handle tab change with auto-save
+  const handleTabChange = useCallback(async (event, newTab) => {
+    if (newTab === tab) return;
+
+    const currentLabel = EDITOR_ORDER[tab];
+    const currentContent = sections[currentLabel] || '';
 
 
-  const debouncedAutosave = React.useMemo(
-    () => debounce(triggerAutosave, 2000),
-    [triggerAutosave]
-  );
+    // Check if current tab has unsaved changes
+    const savedContent = savedContentRef.current[currentLabel] || '';
+    const hasChanges = currentContent !== savedContent;
 
-  const onEditorChange = React.useCallback((label, editor) => {
-    const data = editor.getData();
+    if (hasChanges) {
+      console.log('Unsaved changes detected, saving before tab switch...');
+      const saved = await saveCurrentTab(currentLabel, currentContent);
 
-    // ✅ Use citation map for proper ID numbering
-    const normalizedHtml = label === 'Literature Review'
-      ? renumberCitations(data, citationMap)
-      : data;
 
-    debouncedSetSectionsRef.current(label, normalizedHtml);
-    debouncedAutosave(label, normalizedHtml);
-  }, [debouncedAutosave, citationMap]);
+      if (!saved) {
+        console.error('Failed to save, but allowing tab switch');
+      }
+    }
+
+    previousTabRef.current = tab;
+    setTab(newTab);
+  }, [tab, sections, saveCurrentTab]);
+
+
 
   React.useEffect(() => {
     const activeLabel = EDITOR_ORDER[tab];
     const html = sections[activeLabel] || '';
-
+    console.log("html before clean: ", html)
     const text = html.replace(/<[^>]*>/g, '').trim();
     setCharCount(text.length);
 
@@ -408,26 +440,22 @@ export default function ReviewEditor() {
   const onSaveCurrentTab = async () => {
     const activeLabel = EDITOR_ORDER[tab];
     const activeHtml = sections[activeLabel] || '';
-    setSaving(true);
-    try {
-      await dispatch(
-        saveReviewSection({
-          paperId,
-          section_key: activeLabel,
-          html: btoa(unescape(encodeURIComponent(activeHtml)))
-        })
-      ).unwrap();
-      setSavedOnce(true);
-    } finally {
-      setSaving(false);
-    }
+    await saveCurrentTab(activeLabel, activeHtml);
   };
 
   const Reviewed = async () => {
+    // Save current tab first if there are unsaved changes
+    const currentLabel = EDITOR_ORDER[tab];
+    const currentContent = sections[currentLabel] || '';
+    const savedContent = savedContentRef.current[currentLabel] || '';
+
+    if (currentContent !== savedContent) {
+      await saveCurrentTab(currentLabel, currentContent);
+    }
+
     setSaving(true);
     try {
       await dispatch(setReviewStatus({ paperId, status: 'done' })).unwrap();
-      setSavedOnce(true);
     } finally {
       setSaving(false);
     }
@@ -484,8 +512,8 @@ export default function ReviewEditor() {
     }));
   }
 
-  const SaveStatus = ({ saving, autoSaving, isDirty, lastSavedAt }) => {
-    if (saving || autoSaving) {
+  const SaveStatus = ({ saving, unsavedChanges, lastSavedAt }) => {
+    if (saving) {  // ✅ Just saving, no autoSaving
       return (
         <Stack
           direction="row"
@@ -509,7 +537,7 @@ export default function ReviewEditor() {
       );
     }
 
-    if (isDirty) {
+    if (unsavedChanges) {
       return (
         <Stack direction="row" spacing={0.75} alignItems="center">
           <Box
@@ -617,8 +645,7 @@ export default function ReviewEditor() {
           >
             <SaveStatus
               saving={saving}
-              autoSaving={autoSaving}
-              isDirty={isDirty}
+              unsavedChanges={unsavedChanges}
               lastSavedAt={lastSavedAt}
             />
 
@@ -762,7 +789,7 @@ export default function ReviewEditor() {
 
                 <Tabs
                   value={tab}
-                  onChange={(_, v) => setTab(v)}
+                  onChange={handleTabChange}  // ✅ CHANGED: was (_, v) => setTab(v)
                   variant="scrollable"
                   scrollButtons
                   allowScrollButtonsMobile
@@ -904,7 +931,6 @@ export default function ReviewEditor() {
           setCiteOpen(false);
         }}
       />
-
 
 
       {/* COMMENTS below work pane */}
