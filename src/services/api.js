@@ -25,12 +25,29 @@ function buildHeaders(token, body) {
 }
 
 /**
- * apiFetch(path, { method='GET', body, noAuth=false })
+ * apiFetch(path, { method='GET', body, params, noAuth=false })
  *  - Automatically attaches Authorization (JWT) or cookies (Sanctum)
+ *  - Supports query parameters via params object
  *  - Throws Error with {status, payload}
  */
-export async function apiFetch(path, { method = 'GET', body, noAuth = false } = {}) {
-  const url = path.startsWith('http') ? path : `${BASE_URL}${path}`;
+export async function apiFetch(path, { method = 'GET', body, params, noAuth = false } = {}) {
+  // Build URL with query parameters
+  let url = path.startsWith('http') ? path : `${BASE_URL}${path}`;
+  
+  // Add query parameters if provided
+  if (params && Object.keys(params).length > 0) {
+    const queryString = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        queryString.append(key, value);
+      }
+    });
+    const qs = queryString.toString();
+    if (qs) {
+      url += (url.includes('?') ? '&' : '?') + qs;
+    }
+  }
+  
   const token = getToken();
 
   if (AUTH_MODE === 'sanctum') {
