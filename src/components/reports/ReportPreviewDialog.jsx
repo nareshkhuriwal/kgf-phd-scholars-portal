@@ -106,6 +106,7 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
     kpis = [],
     chapters = [],
     literature = [],
+    citations = [],
     // Header/Footer settings
     headerFooter = {},
   } = merged;
@@ -819,6 +820,42 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
                     </Box>
                   </DocumentPage>
                 )}
+
+                {/* REFERENCES */}
+                {Array.isArray(citations) && citations.length > 0 && (
+                  <DocumentPage pageNum={validChapters.length + 2}>
+                    {citations.map((ref, idx) => (
+                      <Box
+                        key={ref.order ?? idx}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: 1,
+                          fontSize: 13,
+                          lineHeight: 1.6,
+                          textAlign: 'justify',
+                        }}
+                      >
+                        {/* Sequence number */}
+                        <Box
+                          sx={{
+                            minWidth: 24,
+                            fontWeight: 600,
+                          }}
+                        >
+                          {ref.order ?? idx + 1}.
+                        </Box>
+
+                        {/* Citation text */}
+                        <Box sx={{ flex: 1 }}>
+                          {ref.text}
+                        </Box>
+                      </Box>
+                    ))}
+
+                  </DocumentPage>
+                )}
+
 
                 {(!chapters?.length && !literature?.length) && (
                   <DocumentPage pageNum="i">
