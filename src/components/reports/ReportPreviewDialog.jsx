@@ -785,7 +785,7 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
                         variant="h6"
                         sx={{ mb: 2, fontWeight: 600 }}
                       >
-                        Literature Review
+                        LITERATURE REVIEW
                       </Typography>
 
                       <Stack spacing={2}>
@@ -824,6 +824,13 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
                 {/* REFERENCES */}
                 {Array.isArray(citations) && citations.length > 0 && (
                   <DocumentPage pageNum={validChapters.length + 2}>
+                    <Typography
+                        variant="h6"
+                        sx={{ mb: 2, fontWeight: 600 }}
+                      >
+                        REFERENCES
+                      </Typography>
+
                     {citations.map((ref, idx) => (
                       <Box
                         key={ref.order ?? idx}
