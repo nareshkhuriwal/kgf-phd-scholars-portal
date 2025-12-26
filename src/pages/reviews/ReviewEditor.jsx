@@ -133,6 +133,7 @@ export default function ReviewEditor() {
   const citationStyle = settings?.citationStyle || 'mla'; // ✅ Default to 'mla' to match backend
 
   const [unsavedChanges, setUnsavedChanges] = useState(false);
+  const [isLoadingReview, setIsLoadingReview] = useState(false);
 
   const savedContentRef = useRef({});
   const hydratedRef = useRef(false);
@@ -281,19 +282,39 @@ export default function ReviewEditor() {
     if (!paperId) return;
 
     console.log('Loading review for paper ID:', paperId);
-    hydratedRef.current = false; // ✅ ADD - Reset hydration flag
-    initialLoadRef.current = false; // ✅ ADD
 
-    dispatch(loadReview(paperId));
+    setIsLoadingReview(true); // ✅ Set loading state
+    hydratedRef.current = false;
+    initialLoadRef.current = false;
+
+    setSections(() => {
+      const init = {};
+      EDITOR_ORDER.forEach((k) => (init[k] = ''));
+      return init;
+    });
+
+    dispatch(loadReview(paperId))
+      .finally(() => {
+        setIsLoadingReview(false); // ✅ Clear loading state
+      });
   }, [dispatch, paperId]);
 
-  React.useEffect(() => {
-    if (!current || hydratedRef.current) return;
+  useEffect(() => {
+    if (!current || hydratedRef.current || isLoadingReview) return; // ✅ Skip if loading
+
+    // ✅ CRITICAL: Only hydrate if paperId matches current data
+    const currentPaperId = current.id || current.paper_id;
+    if (currentPaperId && paperId && String(currentPaperId) !== String(paperId)) {
+      console.log('Skipping hydration - paperId mismatch:', { currentPaperId, paperId });
+      return;
+    }
+
+    console.log('Hydrating sections for paper:', paperId, current);
+
     const obj = {};
     if (current.review_sections && typeof current.review_sections === 'object') {
       EDITOR_ORDER.forEach((k) => {
         const content = current.review_sections[k] || '';
-        // ✅ Apply citation ID mapping when loading content
         obj[k] = k === 'Literature Review' ? renumberCitations(content, citationMap) : content;
       });
     } else {
@@ -302,15 +323,15 @@ export default function ReviewEditor() {
         obj[label] = legacy || '';
       });
     }
+
     setSections(obj);
-    savedContentRef.current = { ...obj }; // ✅ ADD THIS - Initialize saved content
+    savedContentRef.current = { ...obj }; // ✅ Initialize saved content
     hydratedRef.current = true;
-    initialLoadRef.current = true;  // ✅ ADD THIS
-    setUnsavedChanges(false);  // ✅ ADD THIS
+    initialLoadRef.current = true;
+    setUnsavedChanges(false);
 
-    console.log('Sections hydrated successfully');  // ✅ ADD THIS (optional)
-
-  }, [current, citationMap]);
+    console.log('Sections hydrated successfully');
+  }, [current, citationMap, paperId, isLoadingReview]);
 
 
 
