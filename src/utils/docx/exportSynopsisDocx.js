@@ -216,6 +216,59 @@ async function appendLiterature(children, literature) {
   }
 }
 
+
+/* ---------------------------------------------------------
+   REFERENCES BUILDER
+--------------------------------------------------------- */
+function appendReferences(children, citations = []) {
+  if (!citations.length) return;
+
+  /* ---------- REFERENCES HEADING ---------- */
+  children.push(
+    new Paragraph({
+      spacing: { before: 400, after: 240 },
+      children: [
+        new TextRun({
+          text: "REFERENCES",
+          ...HEADING_RUN("h2"),
+        }),
+      ],
+    })
+  );
+
+  /* ---------- REFERENCES LIST ---------- */
+  citations.forEach((ref, idx) => {
+    const number = ref.order ?? idx + 1;
+
+    children.push(
+      new Paragraph({
+        alignment: AlignmentType.JUSTIFIED,
+        spacing: {
+          line: 360,       // 1.5 line spacing
+          before: 120,
+          after: 120,
+        },
+        indent: {
+          left: INCH_TO_TWIP(0.5),      // overall left margin
+          hanging: INCH_TO_TWIP(0.3),   // hanging indent (KEY FIX)
+        },
+        children: [
+          new TextRun({
+            text: `[${number}] `,
+            ...BODY_RUN,
+            bold: false,                // ❌ no bold
+          }),
+          new TextRun({
+            text: ref.text.trim(),
+            ...BODY_RUN,
+          }),
+        ],
+      })
+    );
+  });
+}
+
+
 /* ---------------------------------------------------------
    MAIN EXPORT
 --------------------------------------------------------- */
@@ -225,6 +278,7 @@ export async function exportSynopsisDocx(data) {
     name = "Synopsis",
     chapters = [],
     literature = [],
+    citations = [],  
     headerFooter = {},
   } = data || {};
 
@@ -282,6 +336,16 @@ export async function exportSynopsisDocx(data) {
     bodyChildren.push(new Paragraph({ pageBreakBefore: true }));
     await appendLiterature(bodyChildren, literature);
   }
+
+  /* -------------------------------
+    REFERENCES (AFTER LITERATURE)
+  -------------------------------- */
+
+  if (citations.length) {
+    bodyChildren.push(new Paragraph({ pageBreakBefore: true }));
+    appendReferences(bodyChildren, citations);
+  }
+
 
   /* CLEAN TRAILING PAGE BREAK */
   if (bodyChildren.at(-1)?.options?.pageBreakBefore) {
