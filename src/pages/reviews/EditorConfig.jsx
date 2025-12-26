@@ -53,7 +53,7 @@ function AllowSpanPlugin(editor) {
   schema.register('htmlSpan', {
     allowWhere: '$text',
     isInline: true,
-    isObject: true,
+    isObject: false,
     allowContentOf: '$text',
     allowAttributes: ['dataCite', 'className', 'htmlStyle', 'htmlId'],
   });

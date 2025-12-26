@@ -450,7 +450,7 @@ export default function ReviewEditor() {
   React.useEffect(() => {
     const activeLabel = EDITOR_ORDER[tab];
     const html = sections[activeLabel] || '';
-    console.log("html before clean: ", html)
+
     const text = html.replace(/<[^>]*>/g, '').trim();
     setCharCount(text.length);
 
@@ -492,47 +492,48 @@ export default function ReviewEditor() {
   };
 
 
-  function insertCitationAtCursor(citation) {
-    const editor = editorRef.current;
-    if (!editor) return;
+function insertCitationAtCursor(citation) {
+  const editor = editorRef.current;
+  if (!editor) return;
 
-    editor.model.change((writer) => {
-      const selection = editor.model.document.selection;
-      const position = selection.getFirstPosition();
+  editor.model.change((writer) => {
+    const selection = editor.model.document.selection;
+    const position = selection.getFirstPosition();
 
-      // Create the span element with attributes
-      const span = writer.createElement('htmlSpan', {
-        dataCite: citation.citation_key,
-        className: 'citation-token'
-      });
-
-      // ✅ Use actual citation ID from database
-      const citationId = citation.id || citation.citation_key;
-      const textNode = writer.createText(`[${citationId}]`);
-      writer.append(textNode, span);
-
-      // Insert the span
-      writer.insert(span, position);
-
-      // Insert non-breaking space after
-      const nbsp = writer.createText('\u00A0');
-      const afterSpan = writer.createPositionAfter(span);
-      writer.insert(nbsp, afterSpan);
-
-      // Move selection after the space
-      const finalPosition = writer.createPositionAfter(nbsp);
-      writer.setSelection(finalPosition);
+    // ✅ Store ID in data-cite, not citation_key
+    const span = writer.createElement('htmlSpan', {
+      dataCite: String(citation.id), // Store ID, not citation_key
+      className: 'citation-token'
     });
 
-    console.log("Citation inserted with ID:", citation.id, "Key:", citation.citation_key);
+    console.log("Inserted citation: ", citation);
 
-    // ✅ Update citation map immediately
-    setCitationMap(prev => ({
-      ...prev,
-      [citation.citation_key]: citation
-    }));
-  }
+    // Use citation ID in the display text
+    const citationId = citation.id;
+    const textNode = writer.createText(`[${citationId}]`);
+    writer.append(textNode, span);
 
+    // Insert the span
+    writer.insert(span, position);
+
+    // Insert non-breaking space after
+    const nbsp = writer.createText('\u00A0');
+    const afterSpan = writer.createPositionAfter(span);
+    writer.insert(nbsp, afterSpan);
+
+    // Move selection after the space
+    const finalPosition = writer.createPositionAfter(nbsp);
+    writer.setSelection(finalPosition);
+  });
+
+  console.log("Citation inserted with ID:", citation.id, "Key:", citation.citation_key);
+
+  // Update citation map immediately
+  setCitationMap(prev => ({
+    ...prev,
+    [citation.id]: citation
+  }));
+}
   const SaveStatus = ({ saving, unsavedChanges, lastSavedAt }) => {
     if (saving) {  // ✅ Just saving, no autoSaving
       return (
