@@ -66,7 +66,7 @@ export default function Overview() {
 
   const { user } = useSelector((s) => s.auth || {});
   const role = user?.role; // 'researcher' | 'supervisor' | 'admin' | 'superuser'
-  
+
   console.log('Dashboard mode:', mode, 'for role:', role);
 
   const {
@@ -79,6 +79,7 @@ export default function Overview() {
     errorWeekly,
     totals,
     byCategory,
+    yearly,
     daily,
     weekly,
     filters,
@@ -155,7 +156,7 @@ export default function Overview() {
 
     if (mode === 'overview') {
       console.log('✅ Mode is overview, checking role...');
-      
+
       if (role === 'superuser') {
         console.log('✅ Is superuser');
         return [
@@ -166,7 +167,7 @@ export default function Overview() {
           { value: 'OV_SPEC_RES', label: 'Specific researcher' },
         ];
       }
-      
+
       if (role === 'admin') {
         console.log('✅ Is admin');
         return [
@@ -176,7 +177,7 @@ export default function Overview() {
           { value: 'OV_SPEC_RES', label: 'Specific researcher' },
         ];
       }
-      
+
       if (role === 'supervisor') {
         console.log('✅ Is supervisor - returning options');
         return [
@@ -186,27 +187,27 @@ export default function Overview() {
           { value: 'OV_SPEC_RES', label: 'Specific researcher' },
         ];
       }
-      
+
       console.log('❌ Role not matched in overview:', role);
     }
 
     if (mode === 'researchers') {
       console.log('✅ Mode is researchers');
-      
+
       if (role === 'superuser') {
         return [
           { value: 'RES_ALL', label: 'All researchers' },
           { value: 'RES_SPEC', label: 'Specific researcher' },
         ];
       }
-      
+
       if (role === 'supervisor') {
         return [
           { value: 'RES_ALL_MY', label: 'All my researchers' },
           { value: 'RES_SPEC', label: 'Specific researcher' },
         ];
       }
-      
+
       if (role === 'admin') {
         return [
           { value: 'RES_ALL', label: 'All researchers' },
@@ -217,7 +218,7 @@ export default function Overview() {
 
     if (mode === 'supervisors') {
       console.log('✅ Mode is supervisors');
-      
+
       if (role === 'superuser' || role === 'admin') {
         return [
           { value: 'SUP_ALL', label: 'All supervisors' },
@@ -228,7 +229,7 @@ export default function Overview() {
 
     if (mode === 'admins') {
       console.log('✅ Mode is admins');
-      
+
       if (role === 'superuser') {
         return [
           { value: 'ADM_ALL', label: 'All admins' },
@@ -587,6 +588,18 @@ export default function Overview() {
     }));
   }, [weekly]);
 
+  const yearlyRows = React.useMemo(() => {
+    const L = yearly?.labels || [];
+    const C = yearly?.counts || [];
+
+    return L.map((year, i) => ({
+      year,
+      papers: C[i] ?? 0,
+    }));
+  }, [yearly]);
+
+
+
   const seriesRows = viewMode === 'weekly' ? weeklyRows : dailyRows;
   const busy = loadingSummary || loadingDaily || loadingWeekly;
   const anyError = errorSummary || errorDaily || errorWeekly;
@@ -603,7 +616,7 @@ export default function Overview() {
 
   // Show dropdown for supervisor, admin, and superuser ONLY
   const showPrimaryDropdown = role !== 'researcher' && primaryOptions.length > 0;
-  
+
   console.log('🔍 Dropdown visibility:', {
     role,
     showPrimaryDropdown,
@@ -811,7 +824,7 @@ export default function Overview() {
                       strokeWidth={2}
                       dot={false}
                       name="In Review"
-                    />  
+                    />
 
                   </LineChart>
                 </ResponsiveContainer>
@@ -886,48 +899,105 @@ export default function Overview() {
           </Grid>
 
           {/* Weekly bars */}
-          <Grid item xs={12} sx={{ height: 380, minHeight: 0 }}>
-            <Paper
-              sx={{
-                p: 2,
-                height: '100%',
-                border: '1px solid #eee',
-                borderRadius: 2,
-                display: 'flex',
-                flexDirection: 'column',
-              }}
-            >
-              <Typography variant="subtitle1" sx={{ mb: 1 }}>
-                Weekly Activity (Bars)
-              </Typography>
-              <Divider sx={{ mb: 1 }} />
-              <Box sx={{ flex: 1, minHeight: 0 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={weeklyRows}
-                    margin={{ left: 24, right: 24, top: 12, bottom: 60 }}
-                    barCategoryGap={8}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis
-                      dataKey="label"
-                      tickMargin={12}
-                      minTickGap={10}
-                      interval="preserveEnd"
-                      allowDuplicatedCategory={false}
-                    />
-                    <YAxis allowDecimals={false} />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="added" name="Added" fill="#60A5FA" />
-                    <Bar dataKey="reviewed" name="Reviewed" fill="#34D399" />
-                    <Bar dataKey="started" name="In Review" fill="#FBBF24" />
+          {/* ===== Bottom Bar Charts ===== */}
+          <Grid container item xs={12} spacing={1.5} sx={{ height: 380 }}>
 
-                  </BarChart>
-                </ResponsiveContainer>
-              </Box>
-            </Paper>
+            {/* Weekly Activity Bars (50%) */}
+            <Grid item xs={12} md={7} sx={{ height: '100%' }}>
+              <Paper
+                sx={{
+                  p: 2,
+                  height: '100%',
+                  border: '1px solid #eee',
+                  borderRadius: 2,
+                  display: 'flex',
+                  flexDirection: 'column',
+                }}
+              >
+                <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                  Weekly Activity
+                </Typography>
+                <Divider sx={{ mb: 1 }} />
+                <Box sx={{ flex: 1 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={weeklyRows}
+                      margin={{ left: 16, right: 16, top: 12, bottom: 48 }}
+                      barCategoryGap={8}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="label" />
+                      <YAxis allowDecimals={false} />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="added" name="Added" fill="#60A5FA" />
+                      <Bar dataKey="reviewed" name="Reviewed" fill="#34D399" />
+                      <Bar dataKey="started" name="In Review" fill="#FBBF24" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </Box>
+              </Paper>
+            </Grid>
+
+            {/* Year-wise Paper Distribution (50%) */}
+            <Grid item xs={12} md={5} sx={{ height: '100%' }}>
+              <Paper
+                sx={{
+                  p: 2,
+                  height: '100%',
+                  border: '1px solid #eee',
+                  borderRadius: 2,
+                  display: 'flex',
+                  flexDirection: 'column',
+                }}
+              >
+                <Stack
+                  direction="row"
+                  alignItems="center"
+                  justifyContent="space-between"
+                  sx={{ mb: 1 }}
+                >
+                  <Typography variant="subtitle1">
+                    Papers by Publication Year
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Year-wise count
+                  </Typography>
+                </Stack>
+
+                <Divider sx={{ mb: 1 }} />
+
+                <Box sx={{ flex: 1 }}>
+                  {yearlyRows.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={yearlyRows}
+                        margin={{ left: 16, right: 16, top: 12, bottom: 48 }}
+                        barCategoryGap={12}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="year" />
+                        <YAxis allowDecimals={false} />
+                        <Tooltip />
+                        <Bar
+                          dataKey="papers"
+                          name="Total Papers"
+                          fill="#6366F1"
+                          radius={[4, 4, 0, 0]}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">
+                      No year-wise data available.
+                    </Typography>
+                  )}
+                </Box>
+              </Paper>
+            </Grid>
           </Grid>
+
+
         </Grid>
       )}
 
