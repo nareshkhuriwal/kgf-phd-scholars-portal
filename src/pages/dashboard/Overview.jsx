@@ -1024,7 +1024,8 @@ export default function Overview() {
 
                 {/* Chart */}
                 <Box sx={{ flex: 1 }}>
-                  {weeklyEfficiencyRows.some(r => r.efficiency > 0) ? (
+                 {weeklyEfficiencyRows.some(r => r.reviewed > 0 || r.added > 0) ? (
+
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
                         data={weeklyEfficiencyRows}
@@ -1048,12 +1049,14 @@ export default function Overview() {
                         />
 
                         <Tooltip
-                          formatter={(value, _, { payload }) => [
-                            `${value}%`,
-                            `Reviewed ${payload.reviewed ?? 0} / Added ${payload.added ?? 0}`,
-                          ]}
-                          labelFormatter={(label) => `Week ${label}`}
-                        />
+                            formatter={(value, _, { payload }) => [
+                              `${value}%`,
+                              payload.added === 0 && payload.reviewed > 0
+                                ? `Reviewed ${payload.reviewed} papers added earlier`
+                                : `Reviewed ${payload.reviewed} / Added ${payload.added}`,
+                            ]}
+                          />
+
 
                         {/* Target benchmark */}
                         <ReferenceLine
