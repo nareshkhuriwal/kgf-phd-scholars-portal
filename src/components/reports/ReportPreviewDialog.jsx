@@ -783,9 +783,12 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
                     <Box>
                       <Typography
                         variant="h6"
-                        sx={{ mb: 2, fontWeight: 600 }}
+                        sx={{ 
+                          mb: 2, fontWeight: 600,
+                        textAlign: 'center'
+                         }}
                       >
-                        LITERATURE REVIEW
+                        REVIEW OF LITERATURE
                       </Typography>
 
                       <Stack spacing={2}>
