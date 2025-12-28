@@ -51,3 +51,22 @@ export const initialsOf = (name) => {
 
   return (first + (last ?? '')).toUpperCase();
 };
+
+
+export function normalizeHtmlWhitespace(html) {
+  if (!html) return '';
+
+  return html
+    // Normalize Windows/Mac newlines
+    .replace(/\r\n/g, '\n')
+
+    // Convert double newlines → paragraph breaks
+    .replace(/\n\s*\n/g, '</p><p>')
+
+    // Convert single newline → <br>
+    .replace(/\n/g, '<br/>')
+
+    // Ensure wrapped in paragraphs
+    .replace(/^/, '<p>')
+    .replace(/$/, '</p>');
+}

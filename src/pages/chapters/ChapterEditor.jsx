@@ -151,7 +151,7 @@ export default function ChapterEditor() {
     if (!isLoaded) return;
     setSaving(true);
     try {
-      await dispatch(updateChapter({ id: cid, changes: { title, body_html: btoa(unescape(encodeURIComponent(body))) } })).unwrap();
+      await dispatch(updateChapter({ id: cid, changes: { title, body_html: btoa(unescape(body)) } })).unwrap();
       openToast('success', 'Chapter saved successfully.');
     } catch (err) {
       openToast('error', err?.message || 'Failed to save chapter.');
