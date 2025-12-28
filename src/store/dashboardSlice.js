@@ -87,15 +87,35 @@ const initialState = {
     started: 0,
     collections: 0,
   },
+
+  derived: {
+    reviewCompletionRate: 0,
+    queuePressure: 0,
+  },
+
   yearly: {
     labels: [],
     counts: [],
+    percents: [],
   },
   byCategory: [],
 
   // series
-  daily: { labels: [], added: [], reviewed: [] },
-  weekly: { labels: [], added: [], reviewed: [] },
+  daily: {
+    labels: [],
+    added: [],
+    reviewed: [],
+    started: [],
+    cumulativeReviewed: [],
+  },
+
+  weekly: {
+    labels: [],
+    added: [],
+    reviewed: [],
+    started: [],
+    efficiency: [],
+  },
 
   // filters for professional dropdown
   filters: {
@@ -123,20 +143,27 @@ const slice = createSlice({
     b.addCase(loadDashboardSummary.fulfilled, (s, a) => {
       s.loadingSummary = false;
       const d = a.payload || {};
+
       if (d.totals) s.totals = { ...s.totals, ...d.totals };
-      // if (Array.isArray(d.byCategory)) s.byCategory = d.byCategory;
+
+      if (d.derived) {
+        s.derived = {
+          reviewCompletionRate: d.derived.reviewCompletionRate ?? 0,
+          queuePressure: d.derived.queuePressure ?? 0,
+        };
+      }
 
       if (d.yearly) {
         s.yearly = {
-          labels: Array.isArray(d.yearly.labels) ? d.yearly.labels : [],
-          counts: Array.isArray(d.yearly.counts) ? d.yearly.counts : [],
+          labels: d.yearly.labels || [],
+          counts: d.yearly.counts || [],
+          percents: d.yearly.percents || [],
         };
       }
-      
+
       if (Array.isArray(d.byCreatedBy)) {
         s.byCategory = d.byCreatedBy;
       }
-
     });
     b.addCase(loadDashboardSummary.rejected, (s, a) => {
       s.loadingSummary = false;
@@ -153,12 +180,14 @@ const slice = createSlice({
       s.loadingDaily = false;
       const d = a.payload || {};
       s.daily = {
-        labels: Array.isArray(d.labels) ? d.labels : [],
-        added: Array.isArray(d.added) ? d.added : [],
-        reviewed: Array.isArray(d.reviewed) ? d.reviewed : [],
-        started: Array.isArray(d.started) ? d.started : [],
+        labels: d.labels || [],
+        added: d.added || [],
+        reviewed: d.reviewed || [],
+        started: d.started || [],
+        cumulativeReviewed: d.cumulativeReviewed || [],
       };
     });
+
     b.addCase(loadDashboardDaily.rejected, (s, a) => {
       s.loadingDaily = false;
       s.errorDaily =
@@ -174,12 +203,14 @@ const slice = createSlice({
       s.loadingWeekly = false;
       const d = a.payload || {};
       s.weekly = {
-        labels: Array.isArray(d.labels) ? d.labels : [],
-        added: Array.isArray(d.added) ? d.added : [],
-        reviewed: Array.isArray(d.reviewed) ? d.reviewed : [],
-        started: Array.isArray(d.started) ? d.started : [], 
+        labels: d.labels || [],
+        added: d.added || [],
+        reviewed: d.reviewed || [],
+        started: d.started || [],
+        efficiency: d.efficiency || [],
       };
     });
+
     b.addCase(loadDashboardWeekly.rejected, (s, a) => {
       s.loadingWeekly = false;
       s.errorWeekly =

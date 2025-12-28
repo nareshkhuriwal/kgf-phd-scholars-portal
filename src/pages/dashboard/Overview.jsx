@@ -42,6 +42,7 @@ import {
   Pie,
   Cell,
   LabelList,
+  ReferenceLine, 
 } from 'recharts';
 import { hasRoleAccess } from '../../utils/rbac';
 
@@ -79,6 +80,8 @@ export default function Overview() {
     errorDaily,
     errorWeekly,
     totals,
+    derived,
+
     byCategory,
     yearly,
     daily,
@@ -96,6 +99,35 @@ export default function Overview() {
   const [primaryKey, setPrimaryKey] = React.useState('');
   // Secondary dropdown: specific user id
   const [selectedUserId, setSelectedUserId] = React.useState('');
+
+  const weeklyEfficiencyRows = React.useMemo(() => {
+    const L = weekly?.labels ?? [];
+    const E = weekly?.efficiency ?? [];
+
+    return L.map((l, i) => ({
+      label: l,
+      efficiency: E[i] ?? 0,
+    }));
+  }, [weekly]);
+
+  const [visibleLines, setVisibleLines] = React.useState({
+    added: true,
+    reviewed: true,
+    started: true,
+    cumulativeReviewed: true,
+  });
+
+
+  const handleLegendClick = (e) => {
+    const key = e.dataKey;
+    setVisibleLines((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+
+
+
 
   // -------- Load filters for supervisor/admin/superuser --------
   React.useEffect(() => {
@@ -564,17 +596,15 @@ export default function Overview() {
 
   // -------- Build chart rows --------
   const dailyRows = React.useMemo(() => {
-    const L = daily?.labels || [];
-    const A = daily?.added || [];
-    const R = daily?.reviewed || [];
-    const S = daily?.started || [];
-    return L.map((x, i) => ({
+    return daily.labels.map((x, i) => ({
       label: x,
-      added: A[i] ?? 0,
-      reviewed: R[i] ?? 0,
-      started: S[i] ?? 0,
+      added: daily.added[i] ?? 0,
+      reviewed: daily.reviewed[i] ?? 0,
+      started: daily.started[i] ?? 0,
+      cumulativeReviewed: daily.cumulativeReviewed[i] ?? 0,
     }));
   }, [daily]);
+
 
   const weeklyRows = React.useMemo(() => {
     const L = weekly?.labels || [];
@@ -718,23 +748,46 @@ export default function Overview() {
       </Paper>
 
       {/* ===== KPIs ===== */}
-      <Grid container spacing={1.5} sx={{ mb: 1.5 }}>
-        <Grid item xs={12} sm={6} md={2.4}>
+      {/* ===== KPIs ===== */}
+      <Grid
+        container
+        spacing={1.5}
+        sx={{
+          mb: 1.5,
+          flexWrap: { xs: 'wrap', md: 'nowrap' }, // 👈 force one row on desktop
+        }}
+      >
+        <Grid item xs={12} sm={6} md={2}>
           <StatCard label="Total Papers" value={totals?.totalPapers} />
         </Grid>
-        <Grid item xs={12} sm={6} md={2.4}>
+
+        <Grid item xs={12} sm={6} md={2}>
           <StatCard label="In Review Queue" value={totals?.inQueue} />
         </Grid>
-        <Grid item xs={12} sm={6} md={2.4}>
+
+        <Grid item xs={12} sm={6} md={2}>
           <StatCard label="Started for Review" value={totals?.started} />
         </Grid>
-        <Grid item xs={12} sm={6} md={2.4}>
+
+        <Grid item xs={12} sm={6} md={2}>
           <StatCard label="Reviewed" value={totals?.reviewedPapers} />
         </Grid>
-        <Grid item xs={12} sm={6} md={2.4}>
-          <StatCard label="Collections" value={totals?.collections} />
+
+        <Grid item xs={12} sm={6} md={2}>
+          <StatCard
+            label="Review Completion"
+            value={`${derived?.reviewCompletionRate ?? 0}%`}
+          />
+        </Grid>
+
+        <Grid item xs={12} sm={6} md={2}>
+          <StatCard
+            label="Queue Pressure"
+            value={`${derived?.queuePressure ?? 0}%`}
+          />
         </Grid>
       </Grid>
+
 
       {/* ===== Charts ===== */}
       {busy ? (
@@ -785,6 +838,7 @@ export default function Overview() {
                 </ToggleButtonGroup>
               </Stack>
               <Divider sx={{ mb: 1 }} />
+
               <Box sx={{ flex: 1, minHeight: 0 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart
@@ -792,44 +846,68 @@ export default function Overview() {
                     margin={{ left: 24, right: 24, top: 12, bottom: 32 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis
-                      dataKey="label"
-                      tickMargin={12}
-                      minTickGap={10}
-                      interval="preserveEnd"
-                      allowDuplicatedCategory={false}
-                    />
-                    <YAxis allowDecimals={false} />
+
+                    <XAxis dataKey="label" />
+                    <YAxis yAxisId="left" allowDecimals={false} />
+                    <YAxis yAxisId="right" orientation="right" allowDecimals={false} />
+
                     <Tooltip />
-                    <Legend />
+                    <Legend
+                      onClick={handleLegendClick}
+                      wrapperStyle={{ cursor: 'pointer' }}
+                    />
+
                     <Line
                       type="monotone"
                       dataKey="added"
-                      stroke="#0EA5E9"
-                      strokeWidth={2}
-                      dot={false}
                       name="Added"
+                      stroke="#0EA5E9"
+                      strokeWidth={visibleLines.added ? 2 : 1}
+                      strokeOpacity={visibleLines.added ? 1 : 0.15}
+                      dot={visibleLines.added}
+                      isAnimationActive={false}
                     />
+
                     <Line
                       type="monotone"
                       dataKey="reviewed"
-                      stroke="#22C55E"
-                      strokeWidth={2}
-                      dot={false}
                       name="Reviewed"
+                      stroke="#22C55E"
+                      strokeWidth={visibleLines.reviewed ? 2 : 1}
+                      strokeOpacity={visibleLines.reviewed ? 1 : 0.15}
+                      dot={visibleLines.reviewed}
+                      isAnimationActive={false}
                     />
+
                     <Line
                       type="monotone"
                       dataKey="started"
-                      stroke="#F59E0B"
-                      strokeWidth={2}
-                      dot={false}
                       name="In Review"
+                      stroke="#F59E0B"
+                      strokeWidth={visibleLines.started ? 2 : 1}
+                      strokeOpacity={visibleLines.started ? 1 : 0.15}
+                      dot={visibleLines.started}
+                      isAnimationActive={false}
+                    />
+
+                    <Line
+                      type="monotone"
+                      dataKey="cumulativeReviewed"
+                      name="Cumulative Reviewed"
+                      stroke="#6366F1"
+                      strokeDasharray="5 5"
+                      strokeWidth={visibleLines.cumulativeReviewed ? 2 : 1}
+                      strokeOpacity={visibleLines.cumulativeReviewed ? 1 : 0.15}
+                      dot={false}
+                      isAnimationActive={false}
                     />
 
                   </LineChart>
+
                 </ResponsiveContainer>
               </Box>
+
+
             </Paper>
           </Grid>
 
@@ -915,39 +993,106 @@ export default function Overview() {
                   flexDirection: 'column',
                 }}
               >
-                <Typography variant="subtitle1" sx={{ mb: 1 }}>
-                  Weekly Activity
-                </Typography>
+                {/* Header */}
+                <Stack
+                  direction="row"
+                  alignItems="center"
+                  justifyContent="space-between"
+                  sx={{ mb: 1 }}
+                >
+                  <Typography variant="subtitle1">
+                    Review Completion Rate by Week
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    % of added papers reviewed
+                  </Typography>
+                </Stack>
+
                 <Divider sx={{ mb: 1 }} />
+
+                {/* Chart */}
                 <Box sx={{ flex: 1 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={weeklyRows}
-                      margin={{ left: 16, right: 16, top: 12, bottom: 48 }}
-                      barCategoryGap={8}
+                  {weeklyEfficiencyRows.some(r => r.efficiency > 0) ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={weeklyEfficiencyRows}
+                        margin={{ top: 16, right: 24, left: 8, bottom: 32 }}
+                        barCategoryGap={12}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+
+                        <XAxis
+                          dataKey="label"
+                          tickMargin={12}
+                          interval="preserveEnd"
+                        />
+
+                        <YAxis
+                          unit="%"
+                          allowDecimals={false}
+                          domain={[0, (dataMax) =>
+                            Math.max(20, Math.ceil(dataMax / 10) * 10)
+                          ]}
+                        />
+
+                        <Tooltip
+                          formatter={(value, _, { payload }) => [
+                            `${value}%`,
+                            `Reviewed ${payload.reviewed ?? 0} / Added ${payload.added ?? 0}`,
+                          ]}
+                          labelFormatter={(label) => `Week ${label}`}
+                        />
+
+                        {/* Target benchmark */}
+                        <ReferenceLine
+                          y={70}
+                          stroke="#EF4444"
+                          strokeDasharray="3 3"
+                          label={{
+                            value: 'Target 70%',
+                            position: 'right',
+                            fill: '#EF4444',
+                            fontSize: 11,
+                          }}
+                        />
+
+                        <Bar
+                          dataKey="efficiency"
+                          name="Review Efficiency"
+                          fill="#22C55E"
+                          radius={[4, 4, 0, 0]}
+                        >
+                          <LabelList
+                            dataKey="efficiency"
+                            position="top"
+                            formatter={(v) => (v > 0 ? `${v}%` : '')}
+                            style={{
+                              fill: '#1F2937',
+                              fontSize: 12,
+                              fontWeight: 600,
+                            }}
+                          />
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <Box
+                      sx={{
+                        flex: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
                     >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="label" />
-                      <YAxis allowDecimals={false} />
-                      <Tooltip />
-                      <Legend />
-                      <Bar dataKey="added" name="Added" fill="#60A5FA">
-                        <LabelList dataKey="added" position="top" />
-                      </Bar>
-
-                      <Bar dataKey="reviewed" name="Reviewed" fill="#34D399">
-                        <LabelList dataKey="reviewed" position="top" />
-                      </Bar>
-
-                      <Bar dataKey="started" name="In Review" fill="#FBBF24">
-                        <LabelList dataKey="started" position="top" />
-                      </Bar>
-
-                    </BarChart>
-                  </ResponsiveContainer>
+                      <Typography variant="body2" color="text.secondary">
+                        No reviews completed in the selected period.
+                      </Typography>
+                    </Box>
+                  )}
                 </Box>
               </Paper>
             </Grid>
+
 
             {/* Year-wise Paper Distribution (50%) */}
             <Grid item xs={12} md={5} sx={{ height: '100%' }}>
