@@ -6,7 +6,7 @@ export const DOCUMENT_TYPOGRAPHY = {
   textAlign: 'justify',
   '& p': {
     margin: 0,
-    textIndent: '0.5in', // First-line indent
+    // textIndent: '0.5in', // First-line indent
   },
   '& h1': {
     fontSize: '14pt',

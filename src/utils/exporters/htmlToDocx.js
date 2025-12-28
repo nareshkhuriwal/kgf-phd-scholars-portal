@@ -37,11 +37,11 @@ const BODY_PARAGRAPH = {
     before: DOCUMENT_FORMATTING.paragraph.spacingBeforePt,
     after: DOCUMENT_FORMATTING.paragraph.spacingAfterPt,
   },
-  indent: {
-    firstLine: INCH_TO_TWIP(
-      DOCUMENT_FORMATTING.paragraph.firstLineIndentInch
-    ),
-  },
+  // indent: {
+  //   firstLine: INCH_TO_TWIP(
+  //     DOCUMENT_FORMATTING.paragraph.firstLineIndentInch
+  //   ),
+  // },
 };
 
 const HEADING_RUN = (level) => ({
@@ -56,17 +56,49 @@ const HEADING_RUN = (level) => ({
    TITLE PAGE DOCX BUILDER (NEW)
 --------------------------------------------------------- */
 export function normalizeHtmlForDocx(html = "") {
-  return html
-    // Strong-only lines → paragraph
-    .replace(/(<strong>.*?<\/strong>)(\s*\n)/g, "<p>$1</p>")
-    // Paragraph breaks
-    .replace(/\n\s*\n+/g, "</p><p>")
-    // Single newline → line break
-    .replace(/\n/g, "<br>")
+  if (!html) return "";
+
+  // 1️⃣ Protect block-level elements (IMG, FIGURE, TABLE)
+  const protectedBlocks = [];
+  html = html.replace(
+    /<(img|figure|table)[\s\S]*?>/gi,
+    (match) => {
+      const key = `__BLOCK_${protectedBlocks.length}__`;
+      protectedBlocks.push(match);
+      return key;
+    }
+  );
+
+  // 2️⃣ Your existing logic (unchanged)
+  html = html
+    // Wrap loose text blocks into paragraphs
+    .replace(/(^|\n)\s*([A-Za-z])/g, '<p>$2')
+    .replace(/\n\s*\n+/g, '</p><p>')
+    .replace(/<\/p>\s*<p>/g, '</p><p>')
+
+    // Strong-only lines (signature blocks)
+    .replace(
+      /(^|\n)\s*<strong>([^<]+)<\/strong>\s*(?=\n|$)/g,
+      '<p><strong>$2</strong></p>'
+    )
+
+    // Remove empty paragraphs
+    .replace(/<p>\s*<\/p>/g, '')
+
     // Ensure wrapper
-    .replace(/^(?!<p|<h|<ul|<ol|<table|<figure)/i, "<p>")
-    .replace(/(?<!<\/p>)$/i, "</p>");
+    .replace(/^(?!<p|<h|<ul|<ol|<table|<figure)/i, '<p>')
+    .replace(/(?<!<\/p>)$/i, '</p>');
+
+  // 3️⃣ Restore protected blocks
+  protectedBlocks.forEach((block, i) => {
+    html = html.replace(`__BLOCK_${i}__`, block);
+  });
+
+  return html;
 }
+
+
+
 
 //container.innerHTML = normalizeHtmlForDocx(html);
 
@@ -215,8 +247,8 @@ export async function htmlToDocxParagraphs(html, options = {}) {
   if (!html) return [];
 
   const container = document.createElement("div");
-  container.innerHTML = html;
-  // container.innerHTML = normalizeHtmlForDocx(html);
+  // container.innerHTML = html;
+  container.innerHTML = normalizeHtmlForDocx(html);
 
   const EFFECTIVE_BODY_PARAGRAPH = {
     ...BODY_PARAGRAPH,
@@ -364,6 +396,8 @@ function parseInline(node) {
   const runs = [];
 
   node.childNodes.forEach((n) => {
+
+    /* TEXT */
     if (n.nodeType === Node.TEXT_NODE && n.textContent?.trim()) {
       runs.push(
         new TextRun({
@@ -373,26 +407,39 @@ function parseInline(node) {
       );
     }
 
-    if (n.nodeType === Node.ELEMENT_NODE) {
-      if (n.tagName === "STRONG") {
-        runs.push(
-          new TextRun({
-            text: n.innerText,
-            bold: true,
-            ...BODY_RUN,
-          })
-        );
-      }
+    /* STRONG */
+    if (n.nodeType === Node.ELEMENT_NODE && n.tagName === "STRONG") {
+      runs.push(
+        new TextRun({
+          text: n.innerText,
+          bold: true,
+          ...BODY_RUN,
+        })
+      );
+    }
 
-      if (n.tagName === "EM") {
-        runs.push(
-          new TextRun({
-            text: n.innerText,
-            italics: true,
-            ...BODY_RUN,
-          })
-        );
-      }
+    /* EMPHASIS */
+    if (n.nodeType === Node.ELEMENT_NODE && n.tagName === "EM") {
+      runs.push(
+        new TextRun({
+          text: n.innerText,
+          italics: true,
+          ...BODY_RUN,
+        })
+      );
+    }
+
+    /* SPAN (NEW – IMPORTANT) */
+    if (n.nodeType === Node.ELEMENT_NODE && n.tagName === "SPAN") {
+      const isBold = n.querySelector("strong") !== null;
+
+      runs.push(
+        new TextRun({
+          text: n.innerText,
+          bold: isBold,
+          ...BODY_RUN,
+        })
+      );
     }
   });
 

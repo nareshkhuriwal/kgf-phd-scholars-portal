@@ -52,10 +52,6 @@ function hasMeaningfulContent(html = "") {
   return html.replace(/<[^>]*>/g, "").trim().length > 0;
 }
 
-function isIntroduction(title = "") {
-  const t = title.toLowerCase();
-  return t === "introduction" || t.startsWith("introduction");
-}
 
 /* ---------------------------------------------------------
    TITLE PAGE BUILDER
@@ -208,10 +204,14 @@ async function appendLiterature(children, literature) {
     //   );
     // }
 
-    const paras = await htmlToDocxParagraphs(html, {
-      noFirstLineIndent: true,
-      forceJustified: true,
-    });
+    const paras = await htmlToDocxParagraphs(
+      normalizeHtmlForDocx(html),
+      {
+        noFirstLineIndent: true,
+        forceJustified: true,
+      }
+    );
+
     // const paras = await htmlToDocxParagraphs(html);
     paras.forEach(p => children.push(p));
   }
@@ -300,13 +300,14 @@ export async function exportSynopsisDocx(data) {
   const titlePageChildren = [];
   const bodyChildren = [];
 
-  let literatureInserted = false;
-
   /* -------------------------------
      CHAPTER LOOP
   -------------------------------- */
 
-  for (const ch of chapters) {
+  for (let i = 0; i < chapters.length; i++) {
+    const ch = chapters[i];
+
+  // for (const ch of chapters) {
     const title = ch.title || "";
     const body = ch.body_html || ch.body || "";
 
@@ -321,19 +322,21 @@ export async function exportSynopsisDocx(data) {
 
     /* CHAPTER CONTENT */
     const paras = await htmlToDocxParagraphs(body);
+    // const paras = await htmlToDocxParagraphs(
+    //   normalizeHtmlForDocx(body)
+    // );
     paras.forEach(p => bodyChildren.push(p));
-
-    /* INSERT LITERATURE AFTER INTRO */
-    if (!literatureInserted && isIntroduction(title)) {
+    if (i < chapters.length - 1) {
       bodyChildren.push(new Paragraph({ pageBreakBefore: true }));
-      await appendLiterature(bodyChildren, literature);
-      literatureInserted = true;
     }
 
-    bodyChildren.push(new Paragraph({ pageBreakBefore: true }));
+    // bodyChildren.push(new Paragraph({ pageBreakBefore: true }));
   }
 
-  if (!literatureInserted && literature.length) {
+  /* -------------------------------
+    LITERATURE (ALWAYS AT END)
+  -------------------------------- */
+  if (literature?.length) {
     bodyChildren.push(new Paragraph({ pageBreakBefore: true }));
     await appendLiterature(bodyChildren, literature);
   }

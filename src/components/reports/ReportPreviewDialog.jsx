@@ -11,7 +11,7 @@ import DownloadIcon from '@mui/icons-material/Download';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import SlideshowIcon from '@mui/icons-material/Slideshow';
 import * as XLSX from 'xlsx';
-import { cleanRich } from '../../utils/text/cleanRich';
+import { normalizeHtmlWhitespace } from '../../utils/text/cleanRich';
 import { exportSynopsisDocx } from '../../utils/docx/exportSynopsisDocx';
 import { exportReportPptx } from '../../utils/pptx/exportReportPptx';
 import { htmlToExcelText } from '../../utils/exporters/htmlToExcelText';
@@ -647,7 +647,7 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
                           <Box
                             className="ck-content"
                             sx={DOCUMENT_TYPOGRAPHY}
-                            dangerouslySetInnerHTML={{ __html: ch.body_html }}
+                            dangerouslySetInnerHTML={{ __html: normalizeHtmlWhitespace(ch.body_html) }}
                           />
                         </Box>
                       );
@@ -771,7 +771,7 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
                       <Box
                         className="ck-content"
                         sx={DOCUMENT_TYPOGRAPHY}
-                        dangerouslySetInnerHTML={{ __html: ch.body_html }}
+                        dangerouslySetInnerHTML={{ __html: normalizeHtmlWhitespace(ch.body_html) }}
                       />
                     </Box>
                   </DocumentPage>
@@ -812,7 +812,7 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
                             <Box
                               className="ck-content"
                               sx={DOCUMENT_TYPOGRAPHY}
-                              dangerouslySetInnerHTML={{ __html: item.text || '<p>—</p>' }}
+                              dangerouslySetInnerHTML={{ __html: normalizeHtmlWhitespace(item.text) || '<p>—</p>' }}
                             />
                           </Box>
                         ))}
@@ -903,7 +903,7 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
                                 <Box
                                   className="ck-content"
                                   sx={DOCUMENT_TYPOGRAPHY}
-                                  dangerouslySetInnerHTML={{ __html: row[col.key] }}
+                                  dangerouslySetInnerHTML={{ __html: normalizeHtmlWhitespace(row[col.key]) }}
                                 />
                               )}
                             </TableCell>
@@ -935,7 +935,7 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
                 {isHtml && html && (
                   <Box
                     sx={{ p: 2, height: '100%', overflow: 'auto', bgcolor: '#fff', '& img': { maxWidth: '100%' } }}
-                    dangerouslySetInnerHTML={{ __html: html }}
+                    dangerouslySetInnerHTML={{ __html: normalizeHtmlWhitespace(html) }}
                   />
                 )}
 
