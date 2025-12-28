@@ -167,7 +167,8 @@ async function appendLiterature(children, literature) {
 
   children.push(
     new Paragraph({
-      spacing: { before: 300, after: 200 },
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 240, after: 240 },
       children: [
         new TextRun({
           text: "REVIEW OF LITERATURE",
@@ -227,7 +228,8 @@ function appendReferences(children, citations = []) {
   /* ---------- REFERENCES HEADING ---------- */
   children.push(
     new Paragraph({
-      spacing: { before: 400, after: 240 },
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 240, after: 240 },
       children: [
         new TextRun({
           text: "REFERENCES",
@@ -249,10 +251,10 @@ function appendReferences(children, citations = []) {
           before: 120,
           after: 120,
         },
-        indent: {
-          left: INCH_TO_TWIP(0.5),      // overall left margin
-          hanging: INCH_TO_TWIP(0.3),   // hanging indent (KEY FIX)
-        },
+        // indent: {
+        //   left: INCH_TO_TWIP(0.5),      // overall left margin
+        //   hanging: INCH_TO_TWIP(0.3),   // hanging indent (KEY FIX)
+        // },
         children: [
           new TextRun({
             text: `[${number}] `,

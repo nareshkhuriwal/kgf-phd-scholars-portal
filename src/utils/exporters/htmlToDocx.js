@@ -295,7 +295,7 @@ export async function htmlToDocxParagraphs(html, options = {}) {
             node.style.textAlign === "center"
               ? AlignmentType.CENTER
               : AlignmentType.LEFT,
-          spacing: { before: 240, after: 120 },
+          spacing: { before: 240, after: 240 },
           children: [
             new TextRun({
               text: node.innerText.trim(),
