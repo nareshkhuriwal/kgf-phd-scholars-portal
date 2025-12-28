@@ -42,7 +42,7 @@ import {
   Pie,
   Cell,
   LabelList,
-  ReferenceLine, 
+  ReferenceLine,
 } from 'recharts';
 import { hasRoleAccess } from '../../utils/rbac';
 
@@ -100,15 +100,24 @@ export default function Overview() {
   // Secondary dropdown: specific user id
   const [selectedUserId, setSelectedUserId] = React.useState('');
 
+
   const weeklyEfficiencyRows = React.useMemo(() => {
     const L = weekly?.labels ?? [];
     const E = weekly?.efficiency ?? [];
+    const A = weekly?.added ?? [];
+    const R = weekly?.reviewed ?? [];
 
     return L.map((l, i) => ({
       label: l,
       efficiency: E[i] ?? 0,
+      added: A[i] ?? 0,
+      reviewed: R[i] ?? 0,
     }));
   }, [weekly]);
+
+
+  const isMonthlyEfficiency = weekly?.mode === 'monthly';
+
 
   const [visibleLines, setVisibleLines] = React.useState({
     added: true,
@@ -1000,9 +1009,12 @@ export default function Overview() {
                   justifyContent="space-between"
                   sx={{ mb: 1 }}
                 >
-                  <Typography variant="subtitle1">
-                    Review Completion Rate by Week
+                  <Typography variant="caption" color="text.secondary">
+                    {isMonthlyEfficiency
+                      ? '% of added papers reviewed per month'
+                      : '% of added papers reviewed per week'}
                   </Typography>
+
                   <Typography variant="caption" color="text.secondary">
                     % of added papers reviewed
                   </Typography>
