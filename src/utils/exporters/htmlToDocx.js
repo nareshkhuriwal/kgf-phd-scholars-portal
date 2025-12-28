@@ -215,23 +215,47 @@ export async function htmlToDocxParagraphs(html, options = {}) {
   const blocks = [];
 
   for (const node of container.childNodes) {
+    // if (node.nodeType === Node.TEXT_NODE) {
+    //   const text = node.textContent?.trim();
+    //   if (text) {
+    //     blocks.push(
+    //       new Paragraph({
+    //         ...EFFECTIVE_BODY_PARAGRAPH,
+    //         children: [
+    //           new TextRun({
+    //             text,
+    //             ...BODY_RUN,
+    //           }),
+    //         ],
+    //       })
+    //     );
+    //   }
+    //   continue;
+    // }
+
     if (node.nodeType === Node.TEXT_NODE) {
-      const text = node.textContent?.trim();
-      if (text) {
+      const lines = node.textContent
+        .split(/\n+/)
+        .map(l => l.trim())
+        .filter(Boolean);
+
+      lines.forEach(line => {
         blocks.push(
           new Paragraph({
             ...EFFECTIVE_BODY_PARAGRAPH,
             children: [
               new TextRun({
-                text,
+                text: line,
                 ...BODY_RUN,
               }),
             ],
           })
         );
-      }
+      });
+
       continue;
     }
+
 
     if (node.nodeType !== Node.ELEMENT_NODE) continue;
 
@@ -347,7 +371,8 @@ function parseInline(node) {
   const runs = [];
 
   node.childNodes.forEach((n) => {
-    if (n.nodeType === Node.TEXT_NODE && n.textContent?.trim()) {
+    // TEXT
+    if (n.nodeType === Node.TEXT_NODE && n.textContent) {
       runs.push(
         new TextRun({
           text: n.textContent,
@@ -356,28 +381,34 @@ function parseInline(node) {
       );
     }
 
-    if (n.nodeType === Node.ELEMENT_NODE) {
-      if (n.tagName === "STRONG") {
-        runs.push(
-          new TextRun({
-            text: n.innerText,
-            bold: true,
-            ...BODY_RUN,
-          })
-        );
-      }
+    // LINE BREAK
+    if (n.nodeType === Node.ELEMENT_NODE && n.tagName === "BR") {
+      runs.push(new TextRun({ break: 1 }));
+    }
 
-      if (n.tagName === "EM") {
-        runs.push(
-          new TextRun({
-            text: n.innerText,
-            italics: true,
-            ...BODY_RUN,
-          })
-        );
-      }
+    // STRONG
+    if (n.nodeType === Node.ELEMENT_NODE && n.tagName === "STRONG") {
+      runs.push(
+        new TextRun({
+          text: n.innerText,
+          bold: true,
+          ...BODY_RUN,
+        })
+      );
+    }
+
+    // EM
+    if (n.nodeType === Node.ELEMENT_NODE && n.tagName === "EM") {
+      runs.push(
+        new TextRun({
+          text: n.innerText,
+          italics: true,
+          ...BODY_RUN,
+        })
+      );
     }
   });
 
   return runs;
 }
+
