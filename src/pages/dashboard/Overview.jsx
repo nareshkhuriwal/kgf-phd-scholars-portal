@@ -41,6 +41,7 @@ import {
   PieChart,
   Pie,
   Cell,
+  LabelList,
 } from 'recharts';
 import { hasRoleAccess } from '../../utils/rbac';
 
@@ -930,9 +931,18 @@ export default function Overview() {
                       <YAxis allowDecimals={false} />
                       <Tooltip />
                       <Legend />
-                      <Bar dataKey="added" name="Added" fill="#60A5FA" />
-                      <Bar dataKey="reviewed" name="Reviewed" fill="#34D399" />
-                      <Bar dataKey="started" name="In Review" fill="#FBBF24" />
+                      <Bar dataKey="added" name="Added" fill="#60A5FA">
+                        <LabelList dataKey="added" position="top" />
+                      </Bar>
+
+                      <Bar dataKey="reviewed" name="Reviewed" fill="#34D399">
+                        <LabelList dataKey="reviewed" position="top" />
+                      </Bar>
+
+                      <Bar dataKey="started" name="In Review" fill="#FBBF24">
+                        <LabelList dataKey="started" position="top" />
+                      </Bar>
+
                     </BarChart>
                   </ResponsiveContainer>
                 </Box>
@@ -984,7 +994,14 @@ export default function Overview() {
                           name="Total Papers"
                           fill="#6366F1"
                           radius={[4, 4, 0, 0]}
-                        />
+                        >
+                          <LabelList
+                            dataKey="papers"
+                            position="top"
+                            style={{ fill: '#1F2937', fontSize: 12, fontWeight: 600 }}
+                          />
+                        </Bar>
+
                       </BarChart>
                     </ResponsiveContainer>
                   ) : (
