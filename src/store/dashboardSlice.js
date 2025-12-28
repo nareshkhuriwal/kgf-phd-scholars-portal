@@ -87,6 +87,10 @@ const initialState = {
     started: 0,
     collections: 0,
   },
+  yearly: {
+    labels: [],
+    counts: [],
+  },
   byCategory: [],
 
   // series
@@ -121,6 +125,14 @@ const slice = createSlice({
       const d = a.payload || {};
       if (d.totals) s.totals = { ...s.totals, ...d.totals };
       // if (Array.isArray(d.byCategory)) s.byCategory = d.byCategory;
+
+      if (d.yearly) {
+        s.yearly = {
+          labels: Array.isArray(d.yearly.labels) ? d.yearly.labels : [],
+          counts: Array.isArray(d.yearly.counts) ? d.yearly.counts : [],
+        };
+      }
+      
       if (Array.isArray(d.byCreatedBy)) {
         s.byCategory = d.byCreatedBy;
       }

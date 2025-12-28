@@ -55,10 +55,26 @@ const HEADING_RUN = (level) => ({
 /* ---------------------------------------------------------
    TITLE PAGE DOCX BUILDER (NEW)
 --------------------------------------------------------- */
+export function normalizeHtmlForDocx(html = "") {
+  return html
+    // Strong-only lines → paragraph
+    .replace(/(<strong>.*?<\/strong>)(\s*\n)/g, "<p>$1</p>")
+    // Paragraph breaks
+    .replace(/\n\s*\n+/g, "</p><p>")
+    // Single newline → line break
+    .replace(/\n/g, "<br>")
+    // Ensure wrapper
+    .replace(/^(?!<p|<h|<ul|<ol|<table|<figure)/i, "<p>")
+    .replace(/(?<!<\/p>)$/i, "</p>");
+}
+
+//container.innerHTML = normalizeHtmlForDocx(html);
+
 
 export async function buildTitlePageDocx(html) {
   const container = document.createElement("div");
   container.innerHTML = html;
+  // container.innerHTML = normalizeHtmlForDocx(html);
 
   const getText = (selector) =>
     container.querySelector(selector)?.innerText?.trim() || "";
@@ -200,6 +216,7 @@ export async function htmlToDocxParagraphs(html, options = {}) {
 
   const container = document.createElement("div");
   container.innerHTML = html;
+  // container.innerHTML = normalizeHtmlForDocx(html);
 
   const EFFECTIVE_BODY_PARAGRAPH = {
     ...BODY_PARAGRAPH,
@@ -215,47 +232,23 @@ export async function htmlToDocxParagraphs(html, options = {}) {
   const blocks = [];
 
   for (const node of container.childNodes) {
-    // if (node.nodeType === Node.TEXT_NODE) {
-    //   const text = node.textContent?.trim();
-    //   if (text) {
-    //     blocks.push(
-    //       new Paragraph({
-    //         ...EFFECTIVE_BODY_PARAGRAPH,
-    //         children: [
-    //           new TextRun({
-    //             text,
-    //             ...BODY_RUN,
-    //           }),
-    //         ],
-    //       })
-    //     );
-    //   }
-    //   continue;
-    // }
-
     if (node.nodeType === Node.TEXT_NODE) {
-      const lines = node.textContent
-        .split(/\n+/)
-        .map(l => l.trim())
-        .filter(Boolean);
-
-      lines.forEach(line => {
+      const text = node.textContent?.trim();
+      if (text) {
         blocks.push(
           new Paragraph({
             ...EFFECTIVE_BODY_PARAGRAPH,
             children: [
               new TextRun({
-                text: line,
+                text,
                 ...BODY_RUN,
               }),
             ],
           })
         );
-      });
-
+      }
       continue;
     }
-
 
     if (node.nodeType !== Node.ELEMENT_NODE) continue;
 
@@ -371,8 +364,7 @@ function parseInline(node) {
   const runs = [];
 
   node.childNodes.forEach((n) => {
-    // TEXT
-    if (n.nodeType === Node.TEXT_NODE && n.textContent) {
+    if (n.nodeType === Node.TEXT_NODE && n.textContent?.trim()) {
       runs.push(
         new TextRun({
           text: n.textContent,
@@ -381,34 +373,28 @@ function parseInline(node) {
       );
     }
 
-    // LINE BREAK
-    if (n.nodeType === Node.ELEMENT_NODE && n.tagName === "BR") {
-      runs.push(new TextRun({ break: 1 }));
-    }
+    if (n.nodeType === Node.ELEMENT_NODE) {
+      if (n.tagName === "STRONG") {
+        runs.push(
+          new TextRun({
+            text: n.innerText,
+            bold: true,
+            ...BODY_RUN,
+          })
+        );
+      }
 
-    // STRONG
-    if (n.nodeType === Node.ELEMENT_NODE && n.tagName === "STRONG") {
-      runs.push(
-        new TextRun({
-          text: n.innerText,
-          bold: true,
-          ...BODY_RUN,
-        })
-      );
-    }
-
-    // EM
-    if (n.nodeType === Node.ELEMENT_NODE && n.tagName === "EM") {
-      runs.push(
-        new TextRun({
-          text: n.innerText,
-          italics: true,
-          ...BODY_RUN,
-        })
-      );
+      if (n.tagName === "EM") {
+        runs.push(
+          new TextRun({
+            text: n.innerText,
+            italics: true,
+            ...BODY_RUN,
+          })
+        );
+      }
     }
   });
 
   return runs;
 }
-

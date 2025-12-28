@@ -7,7 +7,7 @@ import {
   ImageRun,
 } from "docx";
 import { saveAs } from "file-saver";
-import { htmlToDocxParagraphs } from "../exporters/htmlToDocx.js";
+import { htmlToDocxParagraphs, normalizeHtmlForDocx } from "../exporters/htmlToDocx.js";
 import { fetchImageBuffer } from "../exporters/fetchImage.js";
 import buildHeader from "./buildHeader.js";
 import { buildArabicFooter } from "./buildFooter.js";
@@ -64,6 +64,7 @@ function isIntroduction(title = "") {
 async function buildTitlePage(html) {
   const container = document.createElement("div");
   container.innerHTML = html;
+  // container.innerHTML = normalizeHtmlForDocx(html);
 
   const blocks = [];
 
