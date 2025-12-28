@@ -127,6 +127,65 @@ export default function Overview() {
   });
 
 
+  const CategoryLegend = ({ payload }) => {
+    return (
+      <Box
+        sx={{
+          maxHeight: 240,
+          overflowY: 'auto',
+          pr: 1,
+        }}
+      >
+        {payload.map((entry, index) => (
+          <Stack
+            key={`legend-${index}`}
+            direction="row"
+            spacing={1}
+            alignItems="flex-start"
+            sx={{ mb: 0.75 }}
+            title={entry.value} // full text on hover
+          >
+            {/* Color dot */}
+            <Box
+              sx={{
+                width: 10,
+                height: 10,
+                borderRadius: '50%',
+                bgcolor: entry.color,
+                mt: '6px',
+                flexShrink: 0,
+              }}
+            />
+
+            {/* Text */}
+            <Typography
+              variant="body2"
+              sx={{
+                fontSize: 13,
+                lineHeight: 1.3,
+                maxWidth: 220,
+                display: '-webkit-box',
+                WebkitLineClamp: 2,          // 👈 max 2 lines
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {entry.value}
+              <Box
+                component="span"
+                sx={{ ml: 0.5, color: 'text.secondary' }}
+              >
+                ({entry.payload.value})
+              </Box>
+            </Typography>
+          </Stack>
+        ))}
+      </Box>
+    );
+  };
+
+
   const handleLegendClick = (e) => {
     const key = e.dataKey;
     setVisibleLines((prev) => ({
@@ -937,6 +996,7 @@ export default function Overview() {
                 flexDirection: 'column',
               }}
             >
+              {/* Header */}
               <Stack
                 direction="row"
                 alignItems="center"
@@ -948,24 +1008,26 @@ export default function Overview() {
                   Paper distribution
                 </Typography>
               </Stack>
+
               <Divider sx={{ mb: 1 }} />
-              <Box sx={{ flex: 1, minHeight: 0, pb: 1 }}>
+
+              {/* Donut Chart */}
+              <Box sx={{ flex: 1, minHeight: 0 }}>
                 {Array.isArray(byCategory) && byCategory.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
-                    <PieChart
-                      margin={{
-                        top: 12,
-                        right: 12,
-                        bottom: 12,
-                        left: 12,
-                      }}
-                    >
+                    <PieChart>
                       <Pie
                         data={byCategory}
                         dataKey="value"
                         nameKey="name"
-                        outerRadius="80%"
-                        label
+                        innerRadius="60%"
+                        outerRadius="85%"
+                        paddingAngle={1}
+                        stroke="none"
+                        labelLine={false}
+                        label={({ value, percent }) =>
+                          percent >= 0.03 ? value : ''
+                        } // 👈 hide tiny labels
                       >
                         {byCategory.map((_, i) => (
                           <Cell
@@ -974,7 +1036,46 @@ export default function Overview() {
                           />
                         ))}
                       </Pie>
-                      <Tooltip />
+
+                      {/* Center text */}
+                      <text
+                        x="50%"
+                        y="46%"
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        style={{
+                          fontSize: 12,
+                          fill: '#6B7280',
+                        }}
+                      >
+                        Total Papers
+                      </text>
+
+                      <text
+                        x="50%"
+                        y="56%"
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        style={{
+                          fontSize: 24,
+                          fontWeight: 700,
+                          fill: '#111827',
+                        }}
+                      >
+                        {byCategory.reduce((sum, x) => sum + x.value, 0)}
+                      </text>
+
+                      {/* Tooltip */}
+                      <Tooltip
+                        formatter={(value, name) => {
+                          const total = byCategory.reduce(
+                            (s, x) => s + x.value,
+                            0
+                          );
+                          const pct = ((value / total) * 100).toFixed(1);
+                          return [`${value} (${pct}%)`, name];
+                        }}
+                      />
                     </PieChart>
                   </ResponsiveContainer>
                 ) : (
@@ -985,6 +1086,7 @@ export default function Overview() {
               </Box>
             </Paper>
           </Grid>
+
 
           {/* Weekly bars */}
           {/* ===== Bottom Bar Charts ===== */}
@@ -1024,7 +1126,7 @@ export default function Overview() {
 
                 {/* Chart */}
                 <Box sx={{ flex: 1 }}>
-                 {weeklyEfficiencyRows.some(r => r.reviewed > 0 || r.added > 0) ? (
+                  {weeklyEfficiencyRows.some(r => r.reviewed > 0 || r.added > 0) ? (
 
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
@@ -1049,13 +1151,13 @@ export default function Overview() {
                         />
 
                         <Tooltip
-                            formatter={(value, _, { payload }) => [
-                              `${value}%`,
-                              payload.added === 0 && payload.reviewed > 0
-                                ? `Reviewed ${payload.reviewed} papers added earlier`
-                                : `Reviewed ${payload.reviewed} / Added ${payload.added}`,
-                            ]}
-                          />
+                          formatter={(value, _, { payload }) => [
+                            `${value}%`,
+                            payload.added === 0 && payload.reviewed > 0
+                              ? `Reviewed ${payload.reviewed} papers added earlier`
+                              : `Reviewed ${payload.reviewed} / Added ${payload.added}`,
+                          ]}
+                        />
 
 
                         {/* Target benchmark */}
