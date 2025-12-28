@@ -709,13 +709,13 @@ export default function Overview() {
           <StatCard label="Total Papers" value={totals?.totalPapers} />
         </Grid>
         <Grid item xs={12} sm={6} md={2.4}>
-          <StatCard label="Reviewed" value={totals?.reviewedPapers} />
-        </Grid>
-        <Grid item xs={12} sm={6} md={2.4}>
           <StatCard label="In Review Queue" value={totals?.inQueue} />
         </Grid>
         <Grid item xs={12} sm={6} md={2.4}>
           <StatCard label="Started for Review" value={totals?.started} />
+        </Grid>
+        <Grid item xs={12} sm={6} md={2.4}>
+          <StatCard label="Reviewed" value={totals?.reviewedPapers} />
         </Grid>
         <Grid item xs={12} sm={6} md={2.4}>
           <StatCard label="Collections" value={totals?.collections} />
