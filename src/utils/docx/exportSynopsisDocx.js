@@ -278,7 +278,7 @@ function appendReferences(children, citations = []) {
 async function appendReviewAnalysis(children, sections = {}) {
   if (!sections || !Object.keys(sections).length) return;
 
-  /* MAIN HEADING */
+  // Main heading
   children.push(
     new Paragraph({
       alignment: AlignmentType.CENTER,
@@ -295,7 +295,7 @@ async function appendReviewAnalysis(children, sections = {}) {
   for (const [sectionTitle, htmlList] of Object.entries(sections)) {
     if (!Array.isArray(htmlList) || !htmlList.length) continue;
 
-    /* SECTION HEADING */
+    // Section heading
     children.push(
       new Paragraph({
         spacing: { before: 240, after: 120 },
@@ -308,31 +308,54 @@ async function appendReviewAnalysis(children, sections = {}) {
       })
     );
 
-    let pointIndex = 1;
-
     for (const html of htmlList) {
       if (!hasMeaningfulContent(html)) continue;
 
-      // 🔑 Convert HTML → text safely
-      const temp = document.createElement("div");
-      temp.innerHTML = normalizeHtmlForDocx(html);
-      const text = temp.innerText.trim();
+      const container = document.createElement("div");
+      container.innerHTML = normalizeHtmlForDocx(html);
 
+      const ol = container.querySelector("ol");
+
+      // Case 1: <ol><li>
+      if (ol) {
+        const items = Array.from(ol.querySelectorAll("li"));
+
+        for (const li of items) {
+          const text = li.innerText.trim();
+          if (!text) continue;
+
+          children.push(
+            new Paragraph({
+              numbering: {
+                reference: "analysis-numbering",
+                level: 0,
+              },
+              alignment: AlignmentType.JUSTIFIED,
+              spacing: { before: 120, after: 120, line: 360 },
+              children: [
+                new TextRun({
+                  text,
+                  ...BODY_RUN,
+                }),
+              ],
+            })
+          );
+        }
+        continue;
+      }
+
+      // Case 2: normal paragraph → ALSO numbered
+      const text = container.innerText.trim();
       if (!text) continue;
 
-      /* NUMBERED PARAGRAPH (THIS IS THE KEY FIX) */
       children.push(
         new Paragraph({
           numbering: {
             reference: "analysis-numbering",
             level: 0,
           },
-          spacing: {
-            before: 120,
-            after: 120,
-            line: 360, // 1.5 spacing
-          },
           alignment: AlignmentType.JUSTIFIED,
+          spacing: { before: 120, after: 120, line: 360 },
           children: [
             new TextRun({
               text,
@@ -341,11 +364,11 @@ async function appendReviewAnalysis(children, sections = {}) {
           ],
         })
       );
-
-      pointIndex++;
     }
   }
 }
+
+
 /* ---------------------------------------------------------
    NUMBERING CONFIGURATION
 --------------------------------------------------------- */  
