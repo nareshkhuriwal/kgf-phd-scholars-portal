@@ -275,6 +275,13 @@ function appendReferences(children, citations = []) {
    REVIEW ANALYSIS BUILDER (NUMBERED – FIXED)
 --------------------------------------------------------- */
 
+function sectionNumberingRef(title) {
+  return `analysis-${title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")}`;
+}
+
+
 async function appendReviewAnalysis(children, sections = {}) {
   if (!sections || !Object.keys(sections).length) return;
 
@@ -294,6 +301,8 @@ async function appendReviewAnalysis(children, sections = {}) {
 
   for (const [sectionTitle, htmlList] of Object.entries(sections)) {
     if (!Array.isArray(htmlList) || !htmlList.length) continue;
+
+    const ref = sectionNumberingRef(sectionTitle);
 
     // Section heading
     children.push(
@@ -327,7 +336,7 @@ async function appendReviewAnalysis(children, sections = {}) {
           children.push(
             new Paragraph({
               numbering: {
-                reference: "analysis-numbering",
+                reference: ref,
                 level: 0,
               },
               alignment: AlignmentType.JUSTIFIED,
@@ -351,7 +360,7 @@ async function appendReviewAnalysis(children, sections = {}) {
       children.push(
         new Paragraph({
           numbering: {
-            reference: "analysis-numbering",
+            reference: ref,
             level: 0,
           },
           alignment: AlignmentType.JUSTIFIED,
@@ -369,15 +378,15 @@ async function appendReviewAnalysis(children, sections = {}) {
 }
 
 
+
 /* ---------------------------------------------------------
    NUMBERING CONFIGURATION
 --------------------------------------------------------- */  
 
-
-const numbering = {
-  config: [
-    {
-      reference: "analysis-numbering",
+function buildAnalysisNumbering(sections = {}) {
+  return {
+    config: Object.keys(sections).map(sectionTitle => ({
+      reference: sectionNumberingRef(sectionTitle),
       levels: [
         {
           level: 0,
@@ -394,9 +403,10 @@ const numbering = {
           },
         },
       ],
-    },
-  ],
-};
+    })),
+  };
+}
+
 
 
 /* ---------------------------------------------------------
@@ -500,7 +510,7 @@ export async function exportSynopsisDocx(data) {
   -------------------------------- */
 
   const doc = new Document({
-    numbering,
+    numbering: buildAnalysisNumbering(sections),
     sections: [
       /* TITLE PAGE (NO HEADER / FOOTER) */
       {
