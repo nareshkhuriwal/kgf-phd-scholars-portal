@@ -107,7 +107,7 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
     chapters = [],
     literature = [],
     citations = [],
-    sections = [], 
+    sections = [],
     // Header/Footer settings
     headerFooter = {},
   } = merged;
@@ -784,10 +784,10 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
                     <Box>
                       <Typography
                         variant="h6"
-                        sx={{ 
+                        sx={{
                           mb: 2, fontWeight: 600,
-                        textAlign: 'center'
-                         }}
+                          textAlign: 'center'
+                        }}
                       >
                         REVIEW OF LITERATURE
                       </Typography>
@@ -826,60 +826,60 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
                 )}
 
                 {/* REVIEW ANALYSIS – NUMBERED POINTS */}
-{sections && Object.keys(sections).length > 0 && (
-  <DocumentPage pageNum={validChapters.length + 1}>
-    <Box>
-      <Typography
-        variant="h6"
-        sx={{ mb: 3, fontWeight: 700, textAlign: 'center' }}
-      >
-        REVIEW ANALYSIS
-      </Typography>
+                {sections && Object.keys(sections).length > 0 && (
+                  <DocumentPage pageNum={validChapters.length + 1}>
+                    <Box>
+                      <Typography
+                        variant="h6"
+                        sx={{ mb: 3, fontWeight: 700, textAlign: 'center' }}
+                      >
+                        REVIEW ANALYSIS
+                      </Typography>
 
-      <Stack spacing={4}>
-        {Object.entries(sections).map(([sectionName, htmlList]) => (
-          <Box key={sectionName}>
-            {/* Section heading */}
-            <Typography
-              variant="subtitle1"
-              sx={{
-                fontWeight: 700,
-                mb: 1.5,
-                textTransform: 'uppercase',
-              }}
-            >
-              {sectionName}
-            </Typography>
+                      <Stack spacing={4}>
+                        {Object.entries(sections).map(([sectionName, htmlList]) => (
+                          <Box key={sectionName}>
+                            {/* Section heading */}
+                            <Typography
+                              variant="subtitle1"
+                              sx={{
+                                fontWeight: 700,
+                                mb: 1.5,
+                                textTransform: 'uppercase',
+                              }}
+                            >
+                              {sectionName}
+                            </Typography>
 
-            {/* Numbered list */}
-            <Box
-              component="ol"
-              sx={{
-                pl: 3,
-                m: 0,
-                '& li': {
-                  mb: 1.5,
-                },
-              }}
-            >
-              {htmlList.map((html, idx) => (
-                <li key={`${sectionName}-${idx}`}>
-                  <Box
-                    className="ck-content"
-                    sx={DOCUMENT_TYPOGRAPHY}
-                    dangerouslySetInnerHTML={{
-                      __html: normalizeHtmlWhitespace(html),
-                    }}
-                  />
-                </li>
-              ))}
-            </Box>
-          </Box>
-        ))}
-      </Stack>
-    </Box>
-  </DocumentPage>
-)}
+                            {/* Numbered list */}
+                            <Box
+                              component="ol"
+                              sx={{
+                                pl: 3,
+                                m: 0,
+                                '& li': {
+                                  mb: 1.5,
+                                },
+                              }}
+                            >
+                              {htmlList.map((html, idx) => (
+                                <li key={`${sectionName}-${idx}`}>
+                                  <Box
+                                    className="ck-content"
+                                    sx={DOCUMENT_TYPOGRAPHY}
+                                    dangerouslySetInnerHTML={{
+                                      __html: normalizeHtmlWhitespace(html),
+                                    }}
+                                  />
+                                </li>
+                              ))}
+                            </Box>
+                          </Box>
+                        ))}
+                      </Stack>
+                    </Box>
+                  </DocumentPage>
+                )}
 
 
 
@@ -887,11 +887,11 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
                 {Array.isArray(citations) && citations.length > 0 && (
                   <DocumentPage pageNum={validChapters.length + 2}>
                     <Typography
-                        variant="h6"
-                        sx={{ mb: 2, fontWeight: 600 }}
-                      >
-                        REFERENCES
-                      </Typography>
+                      variant="h6"
+                      sx={{ mb: 2, fontWeight: 600 }}
+                    >
+                      REFERENCES
+                    </Typography>
 
                     {citations.map((ref, idx) => (
                       <Box
@@ -965,7 +965,12 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
                                 <Box
                                   className="ck-content"
                                   sx={DOCUMENT_TYPOGRAPHY}
-                                  dangerouslySetInnerHTML={{ __html: normalizeHtmlWhitespace(row[col.key]) }}
+                                  dangerouslySetInnerHTML={{
+                                    __html: typeof row[col.key] === 'string'
+                                      ? normalizeHtmlWhitespace(row[col.key])
+                                      : ''
+                                  }}
+
                                 />
                               )}
                             </TableCell>
