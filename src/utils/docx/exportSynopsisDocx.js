@@ -271,6 +271,110 @@ function appendReferences(children, citations = []) {
   });
 }
 
+/* ---------------------------------------------------------
+   REVIEW ANALYSIS BUILDER (NUMBERED – FIXED)
+--------------------------------------------------------- */
+
+async function appendReviewAnalysis(children, sections = {}) {
+  if (!sections || !Object.keys(sections).length) return;
+
+  /* MAIN HEADING */
+  children.push(
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 240, after: 240 },
+      children: [
+        new TextRun({
+          text: "REVIEW ANALYSIS",
+          ...HEADING_RUN("h2"),
+        }),
+      ],
+    })
+  );
+
+  for (const [sectionTitle, htmlList] of Object.entries(sections)) {
+    if (!Array.isArray(htmlList) || !htmlList.length) continue;
+
+    /* SECTION HEADING */
+    children.push(
+      new Paragraph({
+        spacing: { before: 240, after: 120 },
+        children: [
+          new TextRun({
+            text: sectionTitle.toUpperCase(),
+            ...HEADING_RUN("h3"),
+          }),
+        ],
+      })
+    );
+
+    let pointIndex = 1;
+
+    for (const html of htmlList) {
+      if (!hasMeaningfulContent(html)) continue;
+
+      // 🔑 Convert HTML → text safely
+      const temp = document.createElement("div");
+      temp.innerHTML = normalizeHtmlForDocx(html);
+      const text = temp.innerText.trim();
+
+      if (!text) continue;
+
+      /* NUMBERED PARAGRAPH (THIS IS THE KEY FIX) */
+      children.push(
+        new Paragraph({
+          numbering: {
+            reference: "analysis-numbering",
+            level: 0,
+          },
+          spacing: {
+            before: 120,
+            after: 120,
+            line: 360, // 1.5 spacing
+          },
+          alignment: AlignmentType.JUSTIFIED,
+          children: [
+            new TextRun({
+              text,
+              ...BODY_RUN,
+            }),
+          ],
+        })
+      );
+
+      pointIndex++;
+    }
+  }
+}
+/* ---------------------------------------------------------
+   NUMBERING CONFIGURATION
+--------------------------------------------------------- */  
+
+
+const numbering = {
+  config: [
+    {
+      reference: "analysis-numbering",
+      levels: [
+        {
+          level: 0,
+          format: "decimal",
+          text: "%1.",
+          alignment: AlignmentType.START,
+          style: {
+            paragraph: {
+              indent: {
+                left: INCH_TO_TWIP(0.5),
+                hanging: INCH_TO_TWIP(0.25),
+              },
+            },
+          },
+        },
+      ],
+    },
+  ],
+};
+
 
 /* ---------------------------------------------------------
    MAIN EXPORT
@@ -282,6 +386,7 @@ export async function exportSynopsisDocx(data) {
     chapters = [],
     literature = [],
     citations = [],  
+    sections = {},
     headerFooter = {},
   } = data || {};
 
@@ -344,6 +449,15 @@ export async function exportSynopsisDocx(data) {
   }
 
   /* -------------------------------
+    REVIEW ANALYSIS (BEFORE LITERATURE)
+  -------------------------------- */
+  if (Object.keys(sections).length) {
+    bodyChildren.push(new Paragraph({ pageBreakBefore: true }));
+    await appendReviewAnalysis(bodyChildren, sections);
+  }
+
+
+  /* -------------------------------
     REFERENCES (AFTER LITERATURE)
   -------------------------------- */
 
@@ -363,6 +477,7 @@ export async function exportSynopsisDocx(data) {
   -------------------------------- */
 
   const doc = new Document({
+    numbering,
     sections: [
       /* TITLE PAGE (NO HEADER / FOOTER) */
       {
