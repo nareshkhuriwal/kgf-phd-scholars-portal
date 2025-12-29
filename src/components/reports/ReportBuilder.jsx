@@ -163,6 +163,37 @@ export default function ReportBuilder() {
     footerCenter: getCurrentMonthYear(),
   });
 
+
+  // ---------- TEMPLATE-AWARE VALIDATION ----------
+
+  // Sections required only if template supports sections
+  const hasSections =
+    !caps.showSections ||
+    Object.values(include).some(Boolean);
+
+  // Chapters required only if template supports chapters
+  const hasChapters =
+    !caps.showChapters ||
+    chapterIds.length > 0;
+
+  // Filters (userId) required only if template supports filters
+  const hasUser =
+    isResearcher ||
+    !caps.showFilters ||
+    !!filters.userId;
+
+  // Final permissions
+  const canSave =
+    !!name &&
+    hasSections &&
+    hasChapters &&
+    hasUser &&
+    !saving;
+
+  const canGenerate =
+    canSave && !generating;
+
+
   // Auto-set userId to current user's ID for researchers (only if not already set)
   React.useEffect(() => {
     if (isResearcher && user?.id && !filters.userId && !editingId) {
@@ -719,17 +750,19 @@ export default function ReportBuilder() {
         <Button
           variant="outlined"
           onClick={onSave}
-          disabled={saving || !name || (!isResearcher && !filters.userId)}
+          disabled={!canSave}
         >
           Save
         </Button>
+
         <Button
           variant="contained"
           onClick={onSaveAndGenerate}
-          disabled={saving || generating || !name || (!isResearcher && !filters.userId)}
+          disabled={!canGenerate}
         >
           Save & Generate
         </Button>
+
         <Button onClick={() => navigate('/reports')}>Back to Saved</Button>
       </Stack>
 
