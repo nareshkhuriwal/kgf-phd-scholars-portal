@@ -34,6 +34,29 @@ const EDITOR_ORDER = [
 ];
 const ALL_OPTION = { id: '__ALL__', label: 'Select All Chapters' };
 
+const TEMPLATE_CAPS = {
+  synopsis: {
+    showSections: true,
+    showChapters: true,
+    showFilters: true,
+    chapterTypes: null, // null = all
+  },
+  presentation: {
+    showSections: true,
+    showChapters: true,
+    showFilters: false,
+    chapterTypes: ['presentation', 'synopsis'],
+  },
+  rol: {
+    showSections: true,
+    showChapters: false,
+    showFilters: true,
+    chapterTypes: null,
+  },
+};
+
+
+
 // Utility: get current month and year formatted
 const getCurrentMonthYear = () => {
   return new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -98,6 +121,7 @@ export default function ReportBuilder() {
   const { user } = useSelector(s => s.auth || {});
   const role = user?.role; // 'researcher' | 'supervisor' | 'admin' | 'superuser'
   const isResearcher = role === 'researcher';
+  const EMPTY_HELPER = ' ';
 
   // Load static data
   React.useEffect(() => {
@@ -115,16 +139,19 @@ export default function ReportBuilder() {
   const [template, setTemplate] = React.useState('rol');
   const [format, setFormat] = React.useState('pdf');
   const [filename, setFilename] = React.useState('report');
-  const [filters, setFilters] = React.useState({ 
-    areas: [], 
-    years: [], 
-    venues: [], 
+  const [filters, setFilters] = React.useState({
+    areas: [],
+    years: [],
+    venues: [],
     userId: null // Changed from userIds array to single userId
   });
   const [include, setInclude] = React.useState(normalizeInclude());
   const [chapterIds, setChapterIds] = React.useState([]);
   const [snack, setSnack] = React.useState(null);
-  
+
+  const caps = TEMPLATE_CAPS[template];
+
+
   // Flag to prevent hydration immediately after save
   const [justSaved, setJustSaved] = React.useState(false);
 
@@ -154,23 +181,23 @@ export default function ReportBuilder() {
   // Hydrate form when currentSaved arrives/changes
   React.useEffect(() => {
     if (!editingId || !currentSaved) return;
-    
+
     // Don't re-hydrate if we just saved - the form already has correct data
     if (justSaved) {
       console.log('⏭️ Skipping hydration - just saved');
       setJustSaved(false);
       return;
     }
-    
+
     const s = coerceSaved(currentSaved);
-    
+
     console.log('🔄 Hydrating form with saved report:', s);
-    
+
     setName(s.name);
     setTemplate(s.template);
     setFormat(s.format);
     setFilename(s.filename);
-    
+
     // Only update filters if we don't already have a userId set
     // This prevents overwriting the user's selection with stale DB data
     setFilters(prevFilters => {
@@ -182,11 +209,28 @@ export default function ReportBuilder() {
       console.log('🔄 Hydrating filters - prev:', prevFilters, 'new:', newFilters);
       return newFilters;
     });
-    
+
     setInclude(s.selections.include);
     setChapterIds(s.selections.chapters);
     setHeaderFooter(s.headerFooter);
   }, [currentSaved, editingId, justSaved]);
+
+  React.useEffect(() => {
+    // Clear chapters if template doesn't support them
+    if (!caps.showChapters) {
+      setChapterIds([]);
+    }
+
+    // Clear filters if template doesn't support them
+    if (!caps.showFilters) {
+      setFilters(f => ({
+        areas: [],
+        years: [],
+        venues: [],
+        userId: isResearcher ? user?.id : null,
+      }));
+    }
+  }, [template]);
 
   // Update header title when report name changes (if header title is empty)
   React.useEffect(() => {
@@ -207,15 +251,20 @@ export default function ReportBuilder() {
     template,
     format,
     filename,
-    filters: {
+    filters: caps.showFilters ? {
       areas: filters.areas || [],
       years: filters.years || [],
       venues: filters.venues || [],
-      userId: filters.userId ? parseInt(filters.userId, 10) : null, // Ensure userId is integer
+      userId: filters.userId ? parseInt(filters.userId, 10) : null,
+    } : null,
+    selections: {
+      include: caps.showSections ? include : {},
+      includeOrder: caps.showSections ? EDITOR_ORDER : [],
+      chapters: caps.showChapters ? chapterIds : [],
     },
-    selections: { include, includeOrder: EDITOR_ORDER, chapters: chapterIds },
     headerFooter,
   };
+
 
   // Debug: Log filters state
   React.useEffect(() => {
@@ -223,13 +272,23 @@ export default function ReportBuilder() {
   }, [filters]);
 
   const chapterOptions = React.useMemo(() => {
-    const base = (chapters || []).map(ch => ({
+    let list = chapters || [];
+
+    // Apply template-based chapter type filtering
+    if (caps?.chapterTypes) {
+      list = list.filter(ch =>
+        caps.chapterTypes.includes(ch.chapter_type)
+      );
+    }
+
+    const mapped = list.map(ch => ({
       id: String(ch.id),
       label: ch.title,
     }));
 
-    return base.length > 0 ? [ALL_OPTION, ...base] : [];
-  }, [chapters]);
+    return mapped.length > 0 ? [ALL_OPTION, ...mapped] : [];
+  }, [chapters, caps]);
+
 
   const selectedChapterObjects = React.useMemo(() => {
     return (chapterIds || []).map(id => {
@@ -247,7 +306,7 @@ export default function ReportBuilder() {
 
   const onSave = async () => {
     console.log('💾 Saving report with payload:', payloadBase);
-    
+
     const action = editingId
       ? await dispatch(updateSavedReport({ id: editingId, ...payloadBase }))
       : await dispatch(createSavedReport(payloadBase));
@@ -255,7 +314,7 @@ export default function ReportBuilder() {
     if (action.type.endsWith('/fulfilled')) {
       setJustSaved(true); // Prevent re-hydration
       setSnack({ severity: 'success', msg: 'Saved' });
-      
+
       // Don't navigate or re-fetch if editing - just show success message
       if (!editingId) {
         const newId = action.payload?.data?.id ?? action.payload?.id;
@@ -272,19 +331,19 @@ export default function ReportBuilder() {
 
   const onSaveAndGenerate = async () => {
     console.log('🚀 Generating report with payload:', payloadBase);
-    
+
     const saved = editingId
       ? await dispatch(updateSavedReport({ id: editingId, ...payloadBase }))
       : await dispatch(createSavedReport(payloadBase));
 
     if (saved.type.endsWith('/fulfilled')) {
       setJustSaved(true); // Prevent re-hydration
-      
+
       // Generate the report
       const g = await dispatch(generateReport(payloadBase));
       if (g.type.endsWith('/fulfilled')) setSnack({ severity: 'success', msg: 'Report ready.' });
       else setSnack({ severity: 'error', msg: 'Generate failed' });
-      
+
       // Don't navigate or re-fetch if editing
       if (!editingId) {
         const newId = saved.payload?.data?.id ?? saved.payload?.id;
@@ -426,206 +485,247 @@ export default function ReportBuilder() {
         </Paper>
       )}
 
-      <Paper variant="outlined" sx={{ p: 2 }}>
-        <Typography variant="subtitle1">Filters Applied</Typography>
-        
-        {/* Warning for missing userId */}
-        {!isResearcher && !filters.userId && (
-          <Alert severity="warning" sx={{ mt: 1, mb: 2 }}>
-            <strong>User selection required!</strong> Please select a user below to generate the report for.
-          </Alert>
-        )}
-        
-        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', mt: 1 }}>
-          {filters.areas.length > 0 && <Chip label={`Areas: ${filters.areas.join(', ')}`} />}
-          {filters.years.length > 0 && <Chip label={`Years: ${filters.years.join(', ')}`} />}
-          {filters.venues.length > 0 && <Chip label={`Venues: ${filters.venues.join(', ')}`} />}
-          {filters.userId && (
-            <Chip
-              label={`User: ${(() => {
-                const u = (users || []).find(x => String(x.id) === String(filters.userId));
-                return u?.name || u?.email || `User ${filters.userId}`;
-              })()}`}
-              color="primary"
-            />
-          )}
-          {!filters.userId && filters.areas.length === 0 && filters.years.length === 0 && filters.venues.length === 0 &&
-            <Typography variant="body2" color="text.secondary">No filters applied.</Typography>}
-        </Stack>
+      {caps?.showFilters && (
+        <Paper variant="outlined" sx={{ p: 2 }}>
+          <Typography variant="subtitle1">Filters Applied</Typography>
 
-        <Box sx={{ mt: 2, display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* User Selection - Single select for non-researchers, hidden for researchers */}
-          {!isResearcher && (
-            <Autocomplete
-              options={(users || []).map(u => ({ 
-                id: String(u.id), 
-                label: u.name || u.email || `User ${u.id}` 
-              }))}
-              value={selectedUserObject}
-              onChange={(_, val) => {
-                console.log('👤 User selected:', val);
-                setFilters(f => {
-                  const newFilters = { ...f, userId: val?.id || null };
-                  console.log('📋 Updated filters:', newFilters);
-                  return newFilters;
-                });
-              }}
-              renderInput={(params) => (
-                <TextField 
-                  {...params} 
-                  label="Select User" 
-                  size="small" 
-                  sx={{ minWidth: 300 }} 
-                  required
-                  helperText="Select a user to generate report for"
-                />
-              )}
-              sx={{ minWidth: 300 }}
-              isOptionEqualToValue={(option, value) => option.id === value?.id}
-            />
-          )}
-
-          {isResearcher && (
-            <Alert severity="info" sx={{ flex: 1 }}>
-              Report will be generated for your account: <strong>{user?.name || user?.email}</strong>
+          {/* Warning for missing userId */}
+          {!isResearcher && !filters.userId && (
+            <Alert severity="warning" sx={{ mt: 1, mb: 2 }}>
+              <strong>User selection required!</strong> Please select a user below to generate the report for.
             </Alert>
           )}
 
-          <TextField
-            label="Areas (CSV)"
-            placeholder="QEM, VQE"
-            size="small"
-            sx={{ minWidth: 220 }}
-            value={filters.areas.join(', ')}
-            onChange={e => setFilters(f => ({ ...f, areas: parseCsv(e.target.value) }))}
-          />
-          <TextField
-            label="Years (CSV)"
-            placeholder="2024, 2025"
-            size="small"
-            sx={{ minWidth: 220 }}
-            value={filters.years.join(', ')}
-            onChange={e => setFilters(f => ({ ...f, years: parseCsv(e.target.value) }))}
-          />
-          <TextField
-            label="Venues (CSV)"
-            placeholder="Nature, PRX"
-            size="small"
-            sx={{ minWidth: 220 }}
-            value={filters.venues.join(', ')}
-            onChange={e => setFilters(f => ({ ...f, venues: parseCsv(e.target.value) }))}
-          />
-
-          <Tooltip title="Clear all filters">
-            <span>
-              <IconButton size="small" onClick={clearFilters}><ClearAllIcon fontSize="inherit" /></IconButton>
-            </span>
-          </Tooltip>
-        </Box>
-      </Paper>
-
-      <Paper variant="outlined" sx={{ p: 2 }}>
-        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-          <Typography variant="subtitle1">
-            Include Sections ({Object.values(include).filter(Boolean).length}/{EDITOR_ORDER.length})
-          </Typography>
-          <Stack direction="row" spacing={1}>
-            <Button size="small" startIcon={<SelectAllIcon />} onClick={selectAllSections}>Select all</Button>
-            <Button size="small" startIcon={<CloseIcon />} onClick={clearAllSections}>None</Button>
-          </Stack>
-        </Stack>
-
-        <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap' }}>
-          {EDITOR_ORDER.map(k => (
-            <FormControlLabel
-              key={k}
-              control={
-                <Checkbox
-                  checked={!!include[k]}
-                  onChange={(_, v) => setInclude(s => ({ ...s, [k]: v }))}
-                  size="small"
-                />
-              }
-              label={k}
-            />
-          ))}
-        </Stack>
-
-        <Box sx={{ mt: 2 }}>
-          <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ mb: 0.5 }}>
-            <Button
-              size="small"
-              onClick={() => setChapterIds((chapters || []).map(c => String(c.id)))}
-            >
-              Select All
-            </Button>
-            <Button
-              size="small"
-              onClick={() => setChapterIds([])}
-            >
-              Clear
-            </Button>
-          </Stack>
-
-          <Autocomplete
-            multiple
-            disableCloseOnSelect
-            options={chapterOptions}
-            value={selectedChapterObjects}
-            isOptionEqualToValue={(o, v) => o.id === v.id}
-            getOptionLabel={(o) => o.label}
-            onChange={(_, values) => {
-              const hasAll = values.some(v => v.id === ALL_OPTION.id);
-
-              if (hasAll) {
-                if (chapterIds.length === (chapters || []).length) {
-                  setChapterIds([]);
-                } else {
-                  setChapterIds((chapters || []).map(c => String(c.id)));
-                }
-                return;
-              }
-
-              setChapterIds(values.map(v => v.id));
-            }}
-            renderOption={(props, option, { selected }) => (
-              <li {...props} key={option.id}>
-                <Checkbox
-                  checked={
-                    option.id === ALL_OPTION.id
-                      ? chapterIds.length === (chapters || []).length && chapterIds.length > 0
-                      : selected
-                  }
-                  size="small"
-                  sx={{ mr: 1 }}
-                />
-                {option.label}
-              </li>
-            )}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label={`Chapters (${chapterIds.length}/${chapters?.length || 0})`}
-                size="small"
-                placeholder="Select chapters"
+          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', mt: 1 }}>
+            {filters.areas.length > 0 && <Chip label={`Areas: ${filters.areas.join(', ')}`} />}
+            {filters.years.length > 0 && <Chip label={`Years: ${filters.years.join(', ')}`} />}
+            {filters.venues.length > 0 && <Chip label={`Venues: ${filters.venues.join(', ')}`} />}
+            {filters.userId && (
+              <Chip
+                label={`User: ${(() => {
+                  const u = (users || []).find(x => String(x.id) === String(filters.userId));
+                  return u?.name || u?.email || `User ${filters.userId}`;
+                })()}`}
+                color="primary"
               />
             )}
-            sx={{ minWidth: 400 }}
-          />
-        </Box>
+            {!filters.userId && filters.areas.length === 0 && filters.years.length === 0 && filters.venues.length === 0 &&
+              <Typography variant="body2" color="text.secondary">No filters applied.</Typography>}
+          </Stack>
+
+          <Grid container spacing={2} alignItems="center" sx={{ mt: 2 }}>
+            {/* User Selection */}
+            {!isResearcher && (
+              <Grid item xs={12} md={4}>
+                <Autocomplete
+                  options={(users || []).map(u => ({
+                    id: String(u.id),
+                    label: u.name || u.email || `User ${u.id}`,
+                  }))}
+                  value={selectedUserObject}
+                  onChange={(_, val) => {
+                    setFilters(f => ({ ...f, userId: val?.id || null }));
+                  }}
+                  isOptionEqualToValue={(option, value) => option.id === value?.id}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Select User"
+                      size="small"
+                      required
+                      helperText="Select a user to generate report for"
+                    />
+                  )}
+                  fullWidth
+                />
+              </Grid>
+            )}
+
+            {/* Researcher Info */}
+            {isResearcher && (
+              <Grid item xs={12} md={4}>
+                <Alert severity="info">
+                  Report will be generated for your account:{' '}
+                  <strong>{user?.name || user?.email}</strong>
+                </Alert>
+              </Grid>
+            )}
+
+            {/* Areas */}
+            <Grid item xs={12} sm={6} md={2}>
+              <TextField
+                label="Areas (CSV)"
+                placeholder="QEM, VQE"
+                size="small"
+                fullWidth
+                helperText={EMPTY_HELPER}
+                value={filters.areas.join(', ')}
+                onChange={e =>
+                  setFilters(f => ({ ...f, areas: parseCsv(e.target.value) }))
+                }
+              />
+
+            </Grid>
+
+            {/* Years */}
+            <Grid item xs={12} sm={6} md={2}>
+              <TextField
+                label="Years (CSV)"
+                placeholder="2024, 2025"
+                size="small"
+                fullWidth
+                helperText={EMPTY_HELPER}
+                value={filters.years.join(', ')}
+                onChange={e =>
+                  setFilters(f => ({ ...f, years: parseCsv(e.target.value) }))
+                }
+              />
+
+            </Grid>
+
+            {/* Venues */}
+            <Grid item xs={12} sm={6} md={2}>
+              <TextField
+                label="Venues (CSV)"
+                placeholder="Nature, PRX"
+                size="small"
+                fullWidth
+                helperText={EMPTY_HELPER}
+                value={filters.venues.join(', ')}
+                onChange={e =>
+                  setFilters(f => ({ ...f, venues: parseCsv(e.target.value) }))
+                }
+              />
+
+            </Grid>
+
+            {/* Clear Filters */}
+            <Grid item xs={12} sm={6} md={1} textAlign="center">
+              <Tooltip title="Clear all filters">
+                <span>
+                  <IconButton size="small" onClick={clearFilters}>
+                    <ClearAllIcon fontSize="inherit" />
+                  </IconButton>
+                </span>
+              </Tooltip>
+            </Grid>
+          </Grid>
+
+        </Paper>
+
+      )}
+
+      <Paper variant="outlined" sx={{ p: 2 }}>
+        {caps.showSections && (
+
+          <Box sx={{ mt: 2 }}>
+            <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+              <Typography variant="subtitle1">
+                Include Sections ({Object.values(include).filter(Boolean).length}/{EDITOR_ORDER.length})
+              </Typography>
+              <Stack direction="row" spacing={1}>
+                <Button size="small" startIcon={<SelectAllIcon />} onClick={selectAllSections}>Select all</Button>
+                <Button size="small" startIcon={<CloseIcon />} onClick={clearAllSections}>None</Button>
+              </Stack>
+            </Stack>
+
+            <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap' }}>
+              {EDITOR_ORDER.map(k => (
+                <FormControlLabel
+                  key={k}
+                  control={
+                    <Checkbox
+                      checked={!!include[k]}
+                      onChange={(_, v) => setInclude(s => ({ ...s, [k]: v }))}
+                      size="small"
+                    />
+                  }
+                  label={k}
+                />
+              ))}
+            </Stack>
+          </Box>
+        )}
+
+        {caps.showChapters && (
+
+          <Box sx={{ mt: 2 }}>
+            <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ mb: 0.5 }}>
+              <Button
+                size="small"
+                onClick={() => setChapterIds((chapters || []).map(c => String(c.id)))}
+              >
+                Select All
+              </Button>
+              <Button
+                size="small"
+                onClick={() => setChapterIds([])}
+              >
+                Clear
+              </Button>
+            </Stack>
+
+            <Autocomplete
+              multiple
+              disableCloseOnSelect
+              options={chapterOptions}
+              value={selectedChapterObjects}
+              isOptionEqualToValue={(o, v) => o.id === v.id}
+              getOptionLabel={(o) => o.label}
+              onChange={(_, values) => {
+                const hasAll = values.some(v => v.id === ALL_OPTION.id);
+
+                if (hasAll) {
+                  if (chapterIds.length === (chapters || []).length) {
+                    setChapterIds([]);
+                  } else {
+                    setChapterIds((chapters || []).map(c => String(c.id)));
+                  }
+                  return;
+                }
+
+                setChapterIds(values.map(v => v.id));
+              }}
+              renderOption={(props, option, { selected }) => (
+                <li {...props} key={option.id}>
+                  <Checkbox
+                    checked={
+                      option.id === ALL_OPTION.id
+                        ? chapterIds.length === (chapters || []).length && chapterIds.length > 0
+                        : selected
+                    }
+                    size="small"
+                    sx={{ mr: 1 }}
+                  />
+                  {option.label}
+                </li>
+              )}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label={`Chapters (${chapterIds.length}/${chapters?.length || 0})`}
+                  size="small"
+                  placeholder="Select chapters"
+                />
+              )}
+              sx={{ minWidth: 400 }}
+            />
+          </Box>
+        )}
       </Paper>
 
+
       <Stack direction="row" spacing={2}>
-        <Button 
-          variant="outlined" 
-          onClick={onSave} 
+        <Button
+          variant="outlined"
+          onClick={onSave}
           disabled={saving || !name || (!isResearcher && !filters.userId)}
         >
           Save
         </Button>
-        <Button 
-          variant="contained" 
-          onClick={onSaveAndGenerate} 
+        <Button
+          variant="contained"
+          onClick={onSaveAndGenerate}
           disabled={saving || generating || !name || (!isResearcher && !filters.userId)}
         >
           Save & Generate

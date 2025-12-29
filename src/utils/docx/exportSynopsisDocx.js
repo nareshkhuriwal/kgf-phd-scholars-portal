@@ -461,10 +461,10 @@ export async function exportSynopsisDocx(data) {
     if (!hasMeaningfulContent(body)) continue;
 
     /* CHAPTER CONTENT */
-    const paras = await htmlToDocxParagraphs(body);
-    // const paras = await htmlToDocxParagraphs(
-    //   normalizeHtmlForDocx(body)
-    // );
+    // const paras = await htmlToDocxParagraphs(body);
+    const paras = await htmlToDocxParagraphs(
+      normalizeHtmlForDocx(body)
+    );
     paras.forEach(p => bodyChildren.push(p));
     if (i < chapters.length - 1) {
       bodyChildren.push(new Paragraph({ pageBreakBefore: true }));

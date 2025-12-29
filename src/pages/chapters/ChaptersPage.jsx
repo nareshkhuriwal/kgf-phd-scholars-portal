@@ -12,7 +12,7 @@ import {
 import {
   Paper, Box, Button, TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
   TablePagination, Stack, Typography, IconButton, Dialog, DialogTitle, DialogContent,
-  DialogActions, TextField, Tooltip, CircularProgress
+  DialogActions, TextField, Tooltip, CircularProgress, MenuItem
 } from '@mui/material';
 import PageHeader from '../../components/PageHeader';
 import SearchBar from '../../components/SearchBar';
@@ -31,6 +31,14 @@ import { initialsOf } from '../../utils/text/cleanRich';
 const PAGINATION_KEY = 'chapters.pagination';
 
 const copyText = async (t) => { try { await navigator.clipboard.writeText(t || ''); } catch { } };
+
+const CHAPTER_TYPES = [
+  { value: 'thesis_chapter', label: 'Thesis Chapter', desc: 'Full thesis content' },
+  { value: 'presentation', label: 'Presentation Chapter', desc: 'Slides / Viva / Seminar' },
+  { value: 'front_matter', label: 'Front Matter', desc: 'Title, Declaration, Certificates' },
+  { value: 'appendix', label: 'Appendix', desc: 'Supplementary material' },
+];
+
 
 export default function ChaptersPage({ userId: userIdProp }) {
   const dispatch = useDispatch();
@@ -74,6 +82,9 @@ export default function ChaptersPage({ userId: userIdProp }) {
     id: null,
     title: '',
   });
+
+  const [chapterType, setChapterType] = React.useState('thesis_chapter');
+  const [error, setError] = React.useState('');
 
 
   const nav = useNavigate();
@@ -141,12 +152,31 @@ export default function ChaptersPage({ userId: userIdProp }) {
 
 
   const handleCreate = async () => {
-    if (!title.trim()) return;
-    const payload = { title: title.trim(), order_index: chapters.length, body_html: '' };
-    if (userId) payload.user_id = userId; // only if backend requires it
-    await dispatch(createChapter(payload)).unwrap();
-    setOpen(false); setTitle('');
+    if (!title.trim()) {
+      setError('Chapter title is required');
+      return;
+    }
+
+    const payload = {
+      title: title.trim(),
+      chapter_type: chapterType,
+      body_html: '',
+      order_index: chapters.length,
+    };
+
+    if (userId) payload.user_id = userId;
+
+    try {
+      await dispatch(createChapter(payload)).unwrap();
+      setOpen(false);
+      setTitle('');
+      setChapterType('thesis_chapter');
+      setError('');
+    } catch (e) {
+      setError('Failed to create chapter');
+    }
   };
+
 
   const handleDelete = async (id) => {
     await dispatch(deleteChapter(id));
@@ -497,15 +527,77 @@ export default function ChaptersPage({ userId: userIdProp }) {
 
       {/* Quick add (title only) */}
       <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Create Chapter</DialogTitle>
-        <DialogContent>
-          <TextField autoFocus fullWidth label="Title" value={title} onChange={(e) => setTitle(e.target.value)} sx={{ mt: 1 }} />
+        <DialogTitle sx={{ fontWeight: 600 }}>
+          Create New Chapter
+        </DialogTitle>
+
+        <DialogContent dividers>
+          <Stack spacing={2.5} sx={{ mt: 1 }}>
+            <TextField
+              autoFocus
+              fullWidth
+              label="Chapter Title"
+              placeholder="e.g. Research Objectives"
+              value={title}
+              error={!!error}
+              helperText={error || 'Use clear academic naming'}
+              onChange={(e) => setTitle(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
+            />
+
+            <TextField
+              select
+              label="Chapter Type"
+              value={chapterType}
+              onChange={(e) => setChapterType(e.target.value)}
+              helperText={
+                CHAPTER_TYPES.find(t => t.value === chapterType)?.desc
+              }
+            >
+              {CHAPTER_TYPES.map(opt => (
+                <MenuItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </MenuItem>
+              ))}
+            </TextField>
+
+            <Box
+              sx={{
+                p: 1.5,
+                borderRadius: 1,
+                bgcolor: 'grey.50',
+                border: '1px dashed',
+                borderColor: 'grey.300',
+                fontSize: 13,
+                color: 'text.secondary',
+              }}
+            >
+              This chapter will be available for:
+              <ul style={{ margin: '6px 0 0 18px' }}>
+                {chapterType === 'thesis_chapter' && <li>Thesis Report</li>}
+                {chapterType === 'synopsis' && <li>Synopsis & Presentation</li>}
+                {chapterType === 'presentation' && <li>Seminar / Viva</li>}
+                {chapterType === 'front_matter' && <li>All document types</li>}
+                {chapterType === 'appendix' && <li>Thesis & Synopsis</li>}
+              </ul>
+            </Box>
+          </Stack>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleCreate}>Create</Button>
+
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleCreate}
+            disabled={!title.trim()}
+          >
+            Create Chapter
+          </Button>
         </DialogActions>
       </Dialog>
+
 
 
       <Snackbar

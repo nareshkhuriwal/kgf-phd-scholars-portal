@@ -307,6 +307,24 @@ export async function htmlToDocxParagraphs(html, options = {}) {
       continue;
     }
 
+    /* -------- STRONG AS BLOCK HEADING (TIMELINE FIX) -------- */
+    if (tag === "strong" && node.innerText.trim()) {
+      blocks.push(
+        new Paragraph({
+          spacing: { before: 240, after: 120 },
+          children: [
+            new TextRun({
+              text: node.innerText.trim(),
+              bold: true,
+              ...BODY_RUN,
+            }),
+          ],
+        })
+      );
+      continue;
+    }
+
+
     if (tag === "p") {
       const runs = parseInline(node);
       if (runs.length) {
@@ -319,6 +337,32 @@ export async function htmlToDocxParagraphs(html, options = {}) {
       }
       continue;
     }
+
+    /* -------- LIST HANDLING -------- */
+    if (tag === "ul" || tag === "ol") {
+      const items = Array.from(node.querySelectorAll("li"));
+
+      items.forEach(li => {
+        const text = li.innerText.trim();
+        if (!text) return;
+
+        blocks.push(
+          new Paragraph({
+            alignment: AlignmentType.JUSTIFIED,
+            spacing: { before: 120, after: 120, line: 360 },
+            children: [
+              new TextRun({
+                text: `• ${text}`,
+                ...BODY_RUN,
+              }),
+            ],
+          })
+        );
+      });
+
+      continue;
+    }
+
 
     if (tag === "table" || (tag === "figure" && node.querySelector("table"))) {
       const tableEl = tag === "table" ? node : node.querySelector("table");
