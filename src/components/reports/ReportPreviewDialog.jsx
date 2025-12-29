@@ -107,7 +107,7 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
     chapters = [],
     literature = [],
     citations = [],
-    sections = [],
+    sections = {},
     // Header/Footer settings
     headerFooter = {},
   } = merged;
