@@ -136,8 +136,14 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
         setNaturalSizes(_natural);
       } catch (err) {
         console.error('PDF load failed', err);
-        setToast({ severity: 'error', msg: 'Failed to load PDF.' });
+
+        if (!cancelled) {
+          setToast({ severity: 'error', msg: 'Failed to load PDF.' });
+          setLoading(false);               // ✅ STOP LOADER
+          setLoadingMsg('');               // optional but clean
+        }
       }
+
     })();
 
     return () => {

@@ -1,51 +1,48 @@
-.pdf-pane {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
+/* =========================================================
+   PDF WRAPPER & LAYOUT
+========================================================= */
 
-.pdf-page {
-  background: #fff;
-  box-shadow: 0 2px 12px rgba(0,0,0,.08);
-}
-
-.hl-layer .hl-rect {
-  background: rgba(255, 235, 59, 0.35);     /* soft yellow */
-  outline: 2px solid rgba(255, 193, 7, 0.8); /* amber outline */
-  border-radius: 4px;
-  transition: transform 120ms ease, opacity 120ms ease;
-  will-change: transform, opacity;
-}
-
-.hl-draft {
-  background: rgba(33, 150, 243, 0.12);
-  outline: 2px dashed rgba(33, 150, 243, 0.7);
-  border-radius: 4px;
-}
-
-
-/* Layout */
 .pdf-wrapper {
   display: flex;
   flex-direction: column;
   width: 100%;
-  min-height: 0; /* allow children to size with flex parents */
+  min-height: 0;                 /* allow flex children to size */
+  background: var(--mui-palette-background-default, #fafafa);
 }
 
-/* Toolbar */
+.pdf-wrapper.fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: var(--mui-palette-background-default, #fafafa);
+  display: flex;
+  flex-direction: column;
+}
+
+
+/* =========================================================
+   TOOLBAR
+========================================================= */
+
 .pdf-toolbar {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 8px;
   align-items: center;
   padding: 8px 12px;
-  border: 1px solid var(--mui-palette-divider, #e5e7eb);
-  border-radius: 10px;
-  background: var(--mui-palette-background-paper, #fff);
   margin-bottom: 12px;
+
+  background: var(--mui-palette-background-default, #fafafa);
+  border-bottom: 1px solid var(--mui-palette-divider, #e5e7eb);
 }
-.pdf-toolbar .left, .pdf-toolbar .right { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.pdf-toolbar .left,
+.pdf-toolbar .right {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .pdf-toolbar .btn {
   padding: 6px 10px;
   border: 1px solid #dadde1;
@@ -54,52 +51,108 @@
   cursor: pointer;
   font: inherit;
 }
-.pdf-toolbar .btn:hover { background: #f0f0f0; }
-.pdf-toolbar .btn.primary {
-  background: #1976d2; color: #fff; border-color: #1976d2;
-}
-.pdf-toolbar .btn.primary:hover { filter: brightness(0.95); }
 
-/* Scrollable pages container */
+.pdf-toolbar .btn:hover {
+  background: #f0f0f0;
+}
+
+.pdf-toolbar .btn.primary {
+  background: #1976d2;
+  color: #fff;
+  border-color: #1976d2;
+}
+
+.pdf-toolbar .btn.primary:hover {
+  filter: brightness(0.95);
+}
+
+
+/* =========================================================
+   PDF PANE (SCROLL CONTAINER)
+========================================================= */
+
 .pdf-pane {
   position: relative;
+  flex: 1;
+  min-height: 0;
   overflow: auto;
-  max-height: calc(100vh - 220px); /* leaves room for sidebars/headers; tweak if needed */
   display: flex;
   flex-direction: column;
   gap: 16px;
   padding: 8px;
-  background: var(--mui-palette-background-default, #f7f7f8);
+  background: var(--mui-palette-background-default, #fafafa);
   border: 1px solid var(--mui-palette-divider, #e5e7eb);
-  border-radius: 10px;
+  touch-action: pan-x pan-y;      /* allow scroll, block browser zoom */
+  overscroll-behavior: contain;
 }
 
-/* Individual page */
+.pdf-wrapper.fullscreen .pdf-pane {
+  flex: 1;
+  overflow: auto;
+}
+
+.pdf-wrapper {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.pdf-pane {
+  flex: 1;          /* ✅ FILL remaining height */
+  min-height: 0;    /* ✅ allow scrolling */
+
+}
+
+
+/* =========================================================
+   PDF PAGE
+========================================================= */
+
 .pdf-page {
   position: relative;
   margin: 0 auto;
-  box-shadow: 0 2px 12px rgba(0,0,0,.08);
   background: #fff;
   border-radius: 6px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.08);
+  user-select: none;
 }
+
 .pdf-page-skeleton {
   height: 600px;
   border-radius: 6px;
   background: linear-gradient(90deg,#f2f2f2,#e9e9e9,#f2f2f2);
   animation: sk 1.2s infinite;
 }
-@keyframes sk { 0%{background-position:0 0} 100%{background-position:200% 0} }
 
-/* Canvas */
-.pdf-canvas { display: block; width: 100%; height: 100%; }
+@keyframes sk {
+  0%   { background-position: 0 0; }
+  100% { background-position: 200% 0; }
+}
 
-/* Highlight layers */
-.hl-layer, .hl-draft {
+
+/* =========================================================
+   CANVAS
+========================================================= */
+
+.pdf-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+
+/* =========================================================
+   HIGHLIGHTS
+========================================================= */
+
+.hl-layer,
+.hl-draft {
   position: absolute;
   inset: 0;
   pointer-events: none;
   border-radius: 4px;
 }
+
 .hl-rect {
   position: absolute;
   background: rgba(255, 235, 59, 0.35);
@@ -108,72 +161,16 @@
   transition: transform 120ms ease, opacity 120ms ease;
   will-change: transform, opacity;
 }
+
 .hl-draft {
   background: rgba(33, 150, 243, 0.12);
   outline: 2px dashed rgba(33, 150, 243, 0.7);
-  border-radius: 4px;
-}
-
-/* Responsive helpers */
-@media (max-width: 1024px) {
-  .pdf-pane { max-height: calc(100vh - 180px); }
-}
-@media (max-width: 640px) {
-  .pdf-toolbar { grid-template-columns: 1fr; }
-  .pdf-pane { max-height: calc(100vh - 160px); }
 }
 
 
-
-/* Floating + badge that follows the cursor */
-.cursor-plus {
-  position: absolute;
-  pointer-events: none;
-  transform: translate(-50%, -50%);
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: rgba(25, 118, 210, 0.95); /* default blue */
-  color: #fff;
-  font-weight: 700;
-  font-size: 12px;
-  line-height: 18px;
-  text-align: center;
-  box-shadow: 0 2px 6px rgba(0,0,0,.25);
-  will-change: transform, left, top, background;
-}
-
-/* When dragging, use the chosen highlight color */
-.cursor-plus.dragging {
-  background: var(--cursor-plus-bg, rgba(255, 235, 59, 0.95)); /* falls back to yellow */
-}
-
-
-.pdf-pane {
-  overflow: auto;
-  height: 100%;
-}
-.pdf-pane {
-  overflow: auto;
-  touch-action: pan-x pan-y; /* allow scroll but block browser zoom */
-  overscroll-behavior: contain;
-}
-
-.pdf-wrapper.fullscreen {
-  position: fixed;
-  inset: 0;
-  z-index: 2000;
-  background: #fff;
-  display: flex;
-  flex-direction: column;
-}
-
-.pdf-wrapper.fullscreen .pdf-pane {
-  flex: 1;
-  overflow: auto;
-}
-
-
+/* =========================================================
+   TEXT LAYER (PDF.js)
+========================================================= */
 
 .textLayer {
   pointer-events: auto;
@@ -183,9 +180,38 @@
   cursor: text;
 }
 
-.pdf-page {
-  user-select: none;
+
+/* =========================================================
+   CURSOR INDICATOR
+========================================================= */
+
+.cursor-plus {
+  position: absolute;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+
+  background: rgba(25, 118, 210, 0.95);
+  color: #fff;
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  text-align: center;
+
+  box-shadow: 0 2px 6px rgba(0,0,0,.25);
+  will-change: transform, left, top, background;
 }
+
+.cursor-plus.dragging {
+  background: var(--cursor-plus-bg, rgba(255, 235, 59, 0.95));
+}
+
+
+/* =========================================================
+   LOADER
+========================================================= */
 
 .pdf-loader {
   width: 42px;
@@ -197,7 +223,22 @@
 }
 
 @keyframes pdf-spin {
-  to {
-    transform: rotate(360deg);
+  to { transform: rotate(360deg); }
+}
+
+
+/* =========================================================
+   RESPONSIVE
+========================================================= */
+
+@media (max-width: 1024px) {
+  .pdf-pane {
+    padding: 6px;
+  }
+}
+
+@media (max-width: 640px) {
+  .pdf-toolbar {
+    grid-template-columns: 1fr;
   }
 }

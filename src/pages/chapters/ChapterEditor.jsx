@@ -7,7 +7,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { selectAllChapters, fetchChapters, updateChapter, deleteChapter } from '../../store/chaptersSlice';
 import {
   Paper, Stack, TextField, Button, Typography, Box, Divider, LinearProgress, Tooltip, Dialog,
-  DialogTitle, DialogContent, DialogContentText, DialogActions, IconButton, Skeleton
+  DialogTitle, DialogContent, DialogContentText, DialogActions, IconButton, Skeleton, MenuItem
 } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
 import DeleteIcon from '@mui/icons-material/DeleteOutline';
@@ -22,8 +22,14 @@ import { CKEditor } from '@ckeditor/ckeditor5-react';
 // import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
 import DecoupledEditor from '@ckeditor/ckeditor5-build-decoupled-document';
 
-const CHAR_WARN = 150;
-const CHAR_GOOD = 300;
+
+const TARGETS = {
+  thesis_chapter: { words: 800, chars: 4000 },
+  synopsis: { words: 300, chars: 1500 },
+  presentation: { words: 100, chars: 600 },
+  front_matter: { words: 50, chars: 300 },
+  appendix: { words: 200, chars: 1000 },
+};
 
 const getCharMeta = (count) => {
   if (count > CHAR_GOOD) {
@@ -46,6 +52,62 @@ const getCharMeta = (count) => {
   };
 };
 
+
+const getWordCharMeta = (wordCount, charCount, wordTarget, charTarget) => {
+  const wordsOk = wordCount >= wordTarget;
+  const charsOk = charCount >= charTarget;
+
+  if (wordsOk && charsOk) {
+    return {
+      color: '#2e7d32',
+      label: `Words: ${wordCount} ✓ | Characters: ${charCount} ✓`,
+    };
+  }
+
+  if (wordsOk || charsOk) {
+    return {
+      color: '#ed6c02',
+      label: `Words: ${wordCount}${wordsOk ? ' ✓' : ''} | Characters: ${charCount}${charsOk ? ' ✓' : ''}`,
+    };
+  }
+
+  return {
+    color: '#6b7280',
+    label: `Words: ${wordCount} / ${wordTarget} | Characters: ${charCount} / ${charTarget}`,
+  };
+};
+
+
+const CHAPTER_TYPE_META = {
+  thesis_chapter: {
+    label: 'Thesis Chapter',
+    color: 'primary',
+    desc: 'Full thesis content (detailed, formal)',
+  },
+  presentation: {
+    label: 'Presentation Chapter',
+    color: 'success',
+    desc: 'Slides / Viva / Seminar content',
+  },
+  front_matter: {
+    label: 'Front Matter',
+    color: 'info',
+    desc: 'Title page, declarations, certificates',
+  },
+  appendix: {
+    label: 'Appendix',
+    color: 'secondary',
+    desc: 'Supplementary material',
+  },
+};
+const CHAPTER_TYPE_OPTIONS = [
+  { value: 'thesis_chapter', label: 'Thesis Chapter', desc: 'Full thesis content (detailed, formal)' },
+  { value: 'presentation', label: 'Presentation Chapter', desc: 'Slides / Viva / Seminar content' },
+  { value: 'front_matter', label: 'Front Matter', desc: 'Title page, declarations, certificates' },
+  { value: 'appendix', label: 'Appendix', desc: 'Supplementary material' },
+];
+
+
 export default function ChapterEditor() {
   const { id } = useParams();
   const cid = Number(id);
@@ -66,7 +128,19 @@ export default function ChapterEditor() {
   const openToast = (severity, msg) => setToast({ open: true, severity, msg });
   const closeToast = () => setToast((t) => ({ ...t, open: false }));
   const [charCount, setCharCount] = React.useState(0);
+  const [wordCount, setWordCount] = React.useState(0);
 
+  const [autoSaving, setAutoSaving] = React.useState(false);
+  const [lastSavedAt, setLastSavedAt] = React.useState(null);
+
+  const [chapterType, setChapterType] = React.useState('thesis_chapter');
+  const [typeChanged, setTypeChanged] = React.useState(false);
+
+
+  const { words: WORD_TARGET, chars: CHAR_GOOD } =
+    TARGETS[chapterType] || TARGETS.thesis_chapter;
+
+  const chapterTypeMeta = CHAPTER_TYPE_META[chapterType];
 
   // Fetch once if needed (unconditional hook)
   React.useEffect(() => {
@@ -77,17 +151,21 @@ export default function ChapterEditor() {
     if (chapter?.body_html) {
       const text = chapter.body_html.replace(/<[^>]*>/g, '').trim();
       setCharCount(text.length);
+      setWordCount(text ? text.split(/\s+/).length : 0);
     }
   }, [chapter?.id]);
 
 
-  // Initialize local state when chapter becomes available (unconditional hook, guarded inside)
   React.useEffect(() => {
     if (chapter) {
       setTitle(chapter.title || '');
       setBody(chapter.body_html || '');
+      setChapterType(chapter.chapter_type || 'thesis_chapter');
+      setTypeChanged(false);
     }
-  }, [chapter?.id]); // dependency value changes, but the hook itself is not conditional
+  }, [chapter?.id]);
+
+
 
   // Ctrl/Cmd+S to save (unconditional hook)
   React.useEffect(() => {
@@ -102,22 +180,69 @@ export default function ChapterEditor() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saving, title, body, cid]);
 
+  const decodeHtml = (encoded) => {
+    try {
+      return decodeURIComponent(escape(atob(encoded)));
+    } catch {
+      return encoded || '';
+    }
+  };
+
+
+  const persistedBody = React.useMemo(
+    () => decodeHtml(chapter?.body_html || ''),
+    [chapter?.body_html]
+  );
+
+
   // ------------- handlers (no hooks) -------------
   const isLoaded = !!chapter;
   const isDirty =
-    (title !== (chapter?.title || '')) || (body !== (chapter?.body_html || ''));
+    title !== (chapter?.title || '') ||
+    body !== persistedBody ||
+    chapterType !== (chapter?.chapter_type || 'thesis_chapter');
 
-  const editorConfig = React.useMemo(
-    () => makeEditorConfig(cid),
-    [cid]
-  );
+
+
+  const editorConfig = React.useMemo(() => {
+    const base = makeEditorConfig(cid);
+
+    if (chapterType === 'presentation') {
+      return {
+        ...base,
+        placeholder: 'Use concise bullet points suitable for slides or viva',
+      };
+    }
+
+    if (chapterType === 'thesis_chapter') {
+      return {
+        ...base,
+        placeholder: 'Write a concise academic summary',
+      };
+    }
+
+    return {
+      ...base,
+      placeholder: 'Write detailed, formal academic content',
+    };
+  }, [cid, chapterType]);
+
 
   // replace your handleSave with this version
   const handleSave = async () => {
     if (!isLoaded) return;
     setSaving(true);
     try {
-      await dispatch(updateChapter({ id: cid, changes: { title, body_html: btoa(unescape(encodeURIComponent(body))) } })).unwrap();
+      const encodeHtml = (body) => btoa(unescape(encodeURIComponent(body)));
+
+      await dispatch(updateChapter({
+        id: cid,
+        changes: {
+          title,
+          chapter_type: chapterType,
+          body_html: encodeHtml(body),
+        }
+      })).unwrap();
       openToast('success', 'Chapter saved successfully.');
     } catch (err) {
       openToast('error', err?.message || 'Failed to save chapter.');
@@ -150,6 +275,94 @@ export default function ChapterEditor() {
     }
   };
 
+  // ---------------- AUTOSAVE CHAPTER ----------------
+  React.useEffect(() => {
+    if (!isLoaded) return;
+    if (!isDirty) return;
+    if (!body) return;
+
+    setAutoSaving(true);
+
+    const t = setTimeout(async () => {
+      try {
+        await dispatch(
+          updateChapter({
+            id: cid,
+            changes: {
+              title,
+              chapter_type: chapterType,
+              body_html: btoa(unescape(encodeURIComponent(body))),
+            },
+            autosave: true, // optional backend hint
+          })
+        ).unwrap();
+
+        setLastSavedAt(new Date());
+      } finally {
+        setAutoSaving(false);
+      }
+    }, 1500); // ⏱ debounce window
+
+    return () => clearTimeout(t);
+  }, [cid, title, body, chapterType, isLoaded, isDirty, dispatch]);
+
+  const SaveStatus = ({ saving, autoSaving, isDirty, lastSavedAt }) => {
+    if (saving || autoSaving) {
+      return (
+        <Stack direction="row" spacing={0.75} alignItems="center">
+          <LinearProgress
+            sx={{
+              width: 60,
+              height: 3,
+              borderRadius: 1,
+            }}
+          />
+          <Typography variant="caption" color="text.secondary">
+            Saving…
+          </Typography>
+        </Stack>
+      );
+    }
+
+    if (isDirty) {
+      return (
+        <Stack direction="row" spacing={0.75} alignItems="center">
+          <Box
+            sx={{
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              bgcolor: '#ed6c02', // warning
+            }}
+          />
+          <Typography variant="caption" color="text.secondary">
+            Unsaved changes
+          </Typography>
+        </Stack>
+      );
+    }
+
+    if (lastSavedAt) {
+      return (
+        <Stack direction="row" spacing={0.75} alignItems="center">
+          <Box
+            sx={{
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              bgcolor: '#2e7d32', // success
+            }}
+          />
+          <Typography variant="caption" color="text.secondary">
+            Saved {lastSavedAt.toLocaleTimeString()}
+          </Typography>
+        </Stack>
+      );
+    }
+
+    return null;
+  };
+
 
   // ------------- render (no early return) -------------
   return (
@@ -170,6 +383,7 @@ export default function ChapterEditor() {
         <Box sx={{ px: 2, py: 1 }}>
           <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={2}>
             <Stack direction="row" alignItems="center" spacing={1}>
+
               <Tooltip title="Back">
                 <IconButton onClick={handleCancel}><ArrowBackIcon /></IconButton>
               </Tooltip>
@@ -178,12 +392,31 @@ export default function ChapterEditor() {
                   {isLoaded ? 'Edit Chapter' : 'Loading Chapter…'}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  ID #{cid} {isLoaded && isDirty ? '• Unsaved changes' : ''}
+                  ID #{cid}
+                  {chapterTypeMeta && (
+                    <>
+                      {' '}•{' '}
+                      <strong>{chapterTypeMeta.label}</strong>
+                      {' '}•{' '}
+                      {chapterTypeMeta.desc}
+                    </>
+                  )}
+                  {isLoaded && isDirty ? ' • Unsaved changes' : ''}
                 </Typography>
+
               </Box>
             </Stack>
 
             <Stack direction="row" spacing={1}>
+
+
+              <SaveStatus
+                saving={saving}
+                autoSaving={autoSaving}
+                isDirty={isDirty}
+                lastSavedAt={lastSavedAt}
+              />
+
               <Button onClick={handleCancel} disabled={!isLoaded}>Cancel</Button>
               <Button
                 startIcon={<SaveIcon />}
@@ -213,17 +446,74 @@ export default function ChapterEditor() {
           <Divider sx={{ mb: 2 }} />
           <Stack spacing={2}>
             {isLoaded ? (
-              <TextField
-                fullWidth
-                label="Chapter Title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g., Introduction"
-              />
+              <>
+                <TextField
+                  fullWidth
+                  label="Chapter Title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="e.g., Introduction"
+                />
+
+                <Box
+                  sx={{
+                    px: 1.5,
+                    py: 1,
+                    borderRadius: 1,
+                    bgcolor: 'grey.50',
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    fontSize: 13,
+                  }}
+                >
+                  <TextField
+                    select
+                    fullWidth
+                    label="Chapter Type"
+                    value={chapterType}
+                    onChange={(e) => {
+                      setChapterType(e.target.value);
+                      setTypeChanged(true);
+                    }}
+                    helperText={
+                      CHAPTER_TYPE_OPTIONS.find(o => o.value === chapterType)?.desc
+                    }
+                  >
+                    {CHAPTER_TYPE_OPTIONS.map(opt => (
+                      <MenuItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+
+                  {typeChanged && (
+                    <Box
+                      sx={{
+                        mt: 1,
+                        p: 1.5,
+                        borderRadius: 1,
+                        bgcolor: 'warning.light',
+                        color: 'warning.dark',
+                        fontSize: 13,
+                      }}
+                    >
+                      Changing the chapter type may affect:
+                      <ul style={{ margin: '6px 0 0 18px' }}>
+                        <li>Word & character recommendations</li>
+                        <li>Export behavior (thesis / synopsis / presentation)</li>
+                        <li>Document inclusion rules</li>
+                      </ul>
+                    </Box>
+                  )}
+
+
+                </Box>
+              </>
             ) : (
               <Skeleton variant="rounded" height={48} />
             )}
           </Stack>
+
         </Paper>
 
         {/* Body Block */}
@@ -319,15 +609,22 @@ export default function ChapterEditor() {
                 onChange={(_, editor) => {
                   const data = editor.getData();
                   setBody(data);
-
                   const text = data.replace(/<[^>]*>/g, '').trim();
                   setCharCount(text.length);
+                  setWordCount(text ? text.split(/\s+/).length : 0);
+
                 }}
 
               />
 
               {(() => {
-                const meta = getCharMeta(charCount);
+                const meta = getWordCharMeta(
+                  wordCount,
+                  charCount,
+                  WORD_TARGET,
+                  CHAR_GOOD
+                );
+
 
                 return (
                   <Box
@@ -348,15 +645,18 @@ export default function ChapterEditor() {
                       variant="caption"
                       sx={{
                         color: meta.color,
-                        fontWeight: charCount > 150 ? 600 : 400,
+                        fontWeight: (wordCount >= WORD_TARGET || charCount >= CHAR_GOOD) ? 600 : 400,
                       }}
                     >
                       {meta.label}
                     </Typography>
 
+
                     <Typography variant="caption" color="text.secondary">
-                      Recommended: 300+
+                      Target for {chapterTypeMeta?.label}: {WORD_TARGET}+ words • {CHAR_GOOD}+ characters
                     </Typography>
+
+
                   </Box>
                 );
               })()}

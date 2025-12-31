@@ -243,6 +243,7 @@ export default function Supervisors() {
             <Table stickyHeader size="small">
               <TableHead>
                 <TableRow>
+                  <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 60 }}>ID</TableCell> 
                   <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>
                     Name
                   </TableCell>
@@ -272,6 +273,7 @@ export default function Supervisors() {
                 ) : (
                   viewRows.map((s) => (
                     <TableRow hover key={s.id}>
+                      <TableCell>{s.id}</TableCell> 
                       <TableCell>{s.name || '-'}</TableCell>
                       <TableCell>{s.email || '-'}</TableCell>
                       <TableCell>

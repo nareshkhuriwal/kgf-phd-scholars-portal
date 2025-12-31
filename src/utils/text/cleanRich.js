@@ -34,3 +34,39 @@ export function cleanRich(input = "") {
 
   return s;
 }
+
+
+export const initialsOf = (name) => {
+  if (typeof name !== 'string') return 'U';
+
+  const trimmed = name.trim();
+  if (!trimmed) return 'U';
+
+  const parts = trimmed.split(/\s+/);
+
+  const first = parts[0]?.[0];
+  const last = parts.length > 1 ? parts[parts.length - 1]?.[0] : null;
+
+  if (!first) return 'U';
+
+  return (first + (last ?? '')).toUpperCase();
+};
+
+
+export function normalizeHtmlWhitespace(html) {
+  if (!html) return '';
+
+  return html
+    // Normalize Windows/Mac newlines
+    .replace(/\r\n/g, '\n')
+
+    // Convert double newlines → paragraph breaks
+    .replace(/\n\s*\n/g, '</p><p>')
+
+    // Convert single newline → <br>
+    .replace(/\n/g, '<br/>')
+
+    // Ensure wrapped in paragraphs
+    .replace(/^/, '<p>')
+    .replace(/$/, '</p>');
+}

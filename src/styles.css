@@ -84,3 +84,58 @@ a:hover { text-decoration: underline; }
   display: block;
   margin: 0 auto;
 }
+
+@media print {
+  body {
+    background: white;
+  }
+
+  .ck-content {
+    font-size: 12pt;
+    line-height: 1.6;
+  }
+
+  h1, h2, h3 {
+    page-break-after: avoid;
+  }
+
+  p {
+    page-break-inside: avoid;
+  }
+}
+
+
+.title-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  font-family: "Times New Roman", serif;
+}
+
+.title-page p {
+  margin: 6px 0;
+}
+
+.title-page .spacer {
+  height: 20px;
+}
+
+.title-page img {
+  display: block;
+  margin: 24px auto;
+  width: 150px;
+  height: auto;
+}
+
+
+.citation-token {
+  background-color: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 4px;
+  padding: 0 6px;
+  font-size: 0.85em;
+  color: #1e3a8a;
+  cursor: pointer;
+  user-select: none;
+}
