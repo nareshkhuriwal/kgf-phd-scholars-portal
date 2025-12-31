@@ -72,7 +72,7 @@ export default function PaperForm({ mode = 'create' }) {
     useForm({
       defaultValues: {
         place: 'N/A',
-        citation_type_code: '',
+        citation_type_code: 'conference_paper', // ✅ Default citation type
       },
     });
 
@@ -138,7 +138,7 @@ export default function PaperForm({ mode = 'create' }) {
         issue: current.issue ?? '',
         page_no: current.page_no ?? '',
         category: current.category ?? '',
-        citation_type_code: current.citation_type_code ?? '',
+        citation_type_code: current.citation_type_code ?? 'conference_paper', // ✅ Populate citation type
 
       });
     }
