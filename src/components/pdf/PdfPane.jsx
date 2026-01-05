@@ -76,6 +76,15 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
     setHlBrushes({});
   }, [activeUrl]);
 
+  const reloadPdf = () => {
+    setDoc(null);
+    setPages([]);
+    setViewports([]);
+    setNaturalSizes([]);
+    setHlRects({});
+    setHlBrushes({});
+  };
+
   /* ---------------- LOAD PDF ---------------- */
   // React.useEffect(() => {
   //   let cancelled = false; 
@@ -285,21 +294,34 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
 
 
   /* ---------------- PX CONVERSION ---------------- */
-  const rectsPx = page =>
-    (hlRects[page] || []).map(r => ({
-      ...r,
-      x: r.x * currentScale,
-      y: r.y * currentScale,
-      w: r.w * currentScale,
-      h: r.h * currentScale,
-    }));
+  const rectsPx = page => {
+    const vp = viewports[page - 1];
+    if (!vp) return [];
 
-  const brushesPx = page =>
-    (hlBrushes[page] || []).map(b => ({
-      ...b,
-      size: b.size * currentScale,
-      points: b.points.map(p => ({ x: p.x * currentScale, y: p.y * currentScale })),
+    return (hlRects[page] || []).map(r => ({
+      ...r,
+      x: r.x * vp.width,
+      y: r.y * vp.height,
+      w: r.w * vp.width,
+      h: r.h * vp.height,
     }));
+  };
+
+
+  const brushesPx = page => {
+    const vp = viewports[page - 1];
+    if (!vp) return [];
+
+    return (hlBrushes[page] || []).map(b => ({
+      ...b,
+      size: b.size * vp.width,
+      points: b.points.map(p => ({
+        x: p.x * vp.width,
+        y: p.y * vp.height,
+      })),
+    }));
+  };
+
 
   /* ---------------- UNDO / CLEAR ---------------- */
   const canUndo = React.useMemo(
@@ -562,6 +584,9 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
         severity: 'error',
         msg: err?.message || 'Save failed.',
       });
+      // ❗ reset client state
+      userActionRef.current = false;
+      reloadPdf();
     } finally {
       setSaving(false);
     }
