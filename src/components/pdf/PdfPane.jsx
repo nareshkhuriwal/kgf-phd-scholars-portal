@@ -100,6 +100,20 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
   //   return () => { cancelled = true; };
   // }, [activeUrl]);
 
+
+
+  if (!autosaveRef.current) {
+    autosaveRef.current = debounce(() => {
+      handleSave();
+    }, 800);
+  }
+
+  React.useEffect(() => {
+    return () => {
+      autosaveRef.current?.cancel?.();
+    };
+  }, []);
+
   React.useEffect(() => {
     let cancelled = false;
     if (!activeUrl) return;
@@ -410,6 +424,10 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
       setToast({ severity: 'error', msg: 'Invalid paper.' });
       return;
     }
+    console.log('AUTO-SAVE TRIGGERED', {
+      rects: hlRects,
+      brushes: hlBrushes,
+    });
 
     // ---------- build rect payload ----------
     const rectPayload = Object.entries(hlRects).map(([p, rs]) => {
@@ -486,15 +504,15 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
   };
 
 
-  React.useEffect(() => {
-    autosaveRef.current = debounce(() => {
-      handleSave();
-    }, 800);
+  // React.useEffect(() => {
+  //   autosaveRef.current = debounce(() => {
+  //     handleSave();
+  //   }, 800);
 
-    return () => {
-      autosaveRef.current?.cancel?.();
-    };
-  }, [hlRects, hlBrushes, paperId]);
+  //   return () => {
+  //     autosaveRef.current?.cancel?.();
+  //   };
+  // }, [hlRects, hlBrushes, paperId]);
 
 
 
