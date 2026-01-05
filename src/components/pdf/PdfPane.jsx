@@ -239,33 +239,42 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
 
   /* ---------------- ADD RECT ---------------- */
   const addRect = (page, rPx) => {
-    const s = currentScale;
+    const vp = viewports[page - 1];
+    if (!vp) return;
+
     userActionRef.current = true;
 
     const rect = {
       id: crypto.randomUUID(),
-      x: rPx.x / s,
-      y: rPx.y / s,
-      w: rPx.w / s,
-      h: rPx.h / s,
+
+      // ✅ normalized once, permanently
+      x: +(rPx.x / vp.width).toFixed(6),
+      y: +(rPx.y / vp.height).toFixed(6),
+      w: +(rPx.w / vp.width).toFixed(6),
+      h: +(rPx.h / vp.height).toFixed(6),
     };
 
-    setHlRects(prev => {
-      const next = { ...prev, [page]: [...(prev[page] || []), rect] };
-      onHighlightsChange?.(next);
-      return next;
-    });
+    setHlRects(prev => ({
+      ...prev,
+      [page]: [...(prev[page] || []), rect],
+    }));
   };
+
 
   /* ---------------- ADD BRUSH ---------------- */
   const addBrush = (page, strokePx) => {
-    const s = currentScale;
+    const vp = viewports[page - 1];
+    if (!vp) return;
+
     userActionRef.current = true;
 
     const stroke = {
       id: crypto.randomUUID(),
-      size: strokePx.size / s,
-      points: strokePx.points.map(p => ({ x: p.x / s, y: p.y / s })),
+      size: +(strokePx.size / vp.width).toFixed(6),
+      points: strokePx.points.map(p => ({
+        x: +(p.x / vp.width).toFixed(6),
+        y: +(p.y / vp.height).toFixed(6),
+      })),
     };
 
     setHlBrushes(prev => ({
@@ -273,6 +282,7 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
       [page]: [...(prev[page] || []), stroke],
     }));
   };
+
 
   /* ---------------- PX CONVERSION ---------------- */
   const rectsPx = page =>
@@ -404,7 +414,7 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
 
   React.useEffect(() => {
     if (!userActionRef.current) return;
-    if (naturalSizes.length === 0) return;
+    // if (naturalSizes.length === 0) return;
 
     if (
       Object.keys(hlRects).length === 0 &&
@@ -468,41 +478,55 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
 
 
     // ---------- build rect payload ----------
-    const rectPayload = Object.entries(rectsState).map(([p, rs]) => {
-      const nat = naturalSizes[p - 1];
-      if (!nat) return null;
+    // const rectPayload = Object.entries(rectsState).map(([p, rs]) => {
+    //   const nat = naturalSizes[p - 1];
+    //   if (!nat) return null;
 
-      const rects = rs
-        .map(r => ({
-          x: +(r.x / nat.w).toFixed(6),
-          y: +(r.y / nat.h).toFixed(6),
-          w: +(r.w / nat.w).toFixed(6),
-          h: +(r.h / nat.h).toFixed(6),
-        }))
-        .filter(r => r.w > 0 && r.h > 0);
+    //   const rects = rs
+    //     .map(r => ({
+    //       x: +(r.x / nat.w).toFixed(6),
+    //       y: +(r.y / nat.h).toFixed(6),
+    //       w: +(r.w / nat.w).toFixed(6),
+    //       h: +(r.h / nat.h).toFixed(6),
+    //     }))
+    //     .filter(r => r.w > 0 && r.h > 0);
 
-      return rects.length ? { page: +p, rects } : null;
-    }).filter(Boolean);
+    //   return rects.length ? { page: +p, rects } : null;
+    // }).filter(Boolean);
+
+    const rectPayload = Object.entries(rectsState)
+    .map(([p, rs]) =>
+      rs.length ? { page: Number(p), rects: rs } : null
+    )
+    .filter(Boolean);
+
 
     // ---------- build brush payload ----------
-    const brushPayload = Object.entries(brushesState).map(([p, bs]) => {
-      const nat = naturalSizes[p - 1];
-      if (!nat) return null;
+    // const brushPayload = Object.entries(brushesState).map(([p, bs]) => {
+    //   const nat = naturalSizes[p - 1];
+    //   if (!nat) return null;
 
-      const strokes = bs
-        .map(s => ({
-          size: +(s.size / nat.w).toFixed(6),
-          points: s.points
-            .map(pt => ({
-              x: +(pt.x / nat.w).toFixed(6),
-              y: +(pt.y / nat.h).toFixed(6),
-            }))
-            .filter(pt => pt.x >= 0 && pt.x <= 1 && pt.y >= 0 && pt.y <= 1),
-        }))
-        .filter(s => s.points.length >= 2);
+    //   const strokes = bs
+    //     .map(s => ({
+    //       size: +(s.size / nat.w).toFixed(6),
+    //       points: s.points
+    //         .map(pt => ({
+    //           x: +(pt.x / nat.w).toFixed(6),
+    //           y: +(pt.y / nat.h).toFixed(6),
+    //         }))
+    //         .filter(pt => pt.x >= 0 && pt.x <= 1 && pt.y >= 0 && pt.y <= 1),
+    //     }))
+    //     .filter(s => s.points.length >= 2);
 
-      return strokes.length ? { page: +p, strokes } : null;
-    }).filter(Boolean);
+    //   return strokes.length ? { page: +p, strokes } : null;
+    // }).filter(Boolean);
+
+    const brushPayload = Object.entries(brushesState)
+    .map(([p, bs]) =>
+      bs.length ? { page: Number(p), strokes: bs } : null
+    )
+    .filter(Boolean);
+
 
     // ---------- HARD GUARD ----------
     if (rectPayload.length === 0 && brushPayload.length === 0) {
