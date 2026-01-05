@@ -9,6 +9,7 @@ import { saveHighlights } from '../../store/highlightsSlice';
 import { Snackbar, Alert } from '@mui/material';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
+import { debounce } from '../../utils/debounce';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
@@ -59,6 +60,8 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
 
   const containerRef = React.useRef(null);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
+
+  const autosaveRef = React.useRef(null);
 
   /* ---------------- RESET ON URL CHANGE ---------------- */
   React.useEffect(() => {
@@ -483,6 +486,18 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
   };
 
 
+  React.useEffect(() => {
+    autosaveRef.current = debounce(() => {
+      handleSave();
+    }, 800);
+
+    return () => {
+      autosaveRef.current?.cancel?.();
+    };
+  }, [hlRects, hlBrushes, paperId]);
+
+
+
   /* ---------------- RENDER ---------------- */
   return (
     // <div className="pdf-wrapper">
@@ -549,6 +564,7 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
             pageBrushes={brushesPx(p.index)}
             onAddHighlight={addRect}
             onAddBrush={addBrush}
+            onHighlightCommit={() => autosaveRef.current?.()}
             enabled={enabled}
             mode={mode}
             colorHex={colorHex}
