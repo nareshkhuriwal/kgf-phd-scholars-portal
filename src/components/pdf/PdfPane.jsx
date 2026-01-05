@@ -53,6 +53,10 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
   const [hlRects, setHlRects] = React.useState({});
   const [hlBrushes, setHlBrushes] = React.useState({});
 
+  const hlRectsRef = React.useRef({});
+  const hlBrushesRef = React.useRef({});
+
+
   /* ---------------- ZOOM ---------------- */
   const [currentScale, setCurrentScale] = React.useState(initialScale);
   const scaleRef = React.useRef(initialScale);
@@ -100,6 +104,13 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
   // }, [activeUrl]);
 
 
+  React.useEffect(() => {
+    hlRectsRef.current = hlRects;
+  }, [hlRects]);
+
+  React.useEffect(() => {
+    hlBrushesRef.current = hlBrushes;
+  }, [hlBrushes]);
 
   /* ---------------- LOAD PDF (with progress) ---------------- */
 
@@ -447,8 +458,17 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
       brushes: hlBrushes,
     });
 
+    const rectsState = hlRectsRef.current;
+    const brushesState = hlBrushesRef.current;
+      
+    console.log('AUTO-SAVE SNAPSHOT', {
+      rectsState,
+      brushesState,
+    });
+
+
     // ---------- build rect payload ----------
-    const rectPayload = Object.entries(hlRects).map(([p, rs]) => {
+    const rectPayload = Object.entries(rectsState).map(([p, rs]) => {
       const nat = naturalSizes[p - 1];
       if (!nat) return null;
 
@@ -465,7 +485,7 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
     }).filter(Boolean);
 
     // ---------- build brush payload ----------
-    const brushPayload = Object.entries(hlBrushes).map(([p, bs]) => {
+    const brushPayload = Object.entries(brushesState).map(([p, bs]) => {
       const nat = naturalSizes[p - 1];
       if (!nat) return null;
 
