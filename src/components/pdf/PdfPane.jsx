@@ -60,8 +60,7 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
 
   const containerRef = React.useRef(null);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
-
-  const autosaveRef = React.useRef(null);
+  const userActionRef = React.useRef(false);
 
   /* ---------------- RESET ON URL CHANGE ---------------- */
   React.useEffect(() => {
@@ -75,7 +74,7 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
 
   /* ---------------- LOAD PDF ---------------- */
   // React.useEffect(() => {
-  //   let cancelled = false;
+  //   let cancelled = false; 
   //   if (!activeUrl) return;
 
   //   (async () => {
@@ -102,17 +101,7 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
 
 
 
-  if (!autosaveRef.current) {
-    autosaveRef.current = debounce(() => {
-      handleSave();
-    }, 800);
-  }
-
-  React.useEffect(() => {
-    return () => {
-      autosaveRef.current?.cancel?.();
-    };
-  }, []);
+  /* ---------------- LOAD PDF (with progress) ---------------- */
 
   React.useEffect(() => {
     let cancelled = false;
@@ -240,6 +229,8 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
   /* ---------------- ADD RECT ---------------- */
   const addRect = (page, rPx) => {
     const s = currentScale;
+    userActionRef.current = true;
+
     const rect = {
       id: crypto.randomUUID(),
       x: rPx.x / s,
@@ -258,6 +249,8 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
   /* ---------------- ADD BRUSH ---------------- */
   const addBrush = (page, strokePx) => {
     const s = currentScale;
+    userActionRef.current = true;
+
     const stroke = {
       id: crypto.randomUUID(),
       size: strokePx.size / s,
@@ -297,6 +290,8 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
 
 
   const onUndo = () => {
+    userActionRef.current = true;
+
     setHlRects(prev => {
       const pages = Object.keys(prev).map(Number).sort((a, b) => b - a);
       for (const p of pages) {
@@ -312,6 +307,8 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
   };
 
   const onClear = () => {
+    userActionRef.current = true;
+
     setHlRects({});
     setHlBrushes({});
   };
@@ -386,6 +383,27 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
     };
   }, []);
 
+  /* ---------------- AUTOSAVE ---------------- */
+
+
+  React.useEffect(() => {
+    return () => autosaveRef.current.cancel();
+  }, []);
+
+
+  React.useEffect(() => {
+    if (!userActionRef.current) return;
+    if (naturalSizes.length === 0) return;
+
+    if (
+      Object.keys(hlRects).length === 0 &&
+      Object.keys(hlBrushes).length === 0
+    ) {
+      return;
+    }
+
+    autosaveRef.current();
+  }, [hlRects, hlBrushes, naturalSizes]);
 
   /* ---------------- ZOOM HELPERS ---------------- */
 
@@ -491,6 +509,8 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
     try {
       setSaving(true);
       await dispatch(saveHighlights(payload)).unwrap();
+      userActionRef.current = false;
+
       setToast({ severity: 'success', msg: 'Highlights saved.' });
     } catch (err) {
       console.error('Save highlights failed', err);
@@ -504,15 +524,11 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
   };
 
 
-  // React.useEffect(() => {
-  //   autosaveRef.current = debounce(() => {
-  //     handleSave();
-  //   }, 800);
-
-  //   return () => {
-  //     autosaveRef.current?.cancel?.();
-  //   };
-  // }, [hlRects, hlBrushes, paperId]);
+  const autosaveRef = React.useRef(
+    debounce(() => {
+      handleSave();
+    }, 800)
+  );
 
 
 
@@ -582,7 +598,6 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
             pageBrushes={brushesPx(p.index)}
             onAddHighlight={addRect}
             onAddBrush={addBrush}
-            onHighlightCommit={() => autosaveRef.current?.()}
             enabled={enabled}
             mode={mode}
             colorHex={colorHex}
