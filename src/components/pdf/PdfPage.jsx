@@ -150,6 +150,7 @@ export default function PdfPage({
 
       {/* Existing rectangles */}
       <HighlightLayer
+        key={`hl-${pageIndex}`}   
         pageWidth={viewport.width}
         pageHeight={viewport.height}
         highlights={pageHighlights}

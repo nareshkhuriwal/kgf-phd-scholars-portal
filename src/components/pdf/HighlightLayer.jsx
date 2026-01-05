@@ -14,12 +14,22 @@ export default function HighlightLayer({ pageWidth, pageHeight, highlights, colo
   const border = hexToRgba(colorHex, Math.min(1, alpha + 0.45));
 
   return (
-    <div className="hl-layer" style={{ width: pageWidth, height: pageHeight }}>
+    <div 
+    className="hl-layer" 
+    style={{
+        position: 'absolute',        // ✅ REQUIRED
+        inset: 0,                    // ✅ REQUIRED
+        width: pageWidth,
+        height: pageHeight,
+        pointerEvents: 'none',       // ✅ REQUIRED
+      }}
+    >
       {highlights.map(h => (
         <div
           key={h.id}
           className="hl-rect"
           style={{
+            position: 'absolute',
             left: `${h.x}px`,
             top: `${h.y}px`,
             width: `${h.w}px`,
