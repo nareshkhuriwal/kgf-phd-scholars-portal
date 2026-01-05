@@ -117,7 +117,9 @@ export default function ReviewEditor() {
 
   const { current, error } = useSelector((s) => s.reviews || {});
   const [sidebarOpen, setSidebarOpen] = React.useState(true); // Start closed on mobile/tablet
-  const [pdfOpen, setPdfOpen] = React.useState(true);
+  // const [pdfOpen, setPdfOpen] = React.useState(true);
+  const [pdfOpen, setPdfOpen] = React.useState(!isDesktop);
+
   const [charCount, setCharCount] = React.useState(0);
   const [wordCount, setWordCount] = React.useState(0);
   const toolbarRef = React.useRef(null);
@@ -252,13 +254,16 @@ export default function ReviewEditor() {
 
   // Auto-close sidebar on mobile/tablet
   React.useEffect(() => {
-    if (!isDesktop) {
-      setSidebarOpen(false);
-      setPdfOpen(false);
-    } else {
+    if (isDesktop) {
+      // Desktop: allow both panes
       setPdfOpen(true);
+    } else {
+      // Tablet/Mobile: PDF is default
+      setPdfOpen(true);
+      setSidebarOpen(false);
     }
   }, [isDesktop]);
+  // Prevent Enter key from submitting forms when focus is in CKEditor
 
   React.useEffect(() => {
     const blockEnterSubmit = (e) => {
