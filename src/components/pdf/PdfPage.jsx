@@ -17,7 +17,6 @@ export default function PdfPage({
   pageBrushes = [],      // brushes (px)
   onAddHighlight,
   onAddBrush,
-  onHighlightCommit,   
   enabled = true,
   mode = 'rect',
   colorHex,
@@ -89,41 +88,26 @@ export default function PdfPage({
   };
 
   // ----- MOUSE UP / LEAVE -----
-const finishInteraction = () => {
-  let committed = false;
-
-  // RECT commit
-  if (mode === 'rect' && rectDrag.current.dragging) {
-    rectDrag.current.dragging = false;
-
-    if (draftRect && draftRect.w > 4 && draftRect.h > 4) {
-      onAddHighlight(pageIndex, draftRect);
-      committed = true;
+  const finishInteraction = () => {
+    // RECT commit
+    if (mode === 'rect' && rectDrag.current.dragging) {
+      rectDrag.current.dragging = false;
+      if (draftRect && draftRect.w > 4 && draftRect.h > 4) {
+        onAddHighlight(pageIndex, draftRect);
+      }
+      setDraftRect(null);
     }
 
-    setDraftRect(null);
-  }
-
-  // BRUSH commit
-  if (mode === 'brush' && brushRef.current.drawing) {
-    if (brushRef.current.points.length >= 2) {
+    // BRUSH commit
+    if (mode === 'brush' && brushRef.current.drawing) {
       onAddBrush(pageIndex, {
         points: brushRef.current.points,
         size: brushSize,
       });
-      committed = true;
+      brushRef.current.drawing = false;
+      brushRef.current.points = [];
     }
-
-    brushRef.current.drawing = false;
-    brushRef.current.points = [];
-  }
-
-  // ✅ SIGNAL ONLY ON REAL COMMIT
-  if (committed) {
-    onHighlightCommit?.();
-  }
-};
-  // ----- RENDER -----
+  };
 
   if (!viewport) return null;
 
