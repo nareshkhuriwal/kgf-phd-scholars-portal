@@ -7,45 +7,64 @@ import {
   TextRun,
 } from "docx";
 import { saveAs } from "file-saver";
+
 import { htmlToDocxParagraphs } from "../exporters/htmlToDocx";
 import { DOCUMENT_FORMATTING } from "../../config/paperDocumentFormating";
 
-/* ───────── Helpers ───────── */
-const inchToTwip = (inch) => inch * 1440;
-const ptToHalfPt = (pt) => pt * 2;
-const ptToTwip = (pt) => pt * 20;
+/* =====================================================
+   SAFE CONVERSIONS (NO NaN EVER)
+===================================================== */
 
-const pageMargins = {
+const ptToHalfPt = (pt) =>
+  Number.isFinite(pt) ? Math.round(pt * 2) : 24;
+
+const inchToTwip = (inch) =>
+  Number.isFinite(inch) ? Math.round(inch * 1440) : 1440;
+
+const stripHtml = (html = "") =>
+  html.replace(/<[^>]+>/g, "").trim();
+
+/* =====================================================
+   PAGE MARGINS
+===================================================== */
+
+const PAGE_MARGINS = {
   top: inchToTwip(DOCUMENT_FORMATTING.page.marginInch.top),
   bottom: inchToTwip(DOCUMENT_FORMATTING.page.marginInch.bottom),
   left: inchToTwip(DOCUMENT_FORMATTING.page.marginInch.left),
   right: inchToTwip(DOCUMENT_FORMATTING.page.marginInch.right),
 };
 
+/* =====================================================
+   EXPORT FUNCTION
+===================================================== */
+
 export async function exportPaperDocx(paper, layout = "double") {
   if (!paper) return;
 
-  /* =====================================================
-     SECTION 1 — TITLE (SINGLE COLUMN)
-  ===================================================== */
+  /* ================= TITLE (SINGLE COLUMN) ================= */
 
   const titleSection = {
     properties: {
       type: SectionType.CONTINUOUS,
-      page: { margin: pageMargins },
+      page: { margin: PAGE_MARGINS },
     },
     children: [
       new Paragraph({
         alignment: AlignmentType.CENTER,
         spacing: {
-          after: ptToTwip(DOCUMENT_FORMATTING.font.title.spacingAfterPt),
+          after: ptToHalfPt(
+            DOCUMENT_FORMATTING.font.title.spacingAfterPt
+          ),
         },
         children: [
           new TextRun({
-            text: paper.title,
+            text: paper.title || "",
             bold: true,
             font: DOCUMENT_FORMATTING.font.family,
-            size: ptToHalfPt(DOCUMENT_FORMATTING.font.title.sizePt),
+            size: ptToHalfPt(
+              DOCUMENT_FORMATTING.font.title.sizePt
+            ),
             color: "000000",
           }),
         ],
@@ -53,22 +72,24 @@ export async function exportPaperDocx(paper, layout = "double") {
     ],
   };
 
-  /* =====================================================
-     SECTION 2 — BODY (COLUMN CONTROLLED)
-  ===================================================== */
+  /* ================= BODY (1 OR 2 COLUMNS) ================= */
 
   const bodyChildren = [];
 
   for (const section of paper.sections || []) {
-    // Section heading
+    const isReferences =
+      section.section_key === "references" ||
+      section.section_title?.toLowerCase() === "references";
+
+    // ---- Section Heading ----
     bodyChildren.push(
       new Paragraph({
         alignment: AlignmentType.CENTER,
         spacing: {
-          before: ptToTwip(
+          before: ptToHalfPt(
             DOCUMENT_FORMATTING.font.heading.spacingBeforePt
           ),
-          after: ptToTwip(
+          after: ptToHalfPt(
             DOCUMENT_FORMATTING.font.heading.spacingAfterPt
           ),
         },
@@ -77,49 +98,77 @@ export async function exportPaperDocx(paper, layout = "double") {
             text: section.section_title,
             bold: true,
             font: DOCUMENT_FORMATTING.font.family,
-            size: ptToHalfPt(DOCUMENT_FORMATTING.font.heading.h1),
+            size: ptToHalfPt(
+              DOCUMENT_FORMATTING.font.heading.h1
+            ),
             color: "000000",
           }),
         ],
       })
     );
 
+    // ---- Section Content ----
     if (section.body_html) {
-      const paras = await htmlToDocxParagraphs(section.body_html, {
-        justified: true,
-        firstLineIndent:
-          DOCUMENT_FORMATTING.paragraph.firstLineIndentInch,
-        lineSpacing: DOCUMENT_FORMATTING.paragraph.lineSpacing,
-        spacingAfterPt:
-          DOCUMENT_FORMATTING.paragraph.spacingAfterPt,
-        fontFamily: DOCUMENT_FORMATTING.font.family,
-        fontSizePt: DOCUMENT_FORMATTING.font.bodySizePt,
-      });
+      if (isReferences) {
+        bodyChildren.push(
+          new Paragraph({
+            alignment: AlignmentType.LEFT,
+            children: [
+              new TextRun({
+                text: stripHtml(section.body_html),
+                italics: true,
+                font: DOCUMENT_FORMATTING.font.family,
+                size: ptToHalfPt(
+                  DOCUMENT_FORMATTING.font.bodySizePt
+                ),
+              }),
+            ],
+          })
+        );
+      } else {
+        const paras = await htmlToDocxParagraphs(
+          section.body_html,
+          {
+            justified: true,
+            lineSpacing:
+              DOCUMENT_FORMATTING.paragraph.lineSpacing,
+            firstLineIndent:
+              DOCUMENT_FORMATTING.paragraph.firstLineIndentInch,
+            spacingAfterPt:
+              DOCUMENT_FORMATTING.paragraph.spacingAfterPt,
+            fontFamily: DOCUMENT_FORMATTING.font.family,
+            fontSizePt:
+              DOCUMENT_FORMATTING.font.bodySizePt,
+          }
+        );
 
-      bodyChildren.push(...paras);
+        bodyChildren.push(...paras);
+      }
     }
   }
+
+  const columnConfig =
+    layout === "double"
+      ? {
+          count: DOCUMENT_FORMATTING.column.double.count,
+          space: inchToTwip(
+            DOCUMENT_FORMATTING.column.double.spaceInch
+          ),
+        }
+      : {
+          count: DOCUMENT_FORMATTING.column.single.count,
+        };
 
   const bodySection = {
     properties: {
       type: SectionType.CONTINUOUS,
-      column:
-        layout === "double"
-          ? {
-              count: 2,
-              space: inchToTwip(
-                DOCUMENT_FORMATTING.column.double.spaceInch
-              ),
-            }
-          : { count: 1 },
-      page: { margin: pageMargins },
+      column: columnConfig,
+      page: { margin: PAGE_MARGINS },
     },
     children: bodyChildren,
   };
 
-  /* =====================================================
-     CREATE DOCUMENT
-  ===================================================== */
+  /* ================= CREATE DOCUMENT ================= */
 
   const doc = new Document({
     styles: {
@@ -127,7 +176,9 @@ export async function exportPaperDocx(paper, layout = "double") {
         document: {
           run: {
             font: DOCUMENT_FORMATTING.font.family,
-            size: ptToHalfPt(DOCUMENT_FORMATTING.font.bodySizePt),
+            size: ptToHalfPt(
+              DOCUMENT_FORMATTING.font.bodySizePt
+            ),
           },
           paragraph: {
             alignment: AlignmentType.JUSTIFIED,
