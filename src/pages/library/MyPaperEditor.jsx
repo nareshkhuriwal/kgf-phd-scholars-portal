@@ -23,6 +23,7 @@ import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
 import makeEditorConfig from '../reviews/EditorConfig';
 import PaperCommentsSidebar from '../../components/papers/PaperCommentsSidebar';
+import { Snackbar, Alert } from '@mui/material';
 
 
 export default function MyPaperEditor() {
@@ -41,6 +42,11 @@ export default function MyPaperEditor() {
 
   const [adding, setAdding] = useState(false);
   const [newSectionTitle, setNewSectionTitle] = useState('');
+  const [toast, setToast] = useState({
+    open: false,
+    message: '',
+    severity: 'success',
+  });
 
   // ---------------- FETCH PAPER ----------------
   useEffect(() => {
@@ -70,17 +76,52 @@ export default function MyPaperEditor() {
 
   // ---------------- FINAL SAVE ----------------
   const handleFinalSave = async () => {
-    await dispatch(savePaper({
-      id,
-      payload: {
-        title,
-        sections: sections.map(s => ({
-          id: s.id,
-          body_html: s.body_html,
-        })),
-      },
-    }));
+    try {
+      await dispatch(savePaper({
+        id,
+        payload: {
+          title,
+          sections: sections.map(s => ({
+            id: s.id,
+            body_html: s.body_html,
+          })),
+        },
+      })).unwrap();
+
+      setToast({
+        open: true,
+        message: 'Paper saved successfully',
+        severity: 'success',
+      });
+    } catch (e) {
+      setToast({
+        open: true,
+        message: 'Failed to save paper',
+        severity: 'error',
+      });
+    }
   };
+
+useEffect(() => {
+  const handleKeyDown = (e) => {
+    const isMac = navigator.platform.toUpperCase().includes('MAC');
+
+    if (
+      (isMac && e.metaKey && e.key === 's') ||
+      (!isMac && e.ctrlKey && e.key === 's')
+    ) {
+      e.preventDefault();
+      handleFinalSave();
+    }
+  };
+
+  window.addEventListener('keydown', handleKeyDown);
+
+  return () => {
+    window.removeEventListener('keydown', handleKeyDown);
+  };
+}, [handleFinalSave]);
+
 
   // ---------------- AUTOSAVE ----------------
   useEffect(() => {
@@ -145,12 +186,12 @@ export default function MyPaperEditor() {
       {/* ================= BODY ================= */}
       <Box
         sx={{
-    display: 'flex',
-    minHeight: '70vh',
-    border: '1px solid #e0e0e0',
-    borderRadius: 2,
-    overflow: 'hidden',
-  }}
+          display: 'flex',
+          minHeight: '70vh',
+          border: '1px solid #e0e0e0',
+          borderRadius: 2,
+          overflow: 'hidden',
+        }}
       >
         {/* ========== SIDEBAR (DOCUMENT OUTLINE) ========== */}
         <Box
@@ -337,7 +378,7 @@ export default function MyPaperEditor() {
         >
           <PaperCommentsSidebar paperId={paper.id} />
 
-      </Box>
+        </Box>
 
       </Box>
 
@@ -347,6 +388,23 @@ export default function MyPaperEditor() {
         onClose={() => setPreview(false)}
         paper={{ title, sections }}
       />
+
+      <Snackbar
+        open={toast.open}
+        autoHideDuration={3000}
+        onClose={() => setToast(prev => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert
+          onClose={() => setToast(prev => ({ ...prev, open: false }))}
+          severity={toast.severity}
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          {toast.message}
+        </Alert>
+      </Snackbar>
+
     </Box>
   );
 }
