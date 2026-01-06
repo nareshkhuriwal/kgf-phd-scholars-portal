@@ -48,5 +48,6 @@ export const DOCUMENT_FORMATTING = {
       count: 2,
       spaceInch: 0.25,  // ✅ column gap standard
     },
+    gapInch: 0.25, // journal column gap
   },
 };
