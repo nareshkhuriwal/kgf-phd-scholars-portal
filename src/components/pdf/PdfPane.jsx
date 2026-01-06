@@ -65,26 +65,12 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
   const containerRef = React.useRef(null);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
   const userActionRef = React.useRef(false);
+  const [reloadKey, setReloadKey] = React.useState(0);
+  const loadingTaskRef = React.useRef(null);
+
+
 
   /* ---------------- RESET ON URL CHANGE ---------------- */
-  React.useEffect(() => {
-    setDoc(null);
-    setPages([]);
-    setViewports([]);
-    setNaturalSizes([]);
-    setHlRects({});
-    setHlBrushes({});
-  }, [activeUrl]);
-
-  const reloadPdf = () => {
-    setDoc(null);
-    setPages([]);
-    setViewports([]);
-    setNaturalSizes([]);
-    setHlRects({});
-    setHlBrushes({});
-  };
-
   /* ---------------- LOAD PDF ---------------- */
   // React.useEffect(() => {
   //   let cancelled = false; 
@@ -122,6 +108,21 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
   }, [hlBrushes]);
 
   /* ---------------- LOAD PDF (with progress) ---------------- */
+  const reloadPdf = () => {
+    console.warn('Reloading PDF');
+
+    setReloadKey(k => k + 1);   // ✅ force reload
+  };
+
+  React.useEffect(() => {
+    setHlRects({});
+    setHlBrushes({});
+    setViewports([]);
+    setDoc(null);
+    setPages([]);
+    setNaturalSizes([]);
+  }, [reloadKey]);
+
 
   React.useEffect(() => {
     let cancelled = false;
@@ -129,24 +130,16 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
 
     setLoading(true);
     setLoadingMsg('Loading PDF…');
-    console.log('Loading PDF from', activeUrl);
 
     (async () => {
       try {
         const loadingTask = pdfjsLib.getDocument(activeUrl);
-
-        loadingTask.onProgress = ({ loaded, total }) => {
-          if (total) {
-            const pct = Math.round((loaded / total) * 100);
-            setLoadingMsg(`Loading PDF… ${pct}%`);
-          }
-        };
-
         const pdf = await loadingTask.promise;
+        loadingTaskRef.current = loadingTask;
+
         if (cancelled) return;
 
         setDoc(pdf);
-        setLoadingMsg('Preparing pages…');
 
         const _pages = [];
         const _natural = [];
@@ -161,21 +154,22 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
         setPages(_pages);
         setNaturalSizes(_natural);
       } catch (err) {
-        console.error('PDF load failed', err);
-
-        if (!cancelled) {
-          setToast({ severity: 'error', msg: 'Failed to load PDF.' });
-          setLoading(false);               // ✅ STOP LOADER
-          setLoadingMsg('');               // optional but clean
-        }
+        console.error(err);
+        setToast({ severity: 'error', msg: 'Failed to load PDF.' });
+      } finally {
+        setLoading(false);
       }
-
     })();
 
+    // return () => { cancelled = true; };
     return () => {
       cancelled = true;
+      loadingTaskRef.current?.destroy();
     };
-  }, [activeUrl]);
+
+
+  }, [activeUrl, reloadKey]); // ✅ ADD reloadKey
+
 
   /* ---------------- VIEWPORTS ---------------- */
   React.useEffect(() => {
@@ -492,7 +486,7 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
 
     const rectsState = hlRectsRef.current;
     const brushesState = hlBrushesRef.current;
-      
+
     console.log('AUTO-SAVE SNAPSHOT', {
       rectsState,
       brushesState,
@@ -517,10 +511,10 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
     // }).filter(Boolean);
 
     const rectPayload = Object.entries(rectsState)
-    .map(([p, rs]) =>
-      rs.length ? { page: Number(p), rects: rs } : null
-    )
-    .filter(Boolean);
+      .map(([p, rs]) =>
+        rs.length ? { page: Number(p), rects: rs } : null
+      )
+      .filter(Boolean);
 
 
     // ---------- build brush payload ----------
@@ -544,10 +538,10 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
     // }).filter(Boolean);
 
     const brushPayload = Object.entries(brushesState)
-    .map(([p, bs]) =>
-      bs.length ? { page: Number(p), strokes: bs } : null
-    )
-    .filter(Boolean);
+      .map(([p, bs]) =>
+        bs.length ? { page: Number(p), strokes: bs } : null
+      )
+      .filter(Boolean);
 
 
     // ---------- HARD GUARD ----------
