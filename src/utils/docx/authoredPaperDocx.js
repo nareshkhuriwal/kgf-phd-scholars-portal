@@ -10,6 +10,7 @@ import { saveAs } from "file-saver";
 
 import { htmlToDocxParagraphs } from "../exporters/htmlToDocx";
 import { DOCUMENT_FORMATTING } from "../../config/paperDocumentFormating";
+import { buildIeeeReferencesDocx } from "./buildIeeeReferencesDocx";
 
 /* =====================================================
    SAFE CONVERSIONS (NO NaN EVER)
@@ -77,75 +78,50 @@ export async function exportPaperDocx(paper, layout = "double") {
   const bodyChildren = [];
 
   for (const section of paper.sections || []) {
-    const isReferences =
-      section.section_key === "references" ||
-      section.section_title?.toLowerCase() === "references";
+  const isReferences =
+    section.section_key === "references" ||
+    section.section_title?.toLowerCase() === "references";
 
-    // ---- Section Heading ----
-    bodyChildren.push(
-      new Paragraph({
-        alignment: AlignmentType.CENTER,
-        spacing: {
-          before: ptToHalfPt(
-            DOCUMENT_FORMATTING.font.heading.spacingBeforePt
-          ),
-          after: ptToHalfPt(
-            DOCUMENT_FORMATTING.font.heading.spacingAfterPt
-          ),
-        },
-        children: [
-          new TextRun({
-            text: section.section_title,
-            bold: true,
-            font: DOCUMENT_FORMATTING.font.family,
-            size: ptToHalfPt(
-              DOCUMENT_FORMATTING.font.heading.h1
-            ),
-            color: "000000",
-          }),
-        ],
-      })
-    );
+  /* ---------- SECTION HEADING ---------- */
+  bodyChildren.push(
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 240, after: 120 },
+      children: [
+        new TextRun({
+          text: section.section_title,
+          bold: true,
+          font: DOCUMENT_FORMATTING.font.family,
+          size: DOCUMENT_FORMATTING.font.heading.h1 * 2,
+        }),
+      ],
+    })
+  );
 
-    // ---- Section Content ----
-    if (section.body_html) {
-      if (isReferences) {
-        bodyChildren.push(
-          new Paragraph({
-            alignment: AlignmentType.LEFT,
-            children: [
-              new TextRun({
-                text: stripHtml(section.body_html),
-                italics: true,
-                font: DOCUMENT_FORMATTING.font.family,
-                size: ptToHalfPt(
-                  DOCUMENT_FORMATTING.font.bodySizePt
-                ),
-              }),
-            ],
-          })
-        );
-      } else {
-        const paras = await htmlToDocxParagraphs(
-          section.body_html,
-          {
-            justified: true,
-            lineSpacing:
-              DOCUMENT_FORMATTING.paragraph.lineSpacing,
-            firstLineIndent:
-              DOCUMENT_FORMATTING.paragraph.firstLineIndentInch,
-            spacingAfterPt:
-              DOCUMENT_FORMATTING.paragraph.spacingAfterPt,
-            fontFamily: DOCUMENT_FORMATTING.font.family,
-            fontSizePt:
-              DOCUMENT_FORMATTING.font.bodySizePt,
-          }
-        );
+  /* ---------- SECTION BODY ---------- */
+  if (!section.body_html) continue;
 
-        bodyChildren.push(...paras);
+  if (isReferences) {
+    const refs = buildIeeeReferencesDocx({
+      html: section.body_html,
+      fontFamily: DOCUMENT_FORMATTING.font.family,
+      fontSizePt: DOCUMENT_FORMATTING.font.bodySizePt,
+      lineSpacing: DOCUMENT_FORMATTING.paragraph.lineSpacing,
+    });
+
+    bodyChildren.push(...refs);
+  } else {
+    const paras = await htmlToDocxParagraphs(
+      section.body_html,
+      {
+        forceJustified: true,
+        noFirstLineIndent: false,
       }
-    }
+    );
+    bodyChildren.push(...paras);
   }
+}
+
 
   const columnConfig =
     layout === "double"
