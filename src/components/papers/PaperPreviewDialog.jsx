@@ -82,13 +82,13 @@ export default function PaperPreviewDialog({ open, onClose, paper }) {
         </ToggleButtonGroup>
 
         <Button
-  size="small"
-  variant="contained"
-  startIcon={<DownloadIcon />}
-  onClick={() => exportPaperDocx(paper, layout)}
->
-  Download DOCX
-</Button>
+          size="small"
+          variant="contained"
+          startIcon={<DownloadIcon />}
+          onClick={() => exportPaperDocx(paper, layout)}
+        >
+          Download DOCX
+        </Button>
 
 
         <IconButton onClick={onClose} title="Close">
@@ -160,33 +160,33 @@ export default function PaperPreviewDialog({ open, onClose, paper }) {
                 </Typography>
 
                 <Box
-  sx={{
-    textAlign: 'justify',
-    textJustify: 'inter-word',
+                  sx={{
+                    textAlign: 'justify',
+                    textJustify: 'inter-word',
 
-    '& p': {
-      mb: 1.5,
-      textAlign: 'justify',
-    },
+                    '& p': {
+                      mb: 1.5,
+                      textAlign: 'justify',
+                    },
 
-    '& ul, & ol': {
-      pl: 3,
-      mb: 1.5,
-      textAlign: 'justify',
-    },
+                    '& ul, & ol': {
+                      pl: 3,
+                      mb: 1.5,
+                      textAlign: 'justify',
+                    },
 
-    '& li': {
-      textAlign: 'justify',
-    },
+                    '& li': {
+                      textAlign: 'justify',
+                    },
 
-    '& h1, & h2, & h3': {
-      mt: 3,
-      mb: 1,
-      textAlign: 'center',
-    },
-  }}
-  dangerouslySetInnerHTML={{ __html: s.body_html }}
-/>
+                    '& h1, & h2, & h3': {
+                      mt: 3,
+                      mb: 1,
+                      textAlign: 'center',
+                    },
+                  }}
+                  dangerouslySetInnerHTML={{ __html: s.body_html }}
+                />
 
               </Box>
             ))}
