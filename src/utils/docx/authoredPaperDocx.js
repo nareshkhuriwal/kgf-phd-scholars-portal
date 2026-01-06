@@ -68,6 +68,15 @@ export async function exportPaperDocx(paper, layout = "double") {
             ),
             color: "000000",
           }),
+          // ✅ EXPLICIT SPACER PARAGRAPH (THIS FIXES IT)
+          new Paragraph({
+            spacing: {
+              before: 240,
+              after: 240,
+            },
+            children: [],
+          }),
+
         ],
       }),
     ],
