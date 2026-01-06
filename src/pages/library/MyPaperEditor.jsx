@@ -22,6 +22,7 @@ import PaperPreviewDialog from '../../components/papers/PaperPreviewDialog';
 import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
 import makeEditorConfig from '../reviews/EditorConfig';
+import PaperCommentsSidebar from '../../components/papers/PaperCommentsSidebar';
 
 
 export default function MyPaperEditor() {
@@ -144,12 +145,12 @@ export default function MyPaperEditor() {
       {/* ================= BODY ================= */}
       <Box
         sx={{
-          display: 'flex',
-          minHeight: '70vh',
-          border: '1px solid #e0e0e0',
-          borderRadius: 2,
-          overflow: 'hidden',
-        }}
+    display: 'flex',
+    minHeight: '70vh',
+    border: '1px solid #e0e0e0',
+    borderRadius: 2,
+    overflow: 'hidden',
+  }}
       >
         {/* ========== SIDEBAR (DOCUMENT OUTLINE) ========== */}
         <Box
@@ -324,6 +325,20 @@ export default function MyPaperEditor() {
             />
           )}
         </Box>
+
+        {/* ========== COMMENTS SIDEBAR ========== */}
+        <Box
+          sx={{
+            width: 300,
+            minWidth: 300,
+            borderLeft: '1px solid #e0e0e0',
+            bgcolor: '#f9f9fb',
+          }}
+        >
+          <PaperCommentsSidebar paperId={paper.id} />
+
+      </Box>
+
       </Box>
 
       {/* ================= PREVIEW ================= */}
