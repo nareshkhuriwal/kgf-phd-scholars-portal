@@ -590,7 +590,7 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
       console.error('Save highlights failed', err);
       setToast({
         severity: 'error',
-        msg: err?.message || 'Save failed.',
+        msg: err?.message || 'Save highlights failed. please try again.',
       });
       // ❗ reset client state
       userActionRef.current = false;
