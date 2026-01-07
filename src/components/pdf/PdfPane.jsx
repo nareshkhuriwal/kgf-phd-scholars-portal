@@ -45,7 +45,7 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
   const [enabled, setEnabled] = React.useState(true);
   const [mode, setMode] = React.useState('rect');
   const [colorHex, setColorHex] = React.useState('#FFEB3B');
-  const [alpha, setAlpha] = React.useState(0.35);
+  const [alpha, setAlpha] = React.useState(0.25);
   const [saving, setSaving] = React.useState(false);
   const [toast, setToast] = React.useState(null);
 
@@ -255,6 +255,13 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
       y: +(rPx.y / vp.height).toFixed(6),
       w: +(rPx.w / vp.width).toFixed(6),
       h: +(rPx.h / vp.height).toFixed(6),
+
+      // ✅ ADD THIS
+      style: {
+        color: colorHex,
+        alpha,
+      },
+
     };
 
     setHlRects(prev => ({
@@ -277,6 +284,13 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
       points: strokePx.points.map(p => ({
         x: +(p.x / vp.width).toFixed(6),
         y: +(p.y / vp.height).toFixed(6),
+
+        // ✅ ADD THIS
+        style: {
+          color: colorHex,
+          alpha,
+        },
+
       })),
     };
 
@@ -555,7 +569,7 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
       paperId,
       replace: true,
       sourceUrl: activeUrl,
-      style: { color: colorHex, alpha },
+      // style: { color: colorHex, alpha },
     };
 
     if (rectPayload.length > 0) {

@@ -150,12 +150,12 @@ export default function PdfPage({
 
       {/* Existing rectangles */}
       <HighlightLayer
-        key={`hl-${pageIndex}`}   
+        key={`hl-${pageIndex}`}
         pageWidth={viewport.width}
         pageHeight={viewport.height}
         highlights={pageHighlights}
-        colorHex={colorHex}
-        alpha={alpha}
+      // colorHex={colorHex}
+      // alpha={alpha}
       />
 
       {/* Draft rectangle */}
@@ -177,18 +177,23 @@ export default function PdfPage({
         height={viewport.height}
         style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
       >
-        {pageBrushes.map((s) => (
-          <polyline
-            key={s.id}
-            points={s.points.map(p => `${p.x},${p.y}`).join(' ')}
-            fill="none"
-            stroke={colorHex}
-            strokeOpacity={alpha}
-            strokeWidth={s.size}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        ))}
+        {pageBrushes.map((s) => {
+          const style = s.style ?? { color: '#FFEB3B', alpha: 0.25 };
+
+          return (
+            <polyline
+              key={s.id}
+              points={s.points.map(p => `${p.x},${p.y}`).join(' ')}
+              fill="none"
+              stroke={style.color}
+              strokeOpacity={style.alpha}
+              strokeWidth={s.size}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          );
+        })}
+
       </svg>
     </div>
   );
