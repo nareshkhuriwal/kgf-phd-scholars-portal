@@ -284,14 +284,12 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
       points: strokePx.points.map(p => ({
         x: +(p.x / vp.width).toFixed(6),
         y: +(p.y / vp.height).toFixed(6),
-
+      })),
         // ✅ ADD THIS
         style: {
           color: colorHex,
           alpha,
         },
-
-      })),
     };
 
     setHlBrushes(prev => ({

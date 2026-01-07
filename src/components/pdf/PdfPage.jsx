@@ -118,9 +118,13 @@ export default function PdfPage({
       style={{
         width: viewport.width,
         height: viewport.height,
-        cursor: enabled
-          ? (mode === 'rect' ? 'crosshair' : 'none')
-          : 'default',
+        cursor:
+          !enabled
+            ? 'default'
+            : mode === 'brush'
+              ? 'none'          // ✅ hide system cursor for brush
+              : 'crosshair',    // ✅ rect mode
+
 
       }}
       onMouseDown={onMouseDown}
@@ -131,21 +135,39 @@ export default function PdfPage({
       <canvas ref={canvasRef} className="pdf-canvas" />
 
       {enabled && mode === 'brush' && (
-        <div
+        <svg
+          width={brushSize + 6}
+          height={brushSize + 6}
           style={{
             position: 'absolute',
-            left: cursor.x - brushSize / 2,
-            top: cursor.y - brushSize / 2,
-            width: brushSize,
-            height: brushSize,
-            borderRadius: '50%',
-            border: `2px solid ${colorHex}`,
-            background: `rgba(255,255,255,0.2)`,
+            left: cursor.x - brushSize / 2 - 3,
+            top: cursor.y - brushSize / 2 - 3,
             pointerEvents: 'none',
-            boxSizing: 'border-box',
+            overflow: 'visible',
           }}
-        />
+        >
+          {/* outer ring */}
+          <circle
+            cx={(brushSize + 6) / 2}
+            cy={(brushSize + 6) / 2}
+            r={brushSize / 2}
+            fill="none"
+            stroke="rgba(0,0,0,0.35)"
+            strokeWidth="1"
+          />
+
+          {/* inner preview */}
+          <circle
+            cx={(brushSize + 6) / 2}
+            cy={(brushSize + 6) / 2}
+            r={brushSize / 2 - 1}
+            fill={colorHex}
+            fillOpacity={alpha}
+          />
+        </svg>
       )}
+
+
 
 
       {/* Existing rectangles */}
