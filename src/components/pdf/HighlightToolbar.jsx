@@ -33,7 +33,7 @@ export default function HighlightToolbar({
   onRedo,
   color, setColor,
   alpha, setAlpha,
-  brushSize = 12, setBrushSize,
+  brushSize = 16, setBrushSize,
   onZoomChange, zoom,
   onToggleFullscreen,
   isFullscreen,
@@ -49,24 +49,24 @@ export default function HighlightToolbar({
   const [alphaEl, setAlphaEl] = React.useState(null);
   const [brushEl, setBrushEl] = React.useState(null);
 
-  const curAlpha = typeof alpha === 'number' ? alpha : 0.35;
+  const curAlpha = typeof alpha === 'number' ? alpha : 0.25;
 
   return (
     <Stack direction="row" spacing={1} alignItems="center" useFlexGap
       sx={{
-      flexWrap: 'wrap',
-      rowGap: 1,
-      columnGap: 1,
-      minHeight: 48,
-      p: 0.5,
-      backgroundColor: theme.palette.background.default,
-      borderTopLeftRadius: 10,
-      borderTopRightRadius: 10,
-      borderBottom: '1px solid',
-      borderColor: 'divider',
-    }}
+        flexWrap: 'wrap',
+        rowGap: 1,
+        columnGap: 1,
+        minHeight: 48,
+        p: 0.5,
+        backgroundColor: theme.palette.background.default,
+        borderTopLeftRadius: 10,
+        borderTopRightRadius: 10,
+        borderBottom: '1px solid',
+        borderColor: 'divider',
+      }}
 
-      >
+    >
 
       {/* enable / mode */}
       <Tooltip title={enabled ? 'Highlighting: ON' : 'Enable Highlighting'}>
