@@ -566,17 +566,12 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
       const result = await dispatch(saveHighlights(payload)).unwrap();
 
       // ✅ CRITICAL: Clear state IMMEDIATELY after successful save
-      setHlRects({});
-      setHlBrushes({});
+      // setHlRects({});
+      // setHlBrushes({});
       hlRectsRef.current = {};
       hlBrushesRef.current = {};
-      userActionRef.current = false;
 
-      // ✅ Reload PDF to show the saved highlights
-      if (result.fileUrl) {
-        // Use the new URL with highlights baked in
-        reloadPdf(result.fileUrl);
-      }
+      userActionRef.current = false;
 
       setToast({ severity: 'success', msg: 'Highlights saved.' });
     } catch (err) {
