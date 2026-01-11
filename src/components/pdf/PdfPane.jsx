@@ -5,8 +5,8 @@ import PdfPage from './PdfPage';
 import HighlightToolbar from './HighlightToolbar';
 import './pdf.css';
 import { toRelative } from '../../utils/url';
-import { saveHighlights } from '../../store/highlightsSlice';
-import { Snackbar, Alert } from '@mui/material';
+import { saveHighlights, resetHighlights } from '../../store/highlightsSlice';
+import { Snackbar, Alert, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button } from '@mui/material';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import { debounce } from '../../utils/debounce';
@@ -47,7 +47,11 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
   const [colorHex, setColorHex] = React.useState('#FFEB3B');
   const [alpha, setAlpha] = React.useState(0.25);
   const [saving, setSaving] = React.useState(false);
+  const [resetting, setResetting] = React.useState(false);
   const [toast, setToast] = React.useState(null);
+
+  /* ---------------- DIALOG STATE ---------------- */
+  const [resetDialogOpen, setResetDialogOpen] = React.useState(false);
 
   /* ---------------- HIGHLIGHT STATE ---------------- */
   const [hlRects, setHlRects] = React.useState({});
@@ -72,32 +76,6 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
 
   /* ---------------- RESET ON URL CHANGE ---------------- */
   /* ---------------- LOAD PDF ---------------- */
-  // React.useEffect(() => {
-  //   let cancelled = false; 
-  //   if (!activeUrl) return;
-
-  //   (async () => {
-  //     const pdf = await pdfjsLib.getDocument(activeUrl).promise;
-  //     if (cancelled) return;
-
-  //     setDoc(pdf);
-  //     const _pages = [];
-  //     const _natural = [];
-
-  //     for (let i = 1; i <= pdf.numPages; i++) {
-  //       const page = await pdf.getPage(i);
-  //       const vp = page.getViewport({ scale: 1 });
-  //       _natural.push({ w: vp.width, h: vp.height });
-  //       _pages.push({ index: i, page, canvasRef: React.createRef() });
-  //     }
-
-  //     setPages(_pages);
-  //     setNaturalSizes(_natural);
-  //   })();
-
-  //   return () => { cancelled = true; };
-  // }, [activeUrl]);
-
 
   React.useEffect(() => {
     hlRectsRef.current = hlRects;
@@ -108,15 +86,20 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
   }, [hlBrushes]);
 
   /* ---------------- LOAD PDF (with progress) ---------------- */
-  const reloadPdf = () => {
-    console.warn('Reloading PDF');
-
-    setReloadKey(k => k + 1);   // ✅ force reload
+  const reloadPdf = (newUrl = null) => {
+    console.warn('Reloading PDF', newUrl ? `with new URL: ${newUrl}` : '');
+    
+    if (newUrl) {
+      setActiveUrl(newUrl);
+    }
+    setReloadKey(k => k + 1);
   };
 
   React.useEffect(() => {
     setHlRects({});
     setHlBrushes({});
+    hlRectsRef.current = {};
+    hlBrushesRef.current = {};
     setViewports([]);
     setDoc(null);
     setPages([]);
@@ -161,14 +144,13 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
       }
     })();
 
-    // return () => { cancelled = true; };
     return () => {
       cancelled = true;
       loadingTaskRef.current?.destroy();
     };
 
 
-  }, [activeUrl, reloadKey]); // ✅ ADD reloadKey
+  }, [activeUrl, reloadKey]);
 
 
   /* ---------------- VIEWPORTS ---------------- */
@@ -178,20 +160,6 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
   }, [pages, currentScale]);
 
   /* ---------------- RENDER PAGES ---------------- */
-  // React.useEffect(() => {
-  //   if (!doc || !pages.length || !viewports.length) return;
-  //   (async () => {
-  //     for (let i = 0; i < pages.length; i++) {
-  //       const { page, canvasRef } = pages[i];
-  //       const vp = viewports[i];
-  //       if (!canvasRef.current) continue;
-  //       const ctx = canvasRef.current.getContext('2d');
-  //       canvasRef.current.width = vp.width;
-  //       canvasRef.current.height = vp.height;
-  //       await page.render({ canvasContext: ctx, viewport: vp }).promise;
-  //     }
-  //   })();
-  // }, [doc, pages, viewports]);
   React.useEffect(() => {
     if (!doc || !pages.length || !viewports.length) return;
 
@@ -249,19 +217,14 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
 
     const rect = {
       id: crypto.randomUUID(),
-
-      // ✅ normalized once, permanently
       x: +(rPx.x / vp.width).toFixed(6),
       y: +(rPx.y / vp.height).toFixed(6),
       w: +(rPx.w / vp.width).toFixed(6),
       h: +(rPx.h / vp.height).toFixed(6),
-
-      // ✅ ADD THIS
       style: {
         color: colorHex,
         alpha,
       },
-
     };
 
     setHlRects(prev => ({
@@ -285,11 +248,10 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
         x: +(p.x / vp.width).toFixed(6),
         y: +(p.y / vp.height).toFixed(6),
       })),
-        // ✅ ADD THIS
-        style: {
-          color: colorHex,
-          alpha,
-        },
+      style: {
+        color: colorHex,
+        alpha,
+      },
     };
 
     setHlBrushes(prev => ({
@@ -341,11 +303,15 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
   const onUndo = () => {
     userActionRef.current = true;
 
+    // Try to undo from rects first (most recent)
+    let undone = false;
+
     setHlRects(prev => {
       const pages = Object.keys(prev).map(Number).sort((a, b) => b - a);
       for (const p of pages) {
         const arr = prev[p];
         if (arr?.length) {
+          undone = true;
           const next = { ...prev, [p]: arr.slice(0, -1) };
           if (!next[p].length) delete next[p];
           return next;
@@ -353,13 +319,82 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
       }
       return prev;
     });
+
+    // If no rects to undo, try brushes
+    if (!undone) {
+      setHlBrushes(prev => {
+        const pages = Object.keys(prev).map(Number).sort((a, b) => b - a);
+        for (const p of pages) {
+          const arr = prev[p];
+          if (arr?.length) {
+            const next = { ...prev, [p]: arr.slice(0, -1) };
+            if (!next[p].length) delete next[p];
+            return next;
+          }
+        }
+        return prev;
+      });
+    }
   };
 
+  /* ---------------- CLEAR CURRENT SESSION ---------------- */
   const onClear = () => {
     userActionRef.current = true;
-
     setHlRects({});
     setHlBrushes({});
+    hlRectsRef.current = {};
+    hlBrushesRef.current = {};
+  };
+
+  /* ---------------- RESET ALL HIGHLIGHTS (FROM PDF) ---------------- */
+  const onResetRequest = () => {
+    setResetDialogOpen(true);
+  };
+
+  const onResetConfirm = async () => {
+    setResetDialogOpen(false);
+    
+    if (!paperId) {
+      setToast({ severity: 'error', msg: 'Invalid paper.' });
+      return;
+    }
+
+    try {
+      setResetting(true);
+      setLoadingMsg('Resetting highlights…');
+      setLoading(true);
+
+      const result = await dispatch(resetHighlights({ paperId })).unwrap();
+
+      // Clear local state
+      setHlRects({});
+      setHlBrushes({});
+      hlRectsRef.current = {};
+      hlBrushesRef.current = {};
+      userActionRef.current = false;
+
+      // Reload PDF with the original URL
+      if (result.file_url || result.raw_url) {
+        reloadPdf(result.file_url || result.raw_url);
+      } else {
+        reloadPdf();
+      }
+
+      setToast({ severity: 'success', msg: 'All highlights removed.' });
+    } catch (err) {
+      console.error('Reset highlights failed', err);
+      setToast({
+        severity: 'error',
+        msg: err?.message || 'Failed to reset highlights.',
+      });
+    } finally {
+      setResetting(false);
+      setLoading(false);
+    }
+  };
+
+  const onResetCancel = () => {
+    setResetDialogOpen(false);
   };
 
   React.useEffect(() => {
@@ -367,9 +402,9 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
     if (!el) return;
 
     const onWheel = (e) => {
-      if (!e.ctrlKey) return;       // ⛔ normal scroll untouched
+      if (!e.ctrlKey) return;
 
-      e.preventDefault();           // ⛔ stop page zoom / scroll
+      e.preventDefault();
 
       const delta = e.deltaY < 0 ? 1 : -1;
       const next =
@@ -434,7 +469,6 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
 
   /* ---------------- AUTOSAVE ---------------- */
 
-
   React.useEffect(() => {
     return () => autosaveRef.current.cancel();
   }, []);
@@ -442,7 +476,6 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
 
   React.useEffect(() => {
     if (!userActionRef.current) return;
-    // if (naturalSizes.length === 0) return;
 
     if (
       Object.keys(hlRects).length === 0 &&
@@ -491,36 +524,17 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
       setToast({ severity: 'error', msg: 'Invalid paper.' });
       return;
     }
-    console.log('AUTO-SAVE TRIGGERED', {
-      rects: hlRects,
-      brushes: hlBrushes,
-    });
 
     const rectsState = hlRectsRef.current;
     const brushesState = hlBrushesRef.current;
 
-    console.log('AUTO-SAVE SNAPSHOT', {
-      rectsState,
-      brushesState,
-    });
-
-
-    // ---------- build rect payload ----------
-    // const rectPayload = Object.entries(rectsState).map(([p, rs]) => {
-    //   const nat = naturalSizes[p - 1];
-    //   if (!nat) return null;
-
-    //   const rects = rs
-    //     .map(r => ({
-    //       x: +(r.x / nat.w).toFixed(6),
-    //       y: +(r.y / nat.h).toFixed(6),
-    //       w: +(r.w / nat.w).toFixed(6),
-    //       h: +(r.h / nat.h).toFixed(6),
-    //     }))
-    //     .filter(r => r.w > 0 && r.h > 0);
-
-    //   return rects.length ? { page: +p, rects } : null;
-    // }).filter(Boolean);
+    // Guard: nothing to save
+    if (
+      Object.keys(rectsState).length === 0 &&
+      Object.keys(brushesState).length === 0
+    ) {
+      return;
+    }
 
     const rectPayload = Object.entries(rectsState)
       .map(([p, rs]) =>
@@ -528,46 +542,20 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
       )
       .filter(Boolean);
 
-
-    // ---------- build brush payload ----------
-    // const brushPayload = Object.entries(brushesState).map(([p, bs]) => {
-    //   const nat = naturalSizes[p - 1];
-    //   if (!nat) return null;
-
-    //   const strokes = bs
-    //     .map(s => ({
-    //       size: +(s.size / nat.w).toFixed(6),
-    //       points: s.points
-    //         .map(pt => ({
-    //           x: +(pt.x / nat.w).toFixed(6),
-    //           y: +(pt.y / nat.h).toFixed(6),
-    //         }))
-    //         .filter(pt => pt.x >= 0 && pt.x <= 1 && pt.y >= 0 && pt.y <= 1),
-    //     }))
-    //     .filter(s => s.points.length >= 2);
-
-    //   return strokes.length ? { page: +p, strokes } : null;
-    // }).filter(Boolean);
-
     const brushPayload = Object.entries(brushesState)
       .map(([p, bs]) =>
         bs.length ? { page: Number(p), strokes: bs } : null
       )
       .filter(Boolean);
 
-
-    // ---------- HARD GUARD ----------
     if (rectPayload.length === 0 && brushPayload.length === 0) {
-      setToast({ severity: 'warning', msg: 'No highlights to save.' });
       return;
     }
 
-    // ---------- final payload ----------
     const payload = {
       paperId,
       replace: true,
       sourceUrl: activeUrl,
-      // style: { color: colorHex, alpha },
     };
 
     if (rectPayload.length > 0) {
@@ -581,8 +569,14 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
     try {
       setSaving(true);
       await dispatch(saveHighlights(payload)).unwrap();
-      userActionRef.current = false;
 
+      // ✅ CRITICAL: Clear state after successful save
+      setHlRects({});
+      setHlBrushes({});
+      hlRectsRef.current = {};
+      hlBrushesRef.current = {};
+
+      userActionRef.current = false;
       setToast({ severity: 'success', msg: 'Highlights saved.' });
     } catch (err) {
       console.error('Save highlights failed', err);
@@ -590,7 +584,6 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
         severity: 'error',
         msg: err?.message || 'Save highlights failed. please try again.',
       });
-      // ❗ reset client state
       userActionRef.current = false;
       reloadPdf();
     } finally {
@@ -609,7 +602,6 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
 
   /* ---------------- RENDER ---------------- */
   return (
-    // <div className="pdf-wrapper">
     <div
       ref={containerRef}
       className={`pdf-wrapper ${isFullscreen ? 'fullscreen' : ''}`}
@@ -621,6 +613,7 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
         canUndo={canUndo} onUndo={onUndo}
         canClear={canUndo} onClear={onClear}
         onSave={handleSave}
+        onReset={onResetRequest}
         color={colorHex} setColor={setColorHex}
         alpha={alpha} setAlpha={setAlpha}
         brushSize={DEFAULT_BRUSH_SIZE}
@@ -628,8 +621,9 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
         onFitWidth={onFitWidth}
         onToggleFullscreen={toggleFullscreen}
         isFullscreen={isFullscreen}
-        onReset={onReset}
+        onResetZoom={onReset}
         saving={saving}
+        resetting={resetting}
       />
 
       {/* -------- PDF Loading Overlay -------- */}
@@ -681,6 +675,32 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
           />
         ))}
       </div>
+
+      {/* -------- Reset Confirmation Dialog -------- */}
+      <Dialog
+        open={resetDialogOpen}
+        onClose={onResetCancel}
+        aria-labelledby="reset-dialog-title"
+        aria-describedby="reset-dialog-description"
+      >
+        <DialogTitle id="reset-dialog-title">
+          Reset All Highlights?
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="reset-dialog-description">
+            This will remove all highlights from the PDF and restore the original document.
+            This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={onResetCancel} color="inherit">
+            Cancel
+          </Button>
+          <Button onClick={onResetConfirm} color="error" variant="contained">
+            Reset All
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Snackbar
         open={!!toast}
