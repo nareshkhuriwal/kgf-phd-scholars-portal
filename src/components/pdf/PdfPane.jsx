@@ -74,9 +74,7 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
 
 
 
-  /* ---------------- RESET ON URL CHANGE ---------------- */
-  /* ---------------- LOAD PDF ---------------- */
-
+  /* ---------------- SYNC REFS ---------------- */
   React.useEffect(() => {
     hlRectsRef.current = hlRects;
   }, [hlRects]);
@@ -86,15 +84,16 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
   }, [hlBrushes]);
 
   /* ---------------- LOAD PDF (with progress) ---------------- */
-  const reloadPdf = (newUrl = null) => {
+  const reloadPdf = React.useCallback((newUrl = null) => {
     console.warn('Reloading PDF', newUrl ? `with new URL: ${newUrl}` : '');
     
     if (newUrl) {
       setActiveUrl(newUrl);
     }
     setReloadKey(k => k + 1);
-  };
+  }, []);
 
+  // Clear state when reload key changes
   React.useEffect(() => {
     setHlRects({});
     setHlBrushes({});
@@ -339,7 +338,7 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
 
   /* ---------------- CLEAR CURRENT SESSION ---------------- */
   const onClear = () => {
-    userActionRef.current = true;
+    userActionRef.current = false; // Don't trigger autosave
     setHlRects({});
     setHlBrushes({});
     hlRectsRef.current = {};
@@ -374,8 +373,8 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
       userActionRef.current = false;
 
       // Reload PDF with the original URL
-      if (result.file_url || result.raw_url) {
-        reloadPdf(result.file_url || result.raw_url);
+      if (result.fileUrl) {
+        reloadPdf(result.fileUrl);
       } else {
         reloadPdf();
       }
@@ -385,7 +384,7 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
       console.error('Reset highlights failed', err);
       setToast({
         severity: 'error',
-        msg: err?.message || 'Failed to reset highlights.',
+        msg: typeof err === 'string' ? err : (err?.message || 'Failed to reset highlights.'),
       });
     } finally {
       setResetting(false);
@@ -485,7 +484,7 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
     }
 
     autosaveRef.current();
-  }, [hlRects, hlBrushes, naturalSizes]);
+  }, [hlRects, hlBrushes]);
 
   /* ---------------- ZOOM HELPERS ---------------- */
 
@@ -498,8 +497,6 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
 
   const onZoomChange = (delta) => {
     const next = delta > 0 ? currentScale * ZOOM_STEP : currentScale / ZOOM_STEP;
-    scaleRef.current = next;
-    setCurrentScale(next);
     setScaleSafe(next);
   };
 
@@ -508,25 +505,23 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
     const n0 = naturalSizes[0];
     if (!el || !n0) return;
     const s = Math.min(3, (el.clientWidth - 16) / n0.w);
-    scaleRef.current = s;
-    setCurrentScale(s);
+    setScaleSafe(s);
   };
 
-  const onReset = () => {
-    scaleRef.current = initialScale;
-    setCurrentScale(initialScale);
+  const onResetZoom = () => {
     setScaleSafe(initialScale);
   };
 
   /* ---------------- SAVE ---------------- */
-  const handleSave = async () => {
+  const handleSave = React.useCallback(async () => {
     if (!paperId) {
       setToast({ severity: 'error', msg: 'Invalid paper.' });
       return;
     }
 
-    const rectsState = hlRectsRef.current;
-    const brushesState = hlBrushesRef.current;
+    // ✅ Get current state from refs (snapshot at save time)
+    const rectsState = { ...hlRectsRef.current };
+    const brushesState = { ...hlBrushesRef.current };
 
     // Guard: nothing to save
     if (
@@ -568,35 +563,49 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
 
     try {
       setSaving(true);
-      await dispatch(saveHighlights(payload)).unwrap();
+      const result = await dispatch(saveHighlights(payload)).unwrap();
 
-      // ✅ CRITICAL: Clear state after successful save
+      // ✅ CRITICAL: Clear state IMMEDIATELY after successful save
       setHlRects({});
       setHlBrushes({});
       hlRectsRef.current = {};
       hlBrushesRef.current = {};
-
       userActionRef.current = false;
+
+      // ✅ Reload PDF to show the saved highlights
+      if (result.fileUrl) {
+        // Use the new URL with highlights baked in
+        reloadPdf(result.fileUrl);
+      }
+
       setToast({ severity: 'success', msg: 'Highlights saved.' });
     } catch (err) {
       console.error('Save highlights failed', err);
       setToast({
         severity: 'error',
-        msg: err?.message || 'Save highlights failed. please try again.',
+        msg: typeof err === 'string' ? err : (err?.message || 'Save highlights failed.'),
       });
+      // Reset user action flag but don't clear state (let user retry)
       userActionRef.current = false;
-      reloadPdf();
     } finally {
       setSaving(false);
     }
-  };
+  }, [paperId, activeUrl, dispatch, reloadPdf]);
 
 
+  // ✅ Create debounced autosave that references latest handleSave
   const autosaveRef = React.useRef(
     debounce(() => {
       handleSave();
     }, 800)
   );
+
+  // ✅ Update autosave when handleSave changes
+  React.useEffect(() => {
+    autosaveRef.current = debounce(() => {
+      handleSave();
+    }, 800);
+  }, [handleSave]);
 
 
 
@@ -613,7 +622,6 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
         canUndo={canUndo} onUndo={onUndo}
         canClear={canUndo} onClear={onClear}
         onSave={handleSave}
-        onReset={onResetRequest}
         color={colorHex} setColor={setColorHex}
         alpha={alpha} setAlpha={setAlpha}
         brushSize={DEFAULT_BRUSH_SIZE}
@@ -621,8 +629,10 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
         onFitWidth={onFitWidth}
         onToggleFullscreen={toggleFullscreen}
         isFullscreen={isFullscreen}
-        onResetZoom={onReset}
+        onReset={onResetZoom}
         saving={saving}
+        // ✅ FIX: Correct prop names for reset functionality
+        onResetHighlights={onResetRequest}
         resetting={resetting}
       />
 
