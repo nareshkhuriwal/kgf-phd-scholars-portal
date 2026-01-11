@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   Stack, IconButton, Tooltip, Divider, Menu, MenuItem,
-  Button, Popover, Box, Slider, useMediaQuery
+  Button, Popover, Box, Slider, useMediaQuery, CircularProgress
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 
@@ -16,11 +16,12 @@ import ColorLensIcon from '@mui/icons-material/ColorLens';
 import OpacityIcon from '@mui/icons-material/Opacity';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
-// ⬇️ NEW icons
 import FitScreenIcon from '@mui/icons-material/FitScreen';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
+// ⬇️ NEW icon for reset all highlights
+import HighlightOffIcon from '@mui/icons-material/HighlightOff';
 
 const SWATCHES = ['#FFEB3B', '#FFF59D', '#A5D6A7', '#90CAF9', '#F48FB1', '#FFCC80'];
 
@@ -38,7 +39,10 @@ export default function HighlightToolbar({
   onToggleFullscreen,
   isFullscreen,
   onFitWidth, onReset,
-  saving
+  saving,
+  // ⬇️ NEW props for reset all highlights
+  onResetHighlights,
+  resetting = false,
 }) {
   const theme = useTheme();
   const smDown = useMediaQuery(theme.breakpoints.down('sm'));
@@ -65,7 +69,6 @@ export default function HighlightToolbar({
         borderBottom: '1px solid',
         borderColor: 'divider',
       }}
-
     >
 
       {/* enable / mode */}
@@ -90,15 +93,51 @@ export default function HighlightToolbar({
 
       <Divider flexItem orientation="vertical" sx={{ display: { xs: 'none', md: 'block' } }} />
 
-      {/* undo/clear */}
+      {/* undo/redo/clear */}
       <Tooltip title="Undo">
-        <span><IconButton size="small" disabled={!canUndo} onClick={onUndo}><UndoIcon fontSize="small" /></IconButton></span>
+        <span>
+          <IconButton size="small" disabled={!canUndo || saving || resetting} onClick={onUndo}>
+            <UndoIcon fontSize="small" />
+          </IconButton>
+        </span>
       </Tooltip>
       <Tooltip title="Redo">
-        <span><IconButton size="small" disabled={!onRedo} onClick={onRedo}><RedoIcon fontSize="small" /></IconButton></span>
+        <span>
+          <IconButton size="small" disabled={!onRedo || saving || resetting} onClick={onRedo}>
+            <RedoIcon fontSize="small" />
+          </IconButton>
+        </span>
       </Tooltip>
-      <Tooltip title="Clear (session)">
-        <span><IconButton size="small" disabled={!canClear} onClick={onClear}><DeleteSweepIcon fontSize="small" /></IconButton></span>
+      <Tooltip title="Clear (current session)">
+        <span>
+          <IconButton size="small" disabled={!canClear || saving || resetting} onClick={onClear}>
+            <DeleteSweepIcon fontSize="small" />
+          </IconButton>
+        </span>
+      </Tooltip>
+
+      {/* ⬇️ NEW: Reset All Highlights Button */}
+      <Tooltip title="Reset all highlights (restore original PDF)">
+        <span>
+          <IconButton
+            size="small"
+            onClick={onResetHighlights}
+            disabled={saving || resetting}
+            sx={{
+              color: 'error.main',
+              '&:hover': {
+                backgroundColor: 'error.light',
+                color: 'error.contrastText',
+              },
+            }}
+          >
+            {resetting ? (
+              <CircularProgress size={18} color="inherit" />
+            ) : (
+              <HighlightOffIcon fontSize="small" />
+            )}
+          </IconButton>
+        </span>
       </Tooltip>
 
       {!mdDown && (
@@ -106,61 +145,78 @@ export default function HighlightToolbar({
           <Divider flexItem orientation="vertical" />
           {/* color/opacity */}
           <Tooltip title="Highlight Color">
-            <IconButton size="small" onClick={(e) => setColorEl(e.currentTarget)}><ColorLensIcon fontSize="small" /></IconButton>
+            <IconButton size="small" onClick={(e) => setColorEl(e.currentTarget)}>
+              <ColorLensIcon fontSize="small" />
+            </IconButton>
           </Tooltip>
           <Tooltip title="Opacity">
-            <IconButton size="small" onClick={(e) => setAlphaEl(e.currentTarget)}><OpacityIcon fontSize="small" /></IconButton>
+            <IconButton size="small" onClick={(e) => setAlphaEl(e.currentTarget)}>
+              <OpacityIcon fontSize="small" />
+            </IconButton>
           </Tooltip>
 
           {/* zoom */}
           <Tooltip title="Zoom Out">
-            <span><IconButton size="small" onClick={() => onZoomChange?.(-0.1)} disabled={!onZoomChange}><ZoomOutIcon fontSize="small" /></IconButton></span>
+            <span>
+              <IconButton size="small" onClick={() => onZoomChange?.(-0.1)} disabled={!onZoomChange}>
+                <ZoomOutIcon fontSize="small" />
+              </IconButton>
+            </span>
           </Tooltip>
           <Tooltip title="Zoom In">
-            <span><IconButton size="small" onClick={() => onZoomChange?.(+0.1)} disabled={!onZoomChange}><ZoomInIcon fontSize="small" /></IconButton></span>
+            <span>
+              <IconButton size="small" onClick={() => onZoomChange?.(+0.1)} disabled={!onZoomChange}>
+                <ZoomInIcon fontSize="small" />
+              </IconButton>
+            </span>
           </Tooltip>
 
-          {/* ⬇️ replaced buttons with icons */}
           <Tooltip title="Fit width">
-            <span><IconButton size="small" onClick={onFitWidth} disabled={!onFitWidth}><FitScreenIcon fontSize="small" /></IconButton></span>
+            <span>
+              <IconButton size="small" onClick={onFitWidth} disabled={!onFitWidth}>
+                <FitScreenIcon fontSize="small" />
+              </IconButton>
+            </span>
           </Tooltip>
           <Tooltip title="Reset zoom">
-            <span><IconButton size="small" onClick={onReset} disabled={!onReset}><RestartAltIcon fontSize="small" /></IconButton></span>
+            <span>
+              <IconButton size="small" onClick={onReset} disabled={!onReset}>
+                <RestartAltIcon fontSize="small" />
+              </IconButton>
+            </span>
           </Tooltip>
           <Tooltip title={isFullscreen ? 'Exit Full Screen' : 'Full Screen'}>
             <IconButton size="small" onClick={onToggleFullscreen}>
               {isFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
             </IconButton>
           </Tooltip>
-
         </>
       )}
 
-      {/* right actions */}
-      <Tooltip title="Save (⌘/Ctrl+S)" direction="row" spacing={1} sx={{ ml: 'auto' }}>
-        <IconButton
-          variant={smDown ? 'outlined' : 'contained'}
-          size="small"
-          onClick={onSave}
-          disabled={!canClear || saving}
-        >
-          <SaveIcon fontSize="small" /></IconButton>
+      {/* right actions - Save */}
+      <Tooltip title="Save (⌘/Ctrl+S)">
+        <span style={{ marginLeft: 'auto' }}>
+          <IconButton
+            size="small"
+            onClick={onSave}
+            disabled={!canClear || saving || resetting}
+            color="primary"
+          >
+            {saving ? (
+              <CircularProgress size={18} color="inherit" />
+            ) : (
+              <SaveIcon fontSize="small" />
+            )}
+          </IconButton>
+        </span>
       </Tooltip>
 
-      {/* <Stack direction="row" spacing={1} sx={{ ml: 'auto' }}>
-        <Button
-          variant={smDown ? 'outlined' : 'contained'}
-          size="small"
-          onClick={onSave}
-          disabled={!canClear || saving}
-        >
-          <SaveIcon fontSize="small" />
-        </Button>
-      
+      {/* Mobile menu icon */}
+      {mdDown && (
         <IconButton size="small" onClick={(e) => setMenuEl(e.currentTarget)}>
           <MoreVertIcon fontSize="small" />
         </IconButton>
-      </Stack> */}
+      )}
 
       {/* menu (mobile extras) */}
       <Menu open={!!menuEl} anchorEl={menuEl} onClose={() => setMenuEl(null)}>
@@ -185,11 +241,17 @@ export default function HighlightToolbar({
               <RestartAltIcon fontSize="small" style={{ marginRight: 8 }} /> Reset zoom
             </MenuItem>
             <Divider />
+            {/* ⬇️ NEW: Reset highlights in mobile menu */}
+            <MenuItem
+              onClick={() => { setMenuEl(null); onResetHighlights?.(); }}
+              disabled={resetting}
+              sx={{ color: 'error.main' }}
+            >
+              <HighlightOffIcon fontSize="small" style={{ marginRight: 8 }} />
+              {resetting ? 'Resetting...' : 'Reset All Highlights'}
+            </MenuItem>
           </>
         )}
-        {/* <MenuItem onClick={() => { setMenuEl(null); onSave?.(); }}>
-          Save & Overwrite
-        </MenuItem> */}
       </Menu>
 
       {/* color popover */}
