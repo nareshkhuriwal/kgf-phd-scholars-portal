@@ -82,7 +82,47 @@ export const saveHighlights = createAsyncThunk(
 );
 
 /**
- * NEW: Client-side burned PDF upload (multipart -> /pdfs/upload or /papers/:id/highlights/upload)
+ * NEW: Reset all highlights - restore original PDF
+ * Removes all highlights and returns the original unhighlighted PDF
+ */
+export const resetHighlights = createAsyncThunk(
+  'highlights/reset',
+  async ({ paperId }, { rejectWithValue }) => {
+    try {
+      if (!paperId) {
+        throw new Error('paperId is required');
+      }
+
+      const res = await apiFetch(
+        `/papers/${paperId}/highlights/reset`,
+        {
+          method: 'POST',
+        }
+      );
+
+      const fileUrl =
+        res?.file_url ??
+        res?.data?.file_url ??
+        res?.url ??
+        res?.data?.url ??
+        res?.raw_url ??
+        res?.data?.raw_url;
+
+      if (!fileUrl) {
+        throw new Error('Server did not return file_url');
+      }
+
+      return { fileUrl, success: true };
+    } catch (err) {
+      return rejectWithValue(
+        err?.message || 'Reset highlights failed'
+      );
+    }
+  }
+);
+
+/**
+ * Client-side burned PDF upload (multipart -> /pdfs/upload or /papers/:id/highlights/upload)
  * Use this when you generate a PDF with pdf-lib and want to overwrite same file (dest_url).
  *
  * args:
@@ -144,7 +184,11 @@ const highlightsSlice = createSlice({
     fileUrl: null,
     error: null,
 
-    // NEW upload flow state
+    // NEW reset flow state
+    resetting: false,
+    resetError: null,
+
+    // Upload flow state
     uploading: false,
     uploadedUrl: null,
     uploadedPath: null,
@@ -157,12 +201,18 @@ const highlightsSlice = createSlice({
       state.saving = false;
       state.fileUrl = null;
       state.error = null;
+      // reset keys
+      state.resetting = false;
+      state.resetError = null;
       // upload keys
       state.uploading = false;
       state.uploadedUrl = null;
       state.uploadedPath = null;
       state.uploadError = null;
       state.lastResponse = null;
+    },
+    clearResetError(state) {
+      state.resetError = null;
     },
   },
   extraReducers: (builder) => {
@@ -182,7 +232,23 @@ const highlightsSlice = createSlice({
         state.error = action.payload || 'Save highlights failed';
       });
 
-    // ---- NEW uploadHighlightedPdf ----
+    // ---- NEW resetHighlights ----
+    builder
+      .addCase(resetHighlights.pending, (state) => {
+        state.resetting = true;
+        state.resetError = null;
+      })
+      .addCase(resetHighlights.fulfilled, (state, action) => {
+        state.resetting = false;
+        state.fileUrl = action.payload.fileUrl; // Update to original PDF URL
+        state.resetError = null;
+      })
+      .addCase(resetHighlights.rejected, (state, action) => {
+        state.resetting = false;
+        state.resetError = action.payload || 'Reset highlights failed';
+      });
+
+    // ---- uploadHighlightedPdf ----
     builder
       .addCase(uploadHighlightedPdf.pending, (state) => {
         state.uploading = true;
@@ -204,13 +270,18 @@ const highlightsSlice = createSlice({
   },
 });
 
-export const { clearHighlightsState } = highlightsSlice.actions;
+export const { clearHighlightsState, clearResetError } = highlightsSlice.actions;
 
-// Selectors (optional)
+// Selectors
 export const selectHighlightSave = (s) => ({
   saving: s.highlights?.saving ?? false,
   fileUrl: s.highlights?.fileUrl ?? null,
   error: s.highlights?.error ?? null,
+});
+
+export const selectHighlightReset = (s) => ({
+  resetting: s.highlights?.resetting ?? false,
+  resetError: s.highlights?.resetError ?? null,
 });
 
 export const selectHighlightUpload = (s) => ({
