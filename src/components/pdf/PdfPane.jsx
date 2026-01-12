@@ -549,8 +549,8 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
 
     const payload = {
       paperId,
-      replace: true,
-      sourceUrl: activeUrl,
+      replace: false,
+      // sourceUrl: activeUrl,
     };
 
     if (rectPayload.length > 0) {
