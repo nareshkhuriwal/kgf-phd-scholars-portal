@@ -487,6 +487,24 @@ export default function ReviewEditor() {
     }
   };
 
+    const Archived = async () => {
+    // Save current tab first if there are unsaved changes
+    const currentLabel = EDITOR_ORDER[tab];
+    const currentContent = sections[currentLabel] || '';
+    const savedContent = savedContentRef.current[currentLabel] || '';
+
+    if (currentContent !== savedContent) {
+      await saveCurrentTab(currentLabel, currentContent);
+    }
+
+    setSaving(true);
+    try {
+      await dispatch(setReviewStatus({ paperId, status: 'archived' })).unwrap();
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const ellipsize = (str, max = 40) =>
     str && str.length > max ? `${str.slice(0, max)}…` : str;
 
@@ -703,6 +721,15 @@ function insertCitationAtCursor(citation) {
               fullWidth={!isDesktop}  // Changed: fullWidth when NOT desktop
             >
               Reviewed
+            </Button>
+            <Button
+              variant="outlined"
+              color="warning"
+              onClick={Archived}
+              size={isMobile ? 'small' : 'medium'}
+              fullWidth={!isDesktop}  // Changed: fullWidth when NOT desktop
+            >
+              Archived
             </Button>
           </Stack>
         }
