@@ -20,7 +20,7 @@ export default function ReviewCard({ paper, compact = false }) {
           lineHeight: 1.25,
           cursor: 'pointer',
           color: 'primary.main',
-          textDecoration: 'underline',
+          textDecoration: 'none',
           '&:hover': {
             textDecoration: 'none',
           },
