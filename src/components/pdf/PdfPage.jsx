@@ -118,9 +118,13 @@ export default function PdfPage({
       style={{
         width: viewport.width,
         height: viewport.height,
-        cursor: enabled
-          ? (mode === 'rect' ? 'crosshair' : 'none')
-          : 'default',
+        cursor:
+          !enabled
+            ? 'default'
+            : mode === 'brush'
+              ? 'none'          // ✅ hide system cursor for brush
+              : 'crosshair',    // ✅ rect mode
+
 
       }}
       onMouseDown={onMouseDown}
@@ -131,30 +135,49 @@ export default function PdfPage({
       <canvas ref={canvasRef} className="pdf-canvas" />
 
       {enabled && mode === 'brush' && (
-        <div
+        <svg
+          width={brushSize + 6}
+          height={brushSize + 6}
           style={{
             position: 'absolute',
-            left: cursor.x - brushSize / 2,
-            top: cursor.y - brushSize / 2,
-            width: brushSize,
-            height: brushSize,
-            borderRadius: '50%',
-            border: `2px solid ${colorHex}`,
-            background: `rgba(255,255,255,0.2)`,
+            left: cursor.x - brushSize / 2 - 3,
+            top: cursor.y - brushSize / 2 - 3,
             pointerEvents: 'none',
-            boxSizing: 'border-box',
+            overflow: 'visible',
           }}
-        />
+        >
+          {/* outer ring */}
+          <circle
+            cx={(brushSize + 6) / 2}
+            cy={(brushSize + 6) / 2}
+            r={brushSize / 2}
+            fill="none"
+            stroke="rgba(0,0,0,0.35)"
+            strokeWidth="1"
+          />
+
+          {/* inner preview */}
+          <circle
+            cx={(brushSize + 6) / 2}
+            cy={(brushSize + 6) / 2}
+            r={brushSize / 2 - 1}
+            fill={colorHex}
+            fillOpacity={alpha}
+          />
+        </svg>
       )}
+
+
 
 
       {/* Existing rectangles */}
       <HighlightLayer
+        key={`hl-${pageIndex}`}
         pageWidth={viewport.width}
         pageHeight={viewport.height}
         highlights={pageHighlights}
-        colorHex={colorHex}
-        alpha={alpha}
+      // colorHex={colorHex}
+      // alpha={alpha}
       />
 
       {/* Draft rectangle */}
@@ -176,18 +199,23 @@ export default function PdfPage({
         height={viewport.height}
         style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
       >
-        {pageBrushes.map((s) => (
-          <polyline
-            key={s.id}
-            points={s.points.map(p => `${p.x},${p.y}`).join(' ')}
-            fill="none"
-            stroke={colorHex}
-            strokeOpacity={alpha}
-            strokeWidth={s.size}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        ))}
+        {pageBrushes.map((s) => {
+          const style = s.style ?? { color: '#FFEB3B', alpha: 0.25 };
+
+          return (
+            <polyline
+              key={s.id}
+              points={s.points.map(p => `${p.x},${p.y}`).join(' ')}
+              fill="none"
+              stroke={style.color}
+              strokeOpacity={style.alpha}
+              strokeWidth={s.size}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          );
+        })}
+
       </svg>
     </div>
   );

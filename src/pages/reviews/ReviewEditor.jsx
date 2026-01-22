@@ -117,7 +117,9 @@ export default function ReviewEditor() {
 
   const { current, error } = useSelector((s) => s.reviews || {});
   const [sidebarOpen, setSidebarOpen] = React.useState(true); // Start closed on mobile/tablet
-  const [pdfOpen, setPdfOpen] = React.useState(true);
+  // const [pdfOpen, setPdfOpen] = React.useState(true);
+  const [pdfOpen, setPdfOpen] = React.useState(!isDesktop);
+
   const [charCount, setCharCount] = React.useState(0);
   const [wordCount, setWordCount] = React.useState(0);
   const toolbarRef = React.useRef(null);
@@ -252,13 +254,16 @@ export default function ReviewEditor() {
 
   // Auto-close sidebar on mobile/tablet
   React.useEffect(() => {
-    if (!isDesktop) {
-      setSidebarOpen(false);
-      setPdfOpen(false);
-    } else {
+    if (isDesktop) {
+      // Desktop: allow both panes
       setPdfOpen(true);
+    } else {
+      // Tablet/Mobile: PDF is default
+      setPdfOpen(true);
+      setSidebarOpen(false);
     }
   }, [isDesktop]);
+  // Prevent Enter key from submitting forms when focus is in CKEditor
 
   React.useEffect(() => {
     const blockEnterSubmit = (e) => {
@@ -482,6 +487,24 @@ export default function ReviewEditor() {
     }
   };
 
+    const Archived = async () => {
+    // Save current tab first if there are unsaved changes
+    const currentLabel = EDITOR_ORDER[tab];
+    const currentContent = sections[currentLabel] || '';
+    const savedContent = savedContentRef.current[currentLabel] || '';
+
+    if (currentContent !== savedContent) {
+      await saveCurrentTab(currentLabel, currentContent);
+    }
+
+    setSaving(true);
+    try {
+      await dispatch(setReviewStatus({ paperId, status: 'archived' })).unwrap();
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const ellipsize = (str, max = 40) =>
     str && str.length > max ? `${str.slice(0, max)}…` : str;
 
@@ -698,6 +721,15 @@ function insertCitationAtCursor(citation) {
               fullWidth={!isDesktop}  // Changed: fullWidth when NOT desktop
             >
               Reviewed
+            </Button>
+            <Button
+              variant="outlined"
+              color="warning"
+              onClick={Archived}
+              size={isMobile ? 'small' : 'medium'}
+              fullWidth={!isDesktop}  // Changed: fullWidth when NOT desktop
+            >
+              Archived
             </Button>
           </Stack>
         }

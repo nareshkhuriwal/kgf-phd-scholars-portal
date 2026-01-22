@@ -9,6 +9,7 @@ import { saveHighlights } from '../../store/highlightsSlice';
 import { Snackbar, Alert } from '@mui/material';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
+import { debounce } from '../../utils/debounce';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
@@ -44,13 +45,17 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
   const [enabled, setEnabled] = React.useState(true);
   const [mode, setMode] = React.useState('rect');
   const [colorHex, setColorHex] = React.useState('#FFEB3B');
-  const [alpha, setAlpha] = React.useState(0.35);
+  const [alpha, setAlpha] = React.useState(0.25);
   const [saving, setSaving] = React.useState(false);
   const [toast, setToast] = React.useState(null);
 
   /* ---------------- HIGHLIGHT STATE ---------------- */
   const [hlRects, setHlRects] = React.useState({});
   const [hlBrushes, setHlBrushes] = React.useState({});
+
+  const hlRectsRef = React.useRef({});
+  const hlBrushesRef = React.useRef({});
+
 
   /* ---------------- ZOOM ---------------- */
   const [currentScale, setCurrentScale] = React.useState(initialScale);
@@ -59,20 +64,16 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
 
   const containerRef = React.useRef(null);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
+  const userActionRef = React.useRef(false);
+  const [reloadKey, setReloadKey] = React.useState(0);
+  const loadingTaskRef = React.useRef(null);
+
+
 
   /* ---------------- RESET ON URL CHANGE ---------------- */
-  React.useEffect(() => {
-    setDoc(null);
-    setPages([]);
-    setViewports([]);
-    setNaturalSizes([]);
-    setHlRects({});
-    setHlBrushes({});
-  }, [activeUrl]);
-
   /* ---------------- LOAD PDF ---------------- */
   // React.useEffect(() => {
-  //   let cancelled = false;
+  //   let cancelled = false; 
   //   if (!activeUrl) return;
 
   //   (async () => {
@@ -97,30 +98,48 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
   //   return () => { cancelled = true; };
   // }, [activeUrl]);
 
+
+  React.useEffect(() => {
+    hlRectsRef.current = hlRects;
+  }, [hlRects]);
+
+  React.useEffect(() => {
+    hlBrushesRef.current = hlBrushes;
+  }, [hlBrushes]);
+
+  /* ---------------- LOAD PDF (with progress) ---------------- */
+  const reloadPdf = () => {
+    console.warn('Reloading PDF');
+
+    setReloadKey(k => k + 1);   // ✅ force reload
+  };
+
+  React.useEffect(() => {
+    setHlRects({});
+    setHlBrushes({});
+    setViewports([]);
+    setDoc(null);
+    setPages([]);
+    setNaturalSizes([]);
+  }, [reloadKey]);
+
+
   React.useEffect(() => {
     let cancelled = false;
     if (!activeUrl) return;
 
     setLoading(true);
     setLoadingMsg('Loading PDF…');
-    console.log('Loading PDF from', activeUrl);
 
     (async () => {
       try {
         const loadingTask = pdfjsLib.getDocument(activeUrl);
-
-        loadingTask.onProgress = ({ loaded, total }) => {
-          if (total) {
-            const pct = Math.round((loaded / total) * 100);
-            setLoadingMsg(`Loading PDF… ${pct}%`);
-          }
-        };
-
         const pdf = await loadingTask.promise;
+        loadingTaskRef.current = loadingTask;
+
         if (cancelled) return;
 
         setDoc(pdf);
-        setLoadingMsg('Preparing pages…');
 
         const _pages = [];
         const _natural = [];
@@ -135,21 +154,22 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
         setPages(_pages);
         setNaturalSizes(_natural);
       } catch (err) {
-        console.error('PDF load failed', err);
-
-        if (!cancelled) {
-          setToast({ severity: 'error', msg: 'Failed to load PDF.' });
-          setLoading(false);               // ✅ STOP LOADER
-          setLoadingMsg('');               // optional but clean
-        }
+        console.error(err);
+        setToast({ severity: 'error', msg: 'Failed to load PDF.' });
+      } finally {
+        setLoading(false);
       }
-
     })();
 
+    // return () => { cancelled = true; };
     return () => {
       cancelled = true;
+      loadingTaskRef.current?.destroy();
     };
-  }, [activeUrl]);
+
+
+  }, [activeUrl, reloadKey]); // ✅ ADD reloadKey
+
 
   /* ---------------- VIEWPORTS ---------------- */
   React.useEffect(() => {
@@ -222,29 +242,54 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
 
   /* ---------------- ADD RECT ---------------- */
   const addRect = (page, rPx) => {
-    const s = currentScale;
+    const vp = viewports[page - 1];
+    if (!vp) return;
+
+    userActionRef.current = true;
+
     const rect = {
       id: crypto.randomUUID(),
-      x: rPx.x / s,
-      y: rPx.y / s,
-      w: rPx.w / s,
-      h: rPx.h / s,
+
+      // ✅ normalized once, permanently
+      x: +(rPx.x / vp.width).toFixed(6),
+      y: +(rPx.y / vp.height).toFixed(6),
+      w: +(rPx.w / vp.width).toFixed(6),
+      h: +(rPx.h / vp.height).toFixed(6),
+
+      // ✅ ADD THIS
+      style: {
+        color: colorHex,
+        alpha,
+      },
+
     };
 
-    setHlRects(prev => {
-      const next = { ...prev, [page]: [...(prev[page] || []), rect] };
-      onHighlightsChange?.(next);
-      return next;
-    });
+    setHlRects(prev => ({
+      ...prev,
+      [page]: [...(prev[page] || []), rect],
+    }));
   };
+
 
   /* ---------------- ADD BRUSH ---------------- */
   const addBrush = (page, strokePx) => {
-    const s = currentScale;
+    const vp = viewports[page - 1];
+    if (!vp) return;
+
+    userActionRef.current = true;
+
     const stroke = {
       id: crypto.randomUUID(),
-      size: strokePx.size / s,
-      points: strokePx.points.map(p => ({ x: p.x / s, y: p.y / s })),
+      size: +(strokePx.size / vp.width).toFixed(6),
+      points: strokePx.points.map(p => ({
+        x: +(p.x / vp.width).toFixed(6),
+        y: +(p.y / vp.height).toFixed(6),
+      })),
+        // ✅ ADD THIS
+        style: {
+          color: colorHex,
+          alpha,
+        },
     };
 
     setHlBrushes(prev => ({
@@ -253,22 +298,36 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
     }));
   };
 
-  /* ---------------- PX CONVERSION ---------------- */
-  const rectsPx = page =>
-    (hlRects[page] || []).map(r => ({
-      ...r,
-      x: r.x * currentScale,
-      y: r.y * currentScale,
-      w: r.w * currentScale,
-      h: r.h * currentScale,
-    }));
 
-  const brushesPx = page =>
-    (hlBrushes[page] || []).map(b => ({
-      ...b,
-      size: b.size * currentScale,
-      points: b.points.map(p => ({ x: p.x * currentScale, y: p.y * currentScale })),
+  /* ---------------- PX CONVERSION ---------------- */
+  const rectsPx = page => {
+    const vp = viewports[page - 1];
+    if (!vp) return [];
+
+    return (hlRects[page] || []).map(r => ({
+      ...r,
+      x: r.x * vp.width,
+      y: r.y * vp.height,
+      w: r.w * vp.width,
+      h: r.h * vp.height,
     }));
+  };
+
+
+  const brushesPx = page => {
+    const vp = viewports[page - 1];
+    if (!vp) return [];
+
+    return (hlBrushes[page] || []).map(b => ({
+      ...b,
+      size: b.size * vp.width,
+      points: b.points.map(p => ({
+        x: p.x * vp.width,
+        y: p.y * vp.height,
+      })),
+    }));
+  };
+
 
   /* ---------------- UNDO / CLEAR ---------------- */
   const canUndo = React.useMemo(
@@ -280,6 +339,8 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
 
 
   const onUndo = () => {
+    userActionRef.current = true;
+
     setHlRects(prev => {
       const pages = Object.keys(prev).map(Number).sort((a, b) => b - a);
       for (const p of pages) {
@@ -295,6 +356,8 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
   };
 
   const onClear = () => {
+    userActionRef.current = true;
+
     setHlRects({});
     setHlBrushes({});
   };
@@ -369,6 +432,27 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
     };
   }, []);
 
+  /* ---------------- AUTOSAVE ---------------- */
+
+
+  React.useEffect(() => {
+    return () => autosaveRef.current.cancel();
+  }, []);
+
+
+  React.useEffect(() => {
+    if (!userActionRef.current) return;
+    // if (naturalSizes.length === 0) return;
+
+    if (
+      Object.keys(hlRects).length === 0 &&
+      Object.keys(hlBrushes).length === 0
+    ) {
+      return;
+    }
+
+    autosaveRef.current();
+  }, [hlRects, hlBrushes, naturalSizes]);
 
   /* ---------------- ZOOM HELPERS ---------------- */
 
@@ -407,43 +491,70 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
       setToast({ severity: 'error', msg: 'Invalid paper.' });
       return;
     }
+    console.log('AUTO-SAVE TRIGGERED', {
+      rects: hlRects,
+      brushes: hlBrushes,
+    });
+
+    const rectsState = hlRectsRef.current;
+    const brushesState = hlBrushesRef.current;
+
+    console.log('AUTO-SAVE SNAPSHOT', {
+      rectsState,
+      brushesState,
+    });
+
 
     // ---------- build rect payload ----------
-    const rectPayload = Object.entries(hlRects).map(([p, rs]) => {
-      const nat = naturalSizes[p - 1];
-      if (!nat) return null;
+    // const rectPayload = Object.entries(rectsState).map(([p, rs]) => {
+    //   const nat = naturalSizes[p - 1];
+    //   if (!nat) return null;
 
-      const rects = rs
-        .map(r => ({
-          x: +(r.x / nat.w).toFixed(6),
-          y: +(r.y / nat.h).toFixed(6),
-          w: +(r.w / nat.w).toFixed(6),
-          h: +(r.h / nat.h).toFixed(6),
-        }))
-        .filter(r => r.w > 0 && r.h > 0);
+    //   const rects = rs
+    //     .map(r => ({
+    //       x: +(r.x / nat.w).toFixed(6),
+    //       y: +(r.y / nat.h).toFixed(6),
+    //       w: +(r.w / nat.w).toFixed(6),
+    //       h: +(r.h / nat.h).toFixed(6),
+    //     }))
+    //     .filter(r => r.w > 0 && r.h > 0);
 
-      return rects.length ? { page: +p, rects } : null;
-    }).filter(Boolean);
+    //   return rects.length ? { page: +p, rects } : null;
+    // }).filter(Boolean);
+
+    const rectPayload = Object.entries(rectsState)
+      .map(([p, rs]) =>
+        rs.length ? { page: Number(p), rects: rs } : null
+      )
+      .filter(Boolean);
+
 
     // ---------- build brush payload ----------
-    const brushPayload = Object.entries(hlBrushes).map(([p, bs]) => {
-      const nat = naturalSizes[p - 1];
-      if (!nat) return null;
+    // const brushPayload = Object.entries(brushesState).map(([p, bs]) => {
+    //   const nat = naturalSizes[p - 1];
+    //   if (!nat) return null;
 
-      const strokes = bs
-        .map(s => ({
-          size: +(s.size / nat.w).toFixed(6),
-          points: s.points
-            .map(pt => ({
-              x: +(pt.x / nat.w).toFixed(6),
-              y: +(pt.y / nat.h).toFixed(6),
-            }))
-            .filter(pt => pt.x >= 0 && pt.x <= 1 && pt.y >= 0 && pt.y <= 1),
-        }))
-        .filter(s => s.points.length >= 2);
+    //   const strokes = bs
+    //     .map(s => ({
+    //       size: +(s.size / nat.w).toFixed(6),
+    //       points: s.points
+    //         .map(pt => ({
+    //           x: +(pt.x / nat.w).toFixed(6),
+    //           y: +(pt.y / nat.h).toFixed(6),
+    //         }))
+    //         .filter(pt => pt.x >= 0 && pt.x <= 1 && pt.y >= 0 && pt.y <= 1),
+    //     }))
+    //     .filter(s => s.points.length >= 2);
 
-      return strokes.length ? { page: +p, strokes } : null;
-    }).filter(Boolean);
+    //   return strokes.length ? { page: +p, strokes } : null;
+    // }).filter(Boolean);
+
+    const brushPayload = Object.entries(brushesState)
+      .map(([p, bs]) =>
+        bs.length ? { page: Number(p), strokes: bs } : null
+      )
+      .filter(Boolean);
+
 
     // ---------- HARD GUARD ----------
     if (rectPayload.length === 0 && brushPayload.length === 0) {
@@ -456,7 +567,7 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
       paperId,
       replace: true,
       sourceUrl: activeUrl,
-      style: { color: colorHex, alpha },
+      // style: { color: colorHex, alpha },
     };
 
     if (rectPayload.length > 0) {
@@ -470,17 +581,30 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
     try {
       setSaving(true);
       await dispatch(saveHighlights(payload)).unwrap();
+      userActionRef.current = false;
+
       setToast({ severity: 'success', msg: 'Highlights saved.' });
     } catch (err) {
       console.error('Save highlights failed', err);
       setToast({
         severity: 'error',
-        msg: err?.message || 'Save failed.',
+        msg: err?.message || 'Save highlights failed. please try again.',
       });
+      // ❗ reset client state
+      userActionRef.current = false;
+      reloadPdf();
     } finally {
       setSaving(false);
     }
   };
+
+
+  const autosaveRef = React.useRef(
+    debounce(() => {
+      handleSave();
+    }, 800)
+  );
+
 
 
   /* ---------------- RENDER ---------------- */

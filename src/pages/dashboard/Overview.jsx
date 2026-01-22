@@ -842,6 +842,11 @@ export default function Overview() {
         </Grid>
 
         <Grid item xs={12} sm={6} md={2}>
+          <StatCard label="Archived" value={totals?.archived} />
+        </Grid>
+
+
+        <Grid item xs={12} sm={6} md={2}>
           <StatCard
             label="Review Completion"
             value={`${derived?.reviewCompletionRate ?? 0}%`}
