@@ -282,6 +282,85 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
     });
 
     const ws = XLSX.utils.json_to_sheet(ordered);
+
+    /* ============================================================
+       FIX 1: COLUMN WIDTH AUTO-FIT
+       ============================================================ */
+    const colWidths = columns.map(col => {
+      const header = col.label || col.key;
+      let maxLen = header.length;
+
+      rows.forEach(r => {
+        const val = r[col.key];
+        if (typeof val === 'string') {
+          val.split('\n').forEach(line => {
+            maxLen = Math.max(maxLen, line.length);
+          });
+        }
+      });
+
+      return { wch: Math.min(Math.max(maxLen + 2, 15), 60) };
+    });
+
+    ws['!cols'] = colWidths;
+
+    /* ============================================================
+       FIX 2: ROW HEIGHT – EXPLICIT + IMPLICIT BULLETS (CRITICAL)
+       ============================================================ */
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    ws['!rows'] = [];
+
+    for (let R = range.s.r; R <= range.e.r; ++R) {
+      let maxLines = 1;
+
+      for (let C = range.s.c; C <= range.e.c; ++C) {
+        const addr = XLSX.utils.encode_cell({ r: R, c: C });
+        const cell = ws[addr];
+
+        if (!cell || typeof cell.v !== 'string') continue;
+
+        // Explicit line breaks
+        const explicitLines = cell.v.split('\n').length;
+
+        // Implicit numbered bullets (1. 2. 3.)
+        const bulletMatches = cell.v.match(/\b\d+\.\s+/g);
+        const bulletLines = bulletMatches ? bulletMatches.length : 1;
+
+        maxLines = Math.max(maxLines, explicitLines, bulletLines);
+      }
+
+      // 18pt per line guarantees visibility
+      ws['!rows'][R] = { hpt: Math.max(24, maxLines * 18) };
+    }
+
+
+    /* ============================================================
+       FIX 3: FONT + ALIGNMENT (FINAL)
+       ============================================================ */
+    for (let R = range.s.r; R <= range.e.r; ++R) {
+      for (let C = range.s.c; C <= range.e.c; ++C) {
+        const addr = XLSX.utils.encode_cell({ r: R, c: C });
+        const cell = ws[addr];
+        if (!cell) continue;
+
+        const isHeader = R === range.s.r;
+
+        cell.s = {
+          font: {
+            name: 'Calibri',
+            sz: 11,
+            bold: isHeader,
+          },
+          alignment: {
+            horizontal: 'center',
+            vertical: isHeader ? 'center' : 'top', // 🔑 CRITICAL FIX
+            wrapText: true,
+          },
+        };
+      }
+    }
+
+
     const wb = XLSX.utils.book_new();
     const sheetName = (template || 'Report').toUpperCase().slice(0, 31);
 
@@ -292,6 +371,7 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
 
     XLSX.writeFile(wb, `${safeName}.xlsx`);
   };
+
 
   // Client-side DOCX download (for Synopsis)
   const onDownloadSynopsis = () => {
