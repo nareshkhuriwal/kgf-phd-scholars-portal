@@ -29,7 +29,12 @@ export function htmlToExcelText(html: string): string {
     text = cleanRich(html);
   }
 
-  // 🔒 CRITICAL: prevent Excel formula parsing
+  // 🔑 FINAL FIX: true vertical numbered bullets
+  text = text
+    .replace(/(\d+\.\s+)/g, '\n$1')
+    .replace(/^\n/, '');
+
+  // 🔒 Prevent Excel formula parsing
   if (/^[=+\-@]/.test(text)) {
     text = `'${text}`;
   }
