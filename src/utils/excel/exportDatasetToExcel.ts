@@ -68,15 +68,18 @@ function detectNumericColumns(columns: Column[], rows: any[]) {
 function computeColumnWidths(columns: Column[], ordered: any[]) {
   const maxRowsScan = Math.min(ordered.length, 200);
 
-  return columns.map((col) => {
+  return columns.map((col, idx) => {
     const header = col.label || col.key;
-    const lengths: number[] = [header.length];
+
+    // ✅ Add padding for filter dropdown + breathing space
+    const headerLen = header.length + 6;
+
+    const lengths: number[] = [headerLen];
 
     for (let i = 0; i < maxRowsScan; i++) {
-      const v = ordered[i]?.[header]; // NOTE: ordered uses label as key
+      const v = ordered[i]?.[header];
       if (typeof v !== "string") continue;
 
-      // use longest visible line
       const longest = v
         .split(/\r\n|\n/)
         .reduce((m, line) => Math.max(m, line.length), 0);
@@ -85,14 +88,15 @@ function computeColumnWidths(columns: Column[], ordered: any[]) {
     }
 
     lengths.sort((a, b) => a - b);
+    const p90 = lengths[Math.floor(lengths.length * 0.9)] ?? headerLen;
 
-    // Use 90th percentile to avoid one crazy outlier forcing huge columns
-    const p90 = lengths[Math.floor(lengths.length * 0.9)] ?? header.length;
-
-    // Heuristic bump for long-text columns (keeps them readable)
     const bumped = p90 > 80 ? 55 : p90 > 50 ? 45 : p90 + 2;
 
-    const wch = Math.min(Math.max(bumped, THEME.minColWch), THEME.maxColWch);
+    let wch = Math.min(Math.max(bumped, THEME.minColWch), THEME.maxColWch);
+
+    // ✅ First column (Paper ID) should never look cramped
+    if (idx === 0) wch = Math.max(wch, 14);
+
     return { wch };
   });
 }
@@ -123,10 +127,28 @@ function applyRowHeights(ws: XLSX.WorkSheet) {
   const range = XLSX.utils.decode_range(ref);
 
   ws["!rows"] = ws["!rows"] || [];
-  ws["!rows"][0] = { hpt: THEME.headerRowHpt }; // header
-
   const cols = (ws["!cols"] || []) as Array<{ wch?: number }>;
 
+  // ✅ HEADER HEIGHT (auto based on wrap)
+  let maxHeaderLines = 1;
+  for (let C = range.s.c; C <= range.e.c; C++) {
+    const addr = XLSX.utils.encode_cell({ r: 0, c: C });
+    const cell = ws[addr];
+    if (!cell || typeof cell.v !== "string") continue;
+
+    const wch = cols[C]?.wch ?? THEME.minColWch;
+    const lines = estimateWrappedLines(String(cell.v), wch);
+    maxHeaderLines = Math.max(maxHeaderLines, lines);
+  }
+
+  ws["!rows"][0] = {
+    hpt: Math.min(
+      80,
+      Math.max(THEME.headerRowHpt, maxHeaderLines * (THEME.perLineHpt + 2))
+    ),
+  };
+
+  // ✅ BODY ROWS (your existing logic, but keep it after header)
   for (let R = range.s.r + 1; R <= range.e.r; R++) {
     let maxLines = 1;
 
@@ -140,14 +162,15 @@ function applyRowHeights(ws: XLSX.WorkSheet) {
       maxLines = Math.max(maxLines, lines);
     }
 
-    const hpt = Math.min(
-      THEME.maxRowHpt,
-      Math.max(THEME.baseRowHpt, maxLines * THEME.perLineHpt)
-    );
-
-    ws["!rows"][R] = { hpt };
+    ws["!rows"][R] = {
+      hpt: Math.min(
+        THEME.maxRowHpt,
+        Math.max(THEME.baseRowHpt, maxLines * THEME.perLineHpt)
+      ),
+    };
   }
 }
+
 
 function ensureCellsInRange(ws: XLSX.WorkSheet) {
   const ref = ws["!ref"] || "A1:A1";
@@ -184,7 +207,7 @@ function applyStyles(ws: XLSX.WorkSheet, columns: Column[], numericByKey: Record
         cell.s = {
           font: { name: THEME.fontName, sz: THEME.fontSize, bold: true },
           fill: { patternType: "solid", fgColor: { rgb: THEME.headerFill } },
-          alignment: { horizontal: "center", vertical: "center", wrapText: true },
+          alignment: { horizontal: "center", vertical: "center", wrapText: true, indent: 0 },
           border: b,
         };
       } else {
