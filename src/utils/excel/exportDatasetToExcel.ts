@@ -6,8 +6,8 @@ type Column = { key: string; label?: string };
 const META_KEYS = new Set(["paper_id", "doi", "authors", "title", "year", "category"]);
 
 const THEME = {
-  fontName: "Calibri",
-  fontSize: 11,
+  fontName: "Times New Roman",
+  fontSize: 14,
   headerFill: "F2F2F2",
   borderColor: "",
   headerRowHpt: 26,
