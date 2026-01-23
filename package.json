@@ -34,7 +34,8 @@
     "react-redux": "^9.2.0",
     "react-router-dom": "^6.28.0",
     "recharts": "^3.3.0",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "xlsx-js-style": "^1.2.0"
   },
   "overrides": {
     "pdfjs-dist": "5.4.296",
