@@ -124,8 +124,11 @@ export default function Papers() {
   const userRole = useSelector(s => s.auth?.user?.role);
   const isResearcher = userRole === 'researcher';
 
-
-
+  // Review status helpers
+const isAddedForReview = (row) => {
+  const v = row?.status ?? row?.is_added_for_review; // prefer status if you return it
+  return v === true || v === 1 || v === '1' || v === 'Added';
+};
 
   // sorting state
   const [sortBy, setSortBy] = React.useState('title');     // use backend field names (id, title, authors, year, doi)
@@ -473,6 +476,11 @@ export default function Papers() {
                       </TableSortLabel>
                     </TableCell>
 
+                    <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 140 }}>
+                      Status
+                    </TableCell>
+
+
                     {!isResearcher && (
                       <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>
                         <TableSortLabel
@@ -531,6 +539,19 @@ export default function Papers() {
                         <TableCell>{val(r, ['authors', 'Author(s)'])}</TableCell>
                         <TableCell>{val(r, ['year', 'Year'])}</TableCell>
                         <TableCell>{val(r, ['doi', 'DOI'])}</TableCell>
+
+                        <TableCell>
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              fontWeight: 700,
+                              color: isAddedForReview(r) ? 'success.main' : 'text.secondary',
+                            }}
+                          >
+                            {r.status}
+                          </Typography>
+                        </TableCell>
+
 
                         {!isResearcher && (
                           <TableCell>
