@@ -592,7 +592,7 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
       });
       // ❗ reset client state
       userActionRef.current = false;
-      reloadPdf();
+      //reloadPdf();
     } finally {
       setSaving(false);
     }
