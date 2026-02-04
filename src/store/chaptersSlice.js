@@ -26,10 +26,20 @@ export const fetchChapters = createAsyncThunk('chapters/fetchAll', async (user_i
 
 export const createChapter = createAsyncThunk(
   'chapters/create',
-  async ({ title, order_index = 0, body_html = '', user_id }) => {
-    const body = { title, order_index, body_html };
-    if (user_id) body.user_id = user_id; // only if backend needs it
-    return await apiFetch(`/chapters`, { method: 'POST', body });
+  async ({ title, chapter_type, order_index = 0, body_html = '', user_id }) => {
+    const body = {
+      title,
+      chapter_type,        // ✅ FIX
+      order_index,
+      body_html,
+    };
+
+    if (user_id) body.user_id = user_id;
+
+    return await apiFetch(`/chapters`, {
+      method: 'POST',
+      body,
+    });
   }
 );
 
