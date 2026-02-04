@@ -39,6 +39,9 @@ const CHAPTER_TYPES = [
   { value: 'appendix', label: 'Appendix', desc: 'Supplementary material' },
 ];
 
+const chapterTypeLabel = (value) =>
+  CHAPTER_TYPES.find(t => t.value === value)?.label || '—';
+
 
 export default function ChaptersPage({ userId: userIdProp }) {
   const dispatch = useDispatch();
@@ -318,6 +321,9 @@ export default function ChaptersPage({ userId: userIdProp }) {
                         <TableRow>
                           <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 60 }} />
                           <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>Title</TableCell>
+                          <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 160 }}>
+                            Chapter Type
+                          </TableCell>
 
                           {!isResearcher && (
                             <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 180 }}>
@@ -360,6 +366,12 @@ export default function ChaptersPage({ userId: userIdProp }) {
                             </TableCell>
 
                             <TableCell>{c.title || '—'}</TableCell>
+
+                            <TableCell>
+                              <Typography variant="body2" color="text.secondary">
+                                {chapterTypeLabel(c.chapter_type)}
+                              </Typography>
+                            </TableCell>
 
                             {!isResearcher && (
                               <TableCell>
@@ -422,6 +434,9 @@ export default function ChaptersPage({ userId: userIdProp }) {
                   <TableRow>
                     <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 70 }}>ID</TableCell>
                     <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9' }}>Title</TableCell>
+                    <TableCell sx={{ fontWeight: 600, width: 160 }}>
+                      Chapter Type
+                    </TableCell>
                     {!isResearcher && !isMobile && (
                       <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 180 }}>
                         Created By
@@ -458,6 +473,11 @@ export default function ChaptersPage({ userId: userIdProp }) {
                         </Typography>
                       </TableCell>
 
+                      <TableCell>
+                        <Typography variant="body2" color="text.secondary">
+                          {chapterTypeLabel(c.chapter_type)}
+                        </Typography>
+                      </TableCell>
                       {!isResearcher && !isMobile && (
                         <TableCell>
                           <Tooltip title={c?.creator?.name || 'Unknown user'}>
