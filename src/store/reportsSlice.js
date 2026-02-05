@@ -17,9 +17,14 @@ export const loadROL = createAsyncThunk('reports/loadROL', async () => {
 /** ───── New endpoints for Reports module (no roles) ───── **/
 
 // Chapters list for selectors in builder/Synopsis/Thesis
-export const loadChapters = createAsyncThunk('reports/loadChapters', async () => {
-  return await apiFetch('/reports/chapters', { method: 'GET' });
-});
+export const loadChapters = createAsyncThunk(
+  'reports/loadChapters',
+  async ({ all = true } = {}) => {
+    const qs = all ? '?all=true' : '';
+    return await apiFetch(`/reports/chapters${qs}`, { method: 'GET' });
+  }
+);
+
 
 // Users for multi-select (admin/supervisor style selection — no roles enforced)
 export const loadUsers = createAsyncThunk('reports/loadUsers', async () => {

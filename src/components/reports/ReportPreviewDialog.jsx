@@ -459,6 +459,7 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
                 startIcon={<DownloadIcon />}
                 onClick={() => exportReportPptx({
                   name: THESIS_TITLE,
+                  fileName: name,
                   synopsis: { chapters },
                   themeKey: resolvedPptTheme,
                 })}
