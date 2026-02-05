@@ -88,7 +88,13 @@ const coerceSaved = (r) => {
   const selections = {
     include: normalizeInclude(r?.selections?.include),
     includeOrder: Array.isArray(r?.selections?.includeOrder) ? r.selections.includeOrder : [...EDITOR_ORDER],
-    chapters: Array.isArray(r?.selections?.chapters) ? r.selections.chapters : [],
+    // chapters: Array.isArray(r?.selections?.chapters) ? r.selections.chapters : [],
+    chapters: Array.isArray(r?.selections?.chapters)
+      ? r.selections.chapters.map(ch =>
+        typeof ch === 'object' ? String(ch.id) : String(ch)
+      )
+      : [],
+
   };
 
   // Add header/footer settings - always use current month/year for footerCenter
@@ -154,6 +160,7 @@ export default function ReportBuilder() {
   });
   const [include, setInclude] = React.useState(normalizeInclude());
   const [chapterIds, setChapterIds] = React.useState([]);
+
   const [snack, setSnack] = React.useState(null);
 
   const caps = TEMPLATE_CAPS[template];
@@ -218,6 +225,13 @@ export default function ReportBuilder() {
       console.warn('⚠️ Editing a report without userId - user must select one');
     }
   }, [isResearcher, editingId, filters.userId]);
+
+
+  React.useEffect(() => {
+    setChapterIds(prev =>
+      prev.map(v => (typeof v === 'object' ? String(v.id) : String(v)))
+    );
+  }, []);
 
   // Hydrate form when currentSaved arrives/changes
   React.useEffect(() => {
@@ -295,10 +309,15 @@ export default function ReportBuilder() {
 
   // Auto-select all chapters for presentation template if none selected
   React.useEffect(() => {
+    // Only auto-fill for NEW reports
+    if (editingId) return;
+
     if (template !== 'presentation') return;
     if (!Array.isArray(chapters) || chapters.length === 0) return;
 
-    // ⛔ already auto-filled once → never override user
+    // If user already selected chapters, DO NOT override
+    if (chapterIds.length > 0) return;
+
     if (autoFilledRef.current) return;
 
     const presentationChapterIds = chapters
@@ -307,9 +326,10 @@ export default function ReportBuilder() {
 
     if (presentationChapterIds.length > 0) {
       setChapterIds(presentationChapterIds);
-      autoFilledRef.current = true; // 🔒 lock it
+      autoFilledRef.current = true;
     }
-  }, [template, chapters]);
+  }, [template, chapters, editingId, chapterIds.length]);
+
 
 
 
@@ -331,16 +351,16 @@ export default function ReportBuilder() {
       // chapters: caps.showChapters ? chapterIds : [],
       chapters: caps.showChapters
         ? chapterIds.map(id => {
-            const ch = chapters.find(c => String(c.id) === String(id));
-            return ch
-              ? {
-                  id: ch.id,
-                  title: ch.title,
-                  chapter_type: ch.chapter_type,
-                  chapter_section: ch.chapter_section, // ✅ THIS
-                }
-              : null;
-          }).filter(Boolean)
+          const ch = chapters.find(c => String(c.id) === String(id));
+          return ch
+            ? {
+              id: ch.id,
+              title: ch.title,
+              chapter_type: ch.chapter_type,
+              chapter_section: ch.chapter_section, // ✅ THIS
+            }
+            : null;
+        }).filter(Boolean)
         : [],
 
 
@@ -386,6 +406,13 @@ export default function ReportBuilder() {
     });
   }, [chapterIds, chapters]);
 
+  const allowedChapterIds = React.useMemo(() => {
+    return chapterOptions
+      .filter(opt => opt.id !== ALL_OPTION.id)
+      .map(opt => opt.id);
+  }, [chapterOptions]);
+
+
   // Get selected user object for display
   const selectedUserObject = React.useMemo(() => {
     if (!filters.userId) return null;
@@ -400,6 +427,9 @@ export default function ReportBuilder() {
       return;
     }
 
+    // 🚫 Do NOT validate until options are loaded
+    if (!chapterOptions || chapterOptions.length === 0) return;
+
     const validIds = new Set(
       chapterOptions
         .filter(o => o.id !== ALL_OPTION.id)
@@ -408,6 +438,7 @@ export default function ReportBuilder() {
 
     setChapterIds(prev => prev.filter(id => validIds.has(id)));
   }, [template, chapterOptions]);
+
 
 
   const onSave = async () => {
@@ -814,13 +845,14 @@ export default function ReportBuilder() {
                 const hasAll = values.some(v => v.id === ALL_OPTION.id);
 
                 if (hasAll) {
-                  if (chapterIds.length === (chapters || []).length) {
+                  if (chapterIds.length === allowedChapterIds.length) {
                     setChapterIds([]);
                   } else {
-                    setChapterIds((chapters || []).map(c => String(c.id)));
+                    setChapterIds(allowedChapterIds);
                   }
                   return;
                 }
+
 
                 setChapterIds(values.map(v => v.id));
               }}
@@ -829,9 +861,10 @@ export default function ReportBuilder() {
                   <Checkbox
                     checked={
                       option.id === ALL_OPTION.id
-                        ? chapterIds.length === (chapters || []).length && chapterIds.length > 0
+                        ? chapterIds.length === allowedChapterIds.length && chapterIds.length > 0
                         : selected
                     }
+
                     size="small"
                     sx={{ mr: 1 }}
                   />
