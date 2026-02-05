@@ -328,7 +328,23 @@ export default function ReportBuilder() {
     selections: {
       include: caps.showSections ? include : {},
       includeOrder: caps.showSections ? EDITOR_ORDER : [],
-      chapters: caps.showChapters ? chapterIds : [],
+      // chapters: caps.showChapters ? chapterIds : [],
+      chapters: caps.showChapters
+        ? chapterIds.map(id => {
+            const ch = chapters.find(c => String(c.id) === String(id));
+            return ch
+              ? {
+                  id: ch.id,
+                  title: ch.title,
+                  chapter_type: ch.chapter_type,
+                  chapter_section: ch.chapter_section, // ✅ THIS
+                }
+              : null;
+          }).filter(Boolean)
+        : [],
+
+
+
     },
     headerFooter,
     // ✅ ADD THIS
