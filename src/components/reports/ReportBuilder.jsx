@@ -55,6 +55,11 @@ const TEMPLATE_CAPS = {
   },
 };
 
+const PPT_THEMES = [
+  { value: 'adaptiveSynopsis', label: 'Adaptive Synopsis (Default)' },
+  { value: 'poornima', label: 'Poornima University' },
+  { value: 'classic', label: 'Minimal Clean' },
+];
 
 
 // Utility: get current month and year formatted
@@ -95,6 +100,7 @@ const coerceSaved = (r) => {
     footerCenter: getCurrentMonthYear(), // Always use current month and year
   };
 
+
   return {
     name: r?.name ?? '',
     template: r?.template ?? 'rol',
@@ -103,6 +109,7 @@ const coerceSaved = (r) => {
     filters,
     selections,
     headerFooter,
+    presentationTheme: r?.presentation_theme ?? 'adaptiveSynopsis',
   };
 };
 
@@ -152,6 +159,7 @@ export default function ReportBuilder() {
   const caps = TEMPLATE_CAPS[template];
   const autoFilledRef = React.useRef(false);
 
+  const [presentationTheme, setPresentationTheme] = React.useState('adaptiveSynopsis');
 
   // Flag to prevent hydration immediately after save
   const [justSaved, setJustSaved] = React.useState(false);
@@ -242,6 +250,9 @@ export default function ReportBuilder() {
       console.log('🔄 Hydrating filters - prev:', prevFilters, 'new:', newFilters);
       return newFilters;
     });
+    if (s.template === 'presentation') {
+      setPresentationTheme(s.presentationTheme || 'adaptiveSynopsis');
+    }
 
     setInclude(s.selections.include);
     setChapterIds(s.selections.chapters);
@@ -320,6 +331,11 @@ export default function ReportBuilder() {
       chapters: caps.showChapters ? chapterIds : [],
     },
     headerFooter,
+    // ✅ ADD THIS
+    ...(template === 'presentation' && format === 'pptx'
+      ? { presentation_theme: presentationTheme }
+      : {}),
+
   };
 
 
@@ -456,7 +472,7 @@ export default function ReportBuilder() {
         <Box
           sx={{
             display: 'flex', gap: 1.5, alignItems: 'center',
-            overflowX: 'auto', whiteSpace: 'nowrap', pb: 1,
+            overflowX: 'auto', whiteSpace: 'nowrap', pb: 1, mt: 1,
             '& > *': { flex: '0 0 auto' }
           }}
         >
@@ -465,7 +481,8 @@ export default function ReportBuilder() {
             value={name}
             onChange={e => setName(e.target.value)}
             size="small"
-            sx={{ minWidth: 300 }}
+            InputLabelProps={{ shrink: true }}
+            sx={{ minWidth: 300, mt: 1 }}
             required
           />
 
@@ -475,7 +492,8 @@ export default function ReportBuilder() {
             value={template}
             onChange={e => setTemplate(e.target.value)}
             size="small"
-            sx={{ minWidth: 220 }}
+            sx={{ minWidth: 220, mt: 1 }}
+            InputLabelProps={{ shrink: true }}
           >
             {REPORT_TEMPLATES.map(o => (<MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>))}
           </TextField>
@@ -486,10 +504,32 @@ export default function ReportBuilder() {
             value={format}
             onChange={e => setFormat(e.target.value)}
             size="small"
-            sx={{ minWidth: 220 }}
+            sx={{ minWidth: 220, mt: 1 }}
+            InputLabelProps={{ shrink: true }}
           >
             {FORMATS.map(o => (<MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>))}
           </TextField>
+
+
+          {template === 'presentation' && format === 'pptx' && (
+            <TextField
+              select
+              label="Presentation Theme"
+              value={presentationTheme}
+              onChange={(e) => setPresentationTheme(e.target.value)}
+              size="small"
+              sx={{ minWidth: 260, mt: 1 }}
+              InputLabelProps={{ shrink: true }}
+            >
+              {PPT_THEMES.map(t => (
+                <MenuItem key={t.value} value={t.value}>
+                  {t.label}
+                </MenuItem>
+              ))}
+            </TextField>
+          )}
+
+
         </Box>
       </Paper>
 

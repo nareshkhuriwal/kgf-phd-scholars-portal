@@ -19,13 +19,9 @@ import { DOCUMENT_TYPOGRAPHY } from '../../config/reportFormatting.config';
 import { exportDatasetToExcel } from '../../utils/excel/exportDatasetToExcel';
 import {
   DEFAULT_PPT_THEME,
+  THESIS_TITLE
 } from "../../config/pptThemes.config";
 
-const TEMPLATE_PPT_THEME_MAP = {
-  presentation: "adaptiveSynopsis", // ✅ FIX
-  synopsis: "adaptiveSynopsis",
-  rol: "minimal",
-};
 
 
 function extractTitlePage(html) {
@@ -96,6 +92,7 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
 
   // Merge nested selectedReport if present
   const merged = React.useMemo(() => ({ ...(data || {}), ...(data?.selectedReport || {}) }), [data]);
+  const isPresentation = data.template === 'presentation';
 
   if (!merged || typeof merged !== 'object') {
     return null;
@@ -112,6 +109,7 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
     rows = [],
     meta,
     template,
+    presentation_theme,
     // SYNOPSIS fields (from API)
     kpis = [],
     chapters = [],
@@ -124,6 +122,11 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
 
   const fmt = String(format || '').toLowerCase();
   const tpl = String(template || '').toLowerCase();
+  const include = merged?.selections?.include || {};
+  const PPT_SLIDE = {
+    width: '960px',     // 16:9 slide
+    height: '540px',
+  };
 
   // Extract header/footer with defaults - FIXED: Ensure proper fallbacks
   const safeHeaderFooter = headerFooter && typeof headerFooter === 'object' ? headerFooter : {};
@@ -148,7 +151,11 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
   const isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(fmt);
   const isSynopsis = tpl === 'synopsis' || tpl === 'presentation';
   const hasSynopsisContent = (chapters?.length || 0) > 0 || (literature?.length || 0) > 0;
-  const showDocumentLayout = isSynopsis || fmt === 'docx' || fmt === 'pdf';
+  // const showDocumentLayout = isSynopsis || fmt === 'docx' || fmt === 'pdf';
+  const showDocumentLayout =
+    (isSynopsis && template !== 'presentation') ||
+    fmt === 'docx' ||
+    fmt === 'pdf';
 
   const effectiveDownload = downloadUrl || url || null;
 
@@ -398,7 +405,9 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
     exportSynopsisDocx({ ...merged, headerFooter: safeHeaderFooter }, `${safe}.docx`);
   };
 
-const resolvedPptTheme = TEMPLATE_PPT_THEME_MAP[tpl?.toLowerCase()] ?? DEFAULT_PPT_THEME;
+  const resolvedPptTheme =
+    presentation_theme ||
+    (tpl === 'presentation' ? DEFAULT_PPT_THEME : DEFAULT_PPT_THEME);
 
   console.log('Resolved PPT theme:', resolvedPptTheme);
 
@@ -449,10 +458,10 @@ const resolvedPptTheme = TEMPLATE_PPT_THEME_MAP[tpl?.toLowerCase()] ?? DEFAULT_P
                 variant="contained"
                 startIcon={<DownloadIcon />}
                 onClick={() => exportReportPptx({
-  name,
-  synopsis: { chapters },
-  themeKey: resolvedPptTheme,
-})}
+                  name: THESIS_TITLE,
+                  synopsis: { chapters },
+                  themeKey: resolvedPptTheme,
+                })}
 
               >
                 Download PPTX
@@ -608,37 +617,46 @@ const resolvedPptTheme = TEMPLATE_PPT_THEME_MAP[tpl?.toLowerCase()] ?? DEFAULT_P
   };
 
   // Page wrapper component with A4 dimensions
-  const DocumentPage = ({ children, pageNum, hideHeader = false, hideFooter = false,
-  }) => (
-    <Box
-      className="page"
-      sx={{
-        width: '210mm',
-        minHeight: '297mm',
-        display: 'flex',
-        flexDirection: 'column',
-        bgcolor: '#fff',
-        mb: 3,
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-        mx: 'auto',
-      }}
-    >
-      {isSynopsis && !hideHeader && <DocumentHeader pageNum={pageNum} />}
+  const DocumentPage = ({ children, pageNum, hideHeader = false, hideFooter = false }) => {
+    const isPpt = template === 'presentation';
 
+    return (
       <Box
-        className="page-content"
+        className="page"
         sx={{
-          flex: 1,
-          p: 3,
-          overflow: 'hidden',
-          ...DOCUMENT_TYPOGRAPHY,
+          width: isPpt ? PPT_SLIDE.width : '210mm',
+          minHeight: isPpt ? PPT_SLIDE.height : '297mm',
+
+          display: 'flex',
+          flexDirection: 'column',
+          bgcolor: '#fff',
+          mb: 3,
+          mx: 'auto',
+
+          // PPT should look like slide, not paper
+          boxShadow: isPpt ? '0 6px 24px rgba(0,0,0,0.25)' : '0 2px 8px rgba(0,0,0,0.1)',
+          borderRadius: isPpt ? 2 : 0,
         }}
       >
-        {children}
+        {!isPpt && isSynopsis && !hideHeader && <DocumentHeader pageNum={pageNum} />}
+
+        <Box
+          className="page-content"
+          sx={{
+            flex: 1,
+            p: isPpt ? 3 : 3,
+            overflow: 'hidden',
+            ...DOCUMENT_TYPOGRAPHY,
+          }}
+        >
+          {children}
+        </Box>
+
+        {!isPpt && isSynopsis && !hideFooter && <DocumentFooter pageNum={pageNum} />}
       </Box>
-      {isSynopsis && !hideFooter && <DocumentFooter pageNum={pageNum} />}
-    </Box>
-  );
+    );
+  };
+
 
   return (
     <Dialog
@@ -884,7 +902,7 @@ const resolvedPptTheme = TEMPLATE_PPT_THEME_MAP[tpl?.toLowerCase()] ?? DEFAULT_P
                 ))}
 
                 {/* Literature Review - continuous section */}
-                {Array.isArray(literature) && literature.length > 0 && (
+                {!isPresentation && Array.isArray(literature) && literature.length > 0 && (
                   <DocumentPage pageNum={validChapters.length + 1}>
                     <Box>
                       <Typography
@@ -931,7 +949,7 @@ const resolvedPptTheme = TEMPLATE_PPT_THEME_MAP[tpl?.toLowerCase()] ?? DEFAULT_P
                 )}
 
                 {/* REVIEW ANALYSIS – NUMBERED POINTS */}
-                {sections && Object.keys(sections).length > 0 && (
+                {!isPresentation && sections && Object.keys(sections).length > 0 && (
                   <DocumentPage pageNum={validChapters.length + 1}>
                     <Box>
                       <Typography
@@ -989,7 +1007,7 @@ const resolvedPptTheme = TEMPLATE_PPT_THEME_MAP[tpl?.toLowerCase()] ?? DEFAULT_P
 
 
                 {/* REFERENCES */}
-                {Array.isArray(citations) && citations.length > 0 && (
+                {!isPresentation && Array.isArray(citations) && citations.length > 0 && (
                   <DocumentPage pageNum={validChapters.length + 2}>
                     <Typography
                       variant="h6"
