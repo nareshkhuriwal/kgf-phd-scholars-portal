@@ -44,7 +44,7 @@ const TEMPLATE_CAPS = {
   presentation: {
     showSections: true,
     showChapters: true,
-    showFilters: false,
+    showFilters: true,
     chapterTypes: ['presentation', 'synopsis'],
   },
   rol: {
@@ -150,6 +150,7 @@ export default function ReportBuilder() {
   const [snack, setSnack] = React.useState(null);
 
   const caps = TEMPLATE_CAPS[template];
+  const autoFilledRef = React.useRef(false);
 
 
   // Flag to prevent hydration immediately after save
@@ -174,6 +175,7 @@ export default function ReportBuilder() {
   // Chapters required only if template supports chapters
   const hasChapters =
     !caps.showChapters ||
+    template === 'presentation' ||
     chapterIds.length > 0;
 
   // Filters (userId) required only if template supports filters
@@ -262,6 +264,9 @@ export default function ReportBuilder() {
       }));
     }
   }, [template]);
+  React.useEffect(() => {
+    autoFilledRef.current = false;
+  }, [template]);
 
   // Update header title when report name changes (if header title is empty)
   React.useEffect(() => {
@@ -276,6 +281,27 @@ export default function ReportBuilder() {
       setHeaderFooter(prev => ({ ...prev, footerCenter: getCurrentMonthYear() }));
     }
   }, [template]);
+
+  // Auto-select all chapters for presentation template if none selected
+  React.useEffect(() => {
+    if (template !== 'presentation') return;
+    if (!Array.isArray(chapters) || chapters.length === 0) return;
+
+    // ⛔ already auto-filled once → never override user
+    if (autoFilledRef.current) return;
+
+    const presentationChapterIds = chapters
+      .filter(ch => ch.chapter_type === 'presentation')
+      .map(ch => String(ch.id));
+
+    if (presentationChapterIds.length > 0) {
+      setChapterIds(presentationChapterIds);
+      autoFilledRef.current = true; // 🔒 lock it
+    }
+  }, [template, chapters]);
+
+
+
 
   const payloadBase = {
     name,
@@ -334,6 +360,23 @@ export default function ReportBuilder() {
     const u = (users || []).find(x => String(x.id) === String(filters.userId));
     return u ? { id: String(u.id), label: u.name || u.email || `User ${u.id}` } : null;
   }, [filters.userId, users]);
+
+
+  React.useEffect(() => {
+    if (!caps.showChapters) {
+      setChapterIds([]);
+      return;
+    }
+
+    const validIds = new Set(
+      chapterOptions
+        .filter(o => o.id !== ALL_OPTION.id)
+        .map(o => o.id)
+    );
+
+    setChapterIds(prev => prev.filter(id => validIds.has(id)));
+  }, [template, chapterOptions]);
+
 
   const onSave = async () => {
     console.log('💾 Saving report with payload:', payloadBase);
@@ -678,16 +721,24 @@ export default function ReportBuilder() {
           </Box>
         )}
 
+
         {caps.showChapters && (
 
           <Box sx={{ mt: 2 }}>
             <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ mb: 0.5 }}>
               <Button
                 size="small"
-                onClick={() => setChapterIds((chapters || []).map(c => String(c.id)))}
+                onClick={() => {
+                  const validChapterIds = chapterOptions
+                    .filter(opt => opt.id !== ALL_OPTION.id)
+                    .map(opt => opt.id);
+
+                  setChapterIds(validChapterIds);
+                }}
               >
                 Select All
               </Button>
+
               <Button
                 size="small"
                 onClick={() => setChapterIds([])}
@@ -743,6 +794,13 @@ export default function ReportBuilder() {
             />
           </Box>
         )}
+
+        {caps.showChapters && chapterIds.length === 0 && (
+          <Alert severity="error" sx={{ mb: 1 }}>
+            Please select at least one chapter to save this report.
+          </Alert>
+        )}
+
       </Paper>
 
 
