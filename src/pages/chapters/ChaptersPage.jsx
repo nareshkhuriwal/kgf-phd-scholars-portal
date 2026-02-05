@@ -29,6 +29,7 @@ import { initialsOf } from '../../utils/text/cleanRich';
 // Helper to copy text to clipboard
 
 const PAGINATION_KEY = 'chapters.pagination';
+const CHAPTER_TYPE_FILTER_KEY = 'chapters.chapterTypeFilter';
 
 const copyText = async (t) => { try { await navigator.clipboard.writeText(t || ''); } catch { } };
 
@@ -88,6 +89,16 @@ export default function ChaptersPage({ userId: userIdProp }) {
 
   const [chapterType, setChapterType] = React.useState('thesis_chapter');
   const [error, setError] = React.useState('');
+  // Chapter type FILTER (list page)
+  const persistedChapterType = React.useMemo(() => {
+    try {
+      return localStorage.getItem(CHAPTER_TYPE_FILTER_KEY) || 'all';
+    } catch {
+      return 'all';
+    }
+  }, []);
+
+  const [chapterTypeFilter, setChapterTypeFilter] = React.useState(persistedChapterType);
 
 
   const nav = useNavigate();
@@ -101,6 +112,9 @@ export default function ChaptersPage({ userId: userIdProp }) {
     () => [...chapters].sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)),
     [chapters]
   );
+  React.useEffect(() => {
+    localStorage.setItem(CHAPTER_TYPE_FILTER_KEY, chapterTypeFilter);
+  }, [chapterTypeFilter]);
 
   // const filtered = React.useMemo(() => {
   //   const q = query.trim().toLowerCase();
@@ -118,20 +132,26 @@ export default function ChaptersPage({ userId: userIdProp }) {
     const q = query.trim().toLowerCase();
 
     let rows = normalized;
+
+    // 🔹 Chapter type filter
+    if (chapterTypeFilter !== 'all') {
+      rows = rows.filter(c => c.chapter_type === chapterTypeFilter);
+    }
+
+    // 🔹 Search filter
     if (q) {
-      rows = normalized.filter(c =>
+      rows = rows.filter(c =>
         [c.title, (c.updated_at || c.created_at || '')]
           .filter(Boolean)
           .join(' ')
           .toLowerCase()
           .includes(q)
       );
-
-      if (page !== 0) setPage(0);
     }
 
     return rows;
-  }, [normalized, query]);
+  }, [normalized, query, chapterTypeFilter]);
+
 
 
   // ✅ SAFE PLACE — filtered is initialized
@@ -297,9 +317,46 @@ export default function ChaptersPage({ userId: userIdProp }) {
       />
 
       <Paper sx={{ p: 1.5, border: '1px solid #eee', borderRadius: 2, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-        <Box sx={{ mb: 1.5 }}>
+        {/* <Box sx={{ mb: 1.5 }}>
           <SearchBar disabled={reorderMode} value={query} onChange={setQuery} placeholder="Search chapters…" />
+        </Box> */}
+
+        <Box
+          sx={{
+            mb: 1.5,
+            display: 'flex',
+            gap: 1.5,
+            flexDirection: { xs: 'column', sm: 'row' },
+          }}
+        >
+          <SearchBar
+            disabled={reorderMode}
+            value={query}
+            onChange={setQuery}
+            placeholder="Search chapters…"
+          />
+
+          <TextField
+            select
+            size="small"
+            disabled={reorderMode}
+            value={chapterTypeFilter}
+            onChange={(e) => {
+              setChapterTypeFilter(e.target.value);
+              setPage(0); // reset pagination safely
+            }}
+            sx={{ minWidth: 220 }}
+            label="Chapter Type"
+          >
+            <MenuItem value="all">All Chapter Types</MenuItem>
+            {CHAPTER_TYPES.map(t => (
+              <MenuItem key={t.value} value={t.value}>
+                {t.label}
+              </MenuItem>
+            ))}
+          </TextField>
         </Box>
+
 
         {loading ? (
           <Stack alignItems="center" sx={{ py: 6 }}><CircularProgress /></Stack>
