@@ -1,9 +1,15 @@
+// src/utils/pptx/exportReportPptx.ts
 import PptxGenJS from "pptxgenjs";
-import { fetchImageBuffer } from "../exporters/fetchImage";
-import { arrayBufferToBase64 } from "./arrayBufferToBase64";
+import {
+  PPT_THEMES,
+  DEFAULT_PPT_THEME,
+  PptTheme,
+} from "../../config/pptThemes.config";
+import { applyHeader, applyFooter } from "./pptxThemeHelpers";
 
-type Col = { key: string; label?: string };
-type Row = Record<string, any>;
+/* ---------------------------------------------------------
+ * Helpers
+ * --------------------------------------------------------- */
 
 const cleanText = (html: string) =>
   (html || "")
@@ -13,104 +19,123 @@ const cleanText = (html: string) =>
     .replace(/&nbsp;/g, " ")
     .trim();
 
-const extractImageUrls = (html: string): string[] => {
-  const urls: string[] = [];
-  const regex = /<img[^>]+src=["']([^"']+)["']/gi;
-  let match;
-  while ((match = regex.exec(html))) {
-    urls.push(match[1]);
-  }
-  return urls;
-};
+/* ---------------------------------------------------------
+ * Theme Resolver
+ * --------------------------------------------------------- */
+
+const resolveTheme = (key?: string): PptTheme =>
+  PPT_THEMES[key as keyof typeof PPT_THEMES] ??
+  PPT_THEMES[DEFAULT_PPT_THEME];
+
+/* ---------------------------------------------------------
+ * PPTX Exporter
+ * --------------------------------------------------------- */
 
 export async function exportReportPptx({
   name = "Report",
-  meta,
-  columns = [],
-  rows = [],
   synopsis,
+  themeKey,
 }: {
   name?: string;
-  meta?: any;
-  columns?: Col[];
-  rows?: Row[];
-  synopsis?: { kpis?: any[]; chapters?: any[]; literature?: any[] };
+  synopsis?: { chapters?: any[] };
+  themeKey?: keyof typeof PPT_THEMES;
 }) {
   const pptx = new PptxGenJS();
   pptx.layout = "LAYOUT_WIDE";
 
-  /* ---------------- TITLE SLIDE ---------------- */
+  const theme = resolveTheme(themeKey);
+  let pageNum = 1;
+
+  /* =====================================================
+   * TITLE SLIDE
+   * ===================================================== */
   {
     const slide = pptx.addSlide();
-    slide.addText(name, { x: 0.6, y: 0.7, fontSize: 40, bold: true });
-    if (meta?.totalPapers != null) {
-      slide.addText(`Total Papers: ${meta.totalPapers}`, {
-        x: 0.6,
-        y: 1.6,
-        fontSize: 18,
-      });
-    }
+    slide.background = { fill: "#FFFFFF" };
+
+    applyHeader(slide, theme, {
+      title: name,
+      section: "OVERVIEW",
+    });
+
+    slide.addText("PhD Synopsis Presentation", {
+      x: theme.slide.margin,
+      y: theme.header.barHeight + 1.3,
+      fontSize: 18,
+      color: theme.colors.secondary,
+    });
+
+    applyFooter(slide, theme, pageNum++);
   }
 
-  /* ---------------- CHAPTER SLIDES (WITH IMAGES) ---------------- */
-  if (synopsis?.chapters?.length) {
-    for (const ch of synopsis.chapters) {
-      const slide = pptx.addSlide();
+  /* =====================================================
+   * CONTENT SLIDES
+   * ===================================================== */
+  for (const ch of synopsis?.chapters || []) {
+    const slide = pptx.addSlide();
+    slide.background = { fill: "#FFFFFF" };
 
-      slide.addText(ch.title || "Chapter", {
-        x: 0.5,
-        y: 0.4,
-        fontSize: 24,
-        bold: true,
-      });
+    // Header stays constant
+    applyHeader(slide, theme, {
+      title: name,
+      section: ch.section?.toUpperCase() || "",
+    });
 
-      // 1️⃣ Extract images BEFORE cleaning HTML
-      const imageUrls = extractImageUrls(ch.body_html || "");
-      console.log("Images:", imageUrls);
+    /* -------------------------------
+     * Chapter title (MATCH REFERENCE)
+     * ------------------------------- */
 
-      // 2️⃣ Add text
-      slide.addText(cleanText(ch.body_html || ""), {
-        x: 0.5,
-        y: 1.0,
-        w: 7.5,
-        h: 5.5,
-        fontSize: 16,
-        wrap: true,
-      });
+    const chapterTitleY =
+      theme.variant === "titleBar"
+        ? 1.05               // ✅ more space below header
+        : theme.header.barHeight + 0.45;
 
-      // 3️⃣ Fetch + embed images (SEQUENTIALLY + AWAITED)
-      const SLIDE_HEIGHT = 7.5;
+    slide.addText(ch.title || "Section", {
+      x: theme.slide.margin,
+      y: chapterTitleY,
+      fontSize: 30,          // ✅ professional (not oversized)
+      bold: true,
+      color: theme.colors.primary,
+      align: "left",
+    });
 
-      for (const url of imageUrls) {
-        try {
-          const buffer = await fetchImageBuffer(url);
-          if (!buffer) continue;
+    /* -------------------------------
+     * Underline (LIGHT + CLOSE)
+     * ------------------------------- */
 
-          const base64 = arrayBufferToBase64(buffer);
+    const underlineY = chapterTitleY + 0.38;
 
-          const mime = url.toLowerCase().endsWith('.png')
-            ? 'image/png'
-            : 'image/jpeg';
+    slide.addShape("rect", {
+      x: theme.slide.margin,
+      y: underlineY,
+      w: theme.slide.width - theme.slide.margin * 2,
+      h: 0.04,
+      fill: { color: "#D6DEE9" }, // ✅ lighter, professional
+      line: { width: 0 },
+    });
 
-          slide.addImage({
-            data: `data:${mime};base64,${base64}`,
-            x: 8.2,
-            y: (SLIDE_HEIGHT - 3.0) / 2,
-            w: 3.0,
-            h: 2.2,
-          });
+    /* -------------------------------
+     * Body content (TOP-LEFT)
+     * ------------------------------- */
 
-          imgY += 2.4;
-        } catch (err) {
-          console.warn('PPT image skipped:', url, err);
-        }
-      }
+    slide.addText(cleanText(ch.body_html || ""), {
+      x: theme.slide.margin,
+      y: underlineY + 0.30,   // ✅ tight but readable
+      w: theme.slide.width - theme.slide.margin * 2,
+      h: theme.slide.height - underlineY - 1.4,
+      fontSize: 18,           // ✅ readable academic size
+      wrap: true,
+      color: theme.colors.text,
+      align: "left",
+    });
 
-
-    }
+    applyFooter(slide, theme, pageNum++);
   }
 
-  /* ---------------- SAVE FILE (ONLY AFTER EVERYTHING) ---------------- */
+  /* =====================================================
+   * SAVE
+   * ===================================================== */
+
   await pptx.writeFile({
     fileName: `${name.replace(/[^A-Za-z0-9._-]+/g, "_")}.pptx`,
   });
