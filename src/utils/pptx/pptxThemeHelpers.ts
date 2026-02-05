@@ -28,7 +28,7 @@ export function applyHeader(
             w: slideWidth,
             h: barHeight,
             fill: { color: theme.colors.primary },
-            line: { width: 0 },
+            line: { type: "none" },
         });
 
         /* ---- Vertical centering math ---- */
@@ -71,7 +71,7 @@ export function applyHeader(
             w: slideWidth,
             h: 0.03,
             fill: { color: theme.colors.secondary },
-            line: { width: 0 },
+            line: { type: "none" },
         });
 
         return;
@@ -88,7 +88,7 @@ export function applyHeader(
             w: slideWidth * seg.width,
             h: theme.header.barHeight,
             fill: { color: seg.color },
-            line: { width: 0 },
+            line: { type: "none" },
         });
         x += slideWidth * seg.width;
     }
@@ -118,7 +118,7 @@ export function applyFooter(
         w: theme.slide.width,
         h: footerHeight,
         fill: { color: footerBg },
-        line: { width: 0 },
+        line: { type: "none" },
     });
 
     /* ---- Vertical centering math ---- */

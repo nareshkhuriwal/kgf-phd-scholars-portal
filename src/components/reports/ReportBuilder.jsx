@@ -132,7 +132,7 @@ export default function ReportBuilder() {
 
   // Load static data
   React.useEffect(() => {
-    dispatch(loadChapters());
+    dispatch(loadChapters({ all: true }));
     dispatch(loadUsers());
   }, [dispatch]);
 

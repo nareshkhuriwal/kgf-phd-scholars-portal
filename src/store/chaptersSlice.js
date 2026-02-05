@@ -13,16 +13,27 @@ const normalizeItems = (res) =>
 
 // ---------- Thunks ----------
 /** If your API infers user from auth, call with no args. If it requires user_id, pass it. */
-export const fetchChapters = createAsyncThunk('chapters/fetchAll', async (user_id) => {
-  const qs = user_id ? `?user_id=${encodeURIComponent(user_id)}` : '';
-  const res = await apiFetch(`/chapters${qs}`);
-  return {
-    items: normalizeItems(res),
-    meta: !Array.isArray(res)
-      ? { total: res?.total, page: res?.current_page, perPage: res?.per_page, lastPage: res?.last_page }
-      : null,
-  };
-});
+export const fetchChapters = createAsyncThunk(
+  'chapters/fetchAll',
+  async ({ user_id, all = true } = {}) => {
+    const params = new URLSearchParams();
+    if (user_id) params.append('user_id', user_id);
+    if (all) params.append('all', 'true');
+
+    const res = await apiFetch(`/chapters?${params.toString()}`);
+
+    return {
+      items: normalizeItems(res),
+      meta: all ? null : {
+        total: res?.total,
+        page: res?.current_page,
+        perPage: res?.per_page,
+        lastPage: res?.last_page,
+      },
+    };
+  }
+);
+
 
 export const createChapter = createAsyncThunk(
   'chapters/create',

@@ -23,15 +23,59 @@ function parseHtml(html: string): HTMLElement {
   return new DOMParser().parseFromString(html || "", "text/html").body;
 }
 
+
+function addFullSlideTable(slide, rows, theme) {
+  const topY = theme.header.barHeight + 1.1;
+  const footerPad = 0.7;
+
+  const availableHeight =
+    theme.slide.height - topY - footerPad;
+
+  const rowCount = rows.length;
+  const colCount = rows[0].length;
+
+  const rowHeight = Math.min(0.32, availableHeight / rowCount);
+
+  const colWidth =
+    (theme.slide.width - theme.slide.margin * 2) / colCount;
+
+  slide.addTable(rows, {
+    x: theme.slide.margin,
+    y: topY,
+    w: theme.slide.width - theme.slide.margin * 2,
+
+    colW: Array(colCount).fill(colWidth),
+    rowH: rows.map((_, i) =>
+      i === 0 ? rowHeight * 1.8 : rowHeight
+    ),
+
+    fontSize: 9,
+    align: "center",
+    valign: "middle",
+
+    wrap: true,           // 🔑 header wrapping allowed
+    autoPage: false,
+
+    border: {
+      type: "solid",
+      pt: 0.5,
+      color: "cccccc",
+    },
+  });
+}
+
+
 /* ---------------------------------------------------------
  * PPTX Exporter
  * --------------------------------------------------------- */
 export async function exportReportPptx({
   name = "Report",
+  fileName = "Report",
   synopsis,
   themeKey,
 }: {
   name?: string;
+  fileName?: string;
   synopsis?: { chapters?: any[] };
   themeKey?: keyof typeof PPT_THEMES;
 }) {
@@ -97,17 +141,26 @@ export async function exportReportPptx({
     // const text = body.textContent?.trim() || "";
 
     const body = parseHtml(ch.body_html || "");
+    // CLONE body for text processing (🔑 IMPORTANT)
+    const textBody = body.cloneNode(true) as HTMLElement;
 
-    // REMOVE headings from body to avoid overlap
-    body.querySelectorAll("h1,h2,h3").forEach(h => h.remove());
 
-    const text = body.textContent?.trim() || "";
+    // Remove headings
+    textBody.querySelectorAll("h1,h2,h3").forEach(h => h.remove());
+
+    // Remove tables ONLY from text clone
+    textBody.querySelectorAll("table").forEach(t => t.remove());
+
+    // Extract text safely
+    const text = textBody.textContent?.trim() || "";
+
 
 
     const imageUrls = extractImageUrls(ch.body_html || "");
 
     // let cursorY = underlineY + 0.35;
-    let cursorY = underlineY + theme.layout.bodyTopGap;
+    // let cursorY = underlineY + theme.layout.bodyTopGap;
+    let cursorY = underlineY + (text ? theme.layout.bodyTopGap : 0.45);
 
 
     const footerPadding = 0.8;
@@ -173,16 +226,41 @@ export async function exportReportPptx({
         Array.from(r.cells).map((c) => c.innerText.trim())
       );
 
+      // If table exists, force new slide
       if (rows.length) {
+        const tableTop = underlineY + 0.55;
+        const footerPad = 0.7;
+
+        const availableHeight =
+          theme.slide.height - tableTop - footerPad;
+
+        const rowCount = rows.length;
+        const colCount = rows[0].length;
+
+        const rowHeight = Math.min(0.32, availableHeight / rowCount);
+        const colWidth =
+          (theme.slide.width - theme.slide.margin * 2) / colCount;
+
         slide.addTable(rows, {
           x: theme.slide.margin,
-          y: cursorY,
+          y: tableTop,
           w: theme.slide.width - theme.slide.margin * 2,
-          fontSize: 12,
-          border: { type: "solid", pt: 1, color: "cccccc" },
+
+          colW: Array(colCount).fill(colWidth),
+          rowH: rows.map((_, i) =>
+            i === 0 ? rowHeight * 1.8 : rowHeight
+          ),
+
+          fontSize: 9,
+          wrap: true,
+          align: "center",
+          valign: "middle",
+          autoPage: false,
+          border: { type: "solid", pt: 0.5, color: "cccccc" },
         });
-        cursorY += rows.length * 0.4 + 0.3;
       }
+
+
     });
 
     applyFooter(slide, theme, pageNum++);
@@ -190,6 +268,6 @@ export async function exportReportPptx({
 
   /* ================= SAVE ================= */
   await pptx.writeFile({
-    fileName: `${name.replace(/[^A-Za-z0-9._-]+/g, "_")}.pptx`,
+    fileName: `${fileName.replace(/[^A-Za-z0-9._-]+/g, "_")}.pptx`,
   });
 }
