@@ -40,6 +40,21 @@ const CHAPTER_TYPES = [
   { value: 'appendix', label: 'Appendix', desc: 'Supplementary material' },
 ];
 
+const CHAPTER_SECTIONS = [
+  { value: 'overview', label: 'Overview' },
+  { value: 'rol', label: 'Review of Literature (ROL)' },
+  { value: 'problem_statement', label: 'Problem Statement' },
+  { value: 'scope', label: 'Scope of Research' },
+  { value: 'findings', label: 'Findings' },
+  { value: 'gaps', label: 'Research Gaps' },
+  { value: 'objectives', label: 'Objectives' },
+  { value: 'methodology', label: 'Framework / Methodology' },
+  { value: 'timeline', label: 'Timeline / Plan of Work' },
+  { value: 'conclusion', label: 'Conclusion' },
+  { value: 'appendix', label: 'Appendix / Supplementary' },
+];
+
+
 const chapterTypeLabel = (value) =>
   CHAPTER_TYPES.find(t => t.value === value)?.label || '—';
 
@@ -88,6 +103,8 @@ export default function ChaptersPage({ userId: userIdProp }) {
   });
 
   const [chapterType, setChapterType] = React.useState('thesis_chapter');
+  const [chapterSection, setChapterSection] = React.useState('overview');
+
   const [error, setError] = React.useState('');
   // Chapter type FILTER (list page)
   const persistedChapterType = React.useMemo(() => {
@@ -99,6 +116,8 @@ export default function ChaptersPage({ userId: userIdProp }) {
   }, []);
 
   const [chapterTypeFilter, setChapterTypeFilter] = React.useState(persistedChapterType);
+  const chapterSectionLabel = (value) =>
+    CHAPTER_SECTIONS.find(s => s.value === value)?.label || '—';
 
 
   const nav = useNavigate();
@@ -183,6 +202,7 @@ export default function ChaptersPage({ userId: userIdProp }) {
     const payload = {
       title: title.trim(),
       chapter_type: chapterType,
+      chapter_section: chapterSection,
       body_html: '',
       order_index: chapters.length,
     };
@@ -194,6 +214,8 @@ export default function ChaptersPage({ userId: userIdProp }) {
       setOpen(false);
       setTitle('');
       setChapterType('thesis_chapter');
+      setChapterSection('overview');
+
       setError('');
     } catch (e) {
       setError('Failed to create chapter');
@@ -382,6 +404,11 @@ export default function ChaptersPage({ userId: userIdProp }) {
                             Chapter Type
                           </TableCell>
 
+                          <TableCell sx={{ fontWeight: 600, width: 180 }}>
+                            Section
+                          </TableCell>
+
+
                           {!isResearcher && (
                             <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 180 }}>
                               Created By
@@ -427,6 +454,11 @@ export default function ChaptersPage({ userId: userIdProp }) {
                             <TableCell>
                               <Typography variant="body2" color="text.secondary">
                                 {chapterTypeLabel(c.chapter_type)}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              <Typography variant="body2" color="text.secondary">
+                                {chapterSectionLabel(c.chapter_section)}
                               </Typography>
                             </TableCell>
 
@@ -494,6 +526,11 @@ export default function ChaptersPage({ userId: userIdProp }) {
                     <TableCell sx={{ fontWeight: 600, width: 160 }}>
                       Chapter Type
                     </TableCell>
+                    <TableCell sx={{ fontWeight: 600, width: 180 }}>
+                      Section
+                    </TableCell>
+
+
                     {!isResearcher && !isMobile && (
                       <TableCell sx={{ fontWeight: 600, bgcolor: '#f7f7f9', width: 180 }}>
                         Created By
@@ -534,6 +571,14 @@ export default function ChaptersPage({ userId: userIdProp }) {
                         <Typography variant="body2" color="text.secondary">
                           {chapterTypeLabel(c.chapter_type)}
                         </Typography>
+
+                        <TableCell>
+                          <Typography variant="body2" color="text.secondary">
+                            {chapterSectionLabel(c.chapter_section)}
+                          </Typography>
+                        </TableCell>
+
+
                       </TableCell>
                       {!isResearcher && !isMobile && (
                         <TableCell>
@@ -637,6 +682,20 @@ export default function ChaptersPage({ userId: userIdProp }) {
                 </MenuItem>
               ))}
             </TextField>
+
+            <TextField
+              select
+              label="Chapter Section"
+              value={chapterSection}
+              onChange={(e) => setChapterSection(e.target.value)}
+            >
+              {CHAPTER_SECTIONS.map(opt => (
+                <MenuItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </MenuItem>
+              ))}
+            </TextField>
+
 
             <Box
               sx={{
