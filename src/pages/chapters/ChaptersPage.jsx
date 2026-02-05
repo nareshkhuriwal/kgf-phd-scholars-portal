@@ -456,6 +456,7 @@ export default function ChaptersPage({ userId: userIdProp }) {
                                 {chapterTypeLabel(c.chapter_type)}
                               </Typography>
                             </TableCell>
+
                             <TableCell>
                               <Typography variant="body2" color="text.secondary">
                                 {chapterSectionLabel(c.chapter_section)}
@@ -526,6 +527,7 @@ export default function ChaptersPage({ userId: userIdProp }) {
                     <TableCell sx={{ fontWeight: 600, width: 160 }}>
                       Chapter Type
                     </TableCell>
+
                     <TableCell sx={{ fontWeight: 600, width: 180 }}>
                       Section
                     </TableCell>
@@ -572,14 +574,14 @@ export default function ChaptersPage({ userId: userIdProp }) {
                           {chapterTypeLabel(c.chapter_type)}
                         </Typography>
 
-                        <TableCell>
-                          <Typography variant="body2" color="text.secondary">
-                            {chapterSectionLabel(c.chapter_section)}
-                          </Typography>
-                        </TableCell>
-
-
                       </TableCell>
+
+                      <TableCell>
+                        <Typography variant="body2" color="text.secondary">
+                          {chapterSectionLabel(c.chapter_section)}
+                        </Typography>
+                      </TableCell>
+
                       {!isResearcher && !isMobile && (
                         <TableCell>
                           <Tooltip title={c?.creator?.name || 'Unknown user'}>

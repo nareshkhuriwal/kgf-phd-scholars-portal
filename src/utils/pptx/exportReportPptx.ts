@@ -41,6 +41,8 @@ export async function exportReportPptx({
   const theme = resolveTheme(themeKey);
   let pageNum = 1;
 
+  console.log("Exporting PPTX with theme:", synopsis);
+
   /* ================= TITLE SLIDE ================= */
   // {
   //   const slide = pptx.addSlide();
@@ -65,7 +67,7 @@ export async function exportReportPptx({
 
     applyHeader(slide, theme, {
       title: name,
-      section: ch.section?.toUpperCase() || "",
+      section: ch.chapter_section?.toUpperCase() || "",
     });
 
     /* ---------- Title ---------- */

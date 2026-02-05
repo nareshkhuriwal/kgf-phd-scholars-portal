@@ -26,10 +26,11 @@ export const fetchChapters = createAsyncThunk('chapters/fetchAll', async (user_i
 
 export const createChapter = createAsyncThunk(
   'chapters/create',
-  async ({ title, chapter_type, order_index = 0, body_html = '', user_id }) => {
+  async ({ title, chapter_type, chapter_section, order_index = 0, body_html = '', user_id }) => {
     const body = {
       title,
       chapter_type,        // ✅ FIX
+      chapter_section,
       order_index,
       body_html,
     };

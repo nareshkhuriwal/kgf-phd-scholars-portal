@@ -15,7 +15,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import makeEditorConfig from '../reviews/EditorConfig';
 
 import { Snackbar, Alert } from '@mui/material';
-
+import { CHAPTER_SECTIONS } from '../../config/chapterSections';
 
 // CKEditor
 import { CKEditor } from '@ckeditor/ckeditor5-react';
@@ -135,6 +135,7 @@ export default function ChapterEditor() {
 
   const [chapterType, setChapterType] = React.useState('thesis_chapter');
   const [typeChanged, setTypeChanged] = React.useState(false);
+  const [chapterSection, setChapterSection] = React.useState('overview');
 
 
   const { words: WORD_TARGET, chars: CHAR_GOOD } =
@@ -161,6 +162,7 @@ export default function ChapterEditor() {
       setTitle(chapter.title || '');
       setBody(chapter.body_html || '');
       setChapterType(chapter.chapter_type || 'thesis_chapter');
+      setChapterSection(chapter.chapter_section || 'overview');
       setTypeChanged(false);
     }
   }, [chapter?.id]);
@@ -200,7 +202,8 @@ export default function ChapterEditor() {
   const isDirty =
     title !== (chapter?.title || '') ||
     body !== persistedBody ||
-    chapterType !== (chapter?.chapter_type || 'thesis_chapter');
+    chapterType !== (chapter?.chapter_type || 'thesis_chapter') ||
+    chapterSection !== (chapter?.chapter_section || 'overview');
 
 
 
@@ -240,6 +243,7 @@ export default function ChapterEditor() {
         changes: {
           title,
           chapter_type: chapterType,
+          chapter_section: chapterSection,
           body_html: encodeHtml(body),
         }
       })).unwrap();
@@ -291,6 +295,7 @@ export default function ChapterEditor() {
             changes: {
               title,
               chapter_type: chapterType,
+              chapter_section: chapterSection,
               body_html: btoa(unescape(encodeURIComponent(body))),
             },
             autosave: true, // optional backend hint
@@ -507,7 +512,35 @@ export default function ChapterEditor() {
                   )}
 
 
+
                 </Box>
+                <Box
+                  sx={{
+                    px: 1.5,
+                    py: 1,
+                    borderRadius: 1,
+                    bgcolor: 'grey.50',
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    fontSize: 13,
+                  }}
+                >
+                  <TextField
+                    select
+                    fullWidth
+                    label="Chapter Section"
+                    value={chapterSection}
+                    onChange={(e) => setChapterSection(e.target.value)}
+                  >
+                    {CHAPTER_SECTIONS.map((opt) => (
+                      <MenuItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                </Box>
+
+
               </>
             ) : (
               <Skeleton variant="rounded" height={48} />
