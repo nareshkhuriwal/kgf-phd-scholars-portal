@@ -39,13 +39,13 @@ const TEMPLATE_CAPS = {
     showSections: true,
     showChapters: true,
     showFilters: true,
-    chapterTypes: null, // null = all
+    chapterTypes: ['thesis_chapter', 'front_matter'], // null = all
   },
   presentation: {
     showSections: true,
     showChapters: true,
     showFilters: true,
-    chapterTypes: ['presentation', 'synopsis'],
+    chapterTypes: ['presentation'],
   },
   rol: {
     showSections: true,
@@ -190,7 +190,6 @@ export default function ReportBuilder() {
   // Chapters required only if template supports chapters
   const hasChapters =
     !caps.showChapters ||
-    template === 'presentation' ||
     chapterIds.length > 0;
 
   // Filters (userId) required only if template supports filters
@@ -381,22 +380,29 @@ export default function ReportBuilder() {
   }, [filters]);
 
   const chapterOptions = React.useMemo(() => {
+    if (!caps.showChapters) return [];
+
     let list = chapters || [];
 
-    // Apply template-based chapter type filtering
-    if (caps?.chapterTypes) {
+    // Only filter when chapterTypes is explicitly defined
+    if (Array.isArray(caps.chapterTypes)) {
       list = list.filter(ch =>
         caps.chapterTypes.includes(ch.chapter_type)
       );
     }
 
-    const mapped = list.map(ch => ({
-      id: String(ch.id),
-      label: ch.title,
-    }));
-
-    return mapped.length > 0 ? [ALL_OPTION, ...mapped] : [];
+    return list.length
+      ? [
+        ALL_OPTION,
+        ...list.map(ch => ({
+          id: String(ch.id),
+          label: ch.title,
+        })),
+      ]
+      : [];
   }, [chapters, caps]);
+
+
 
 
   const selectedChapterObjects = React.useMemo(() => {
