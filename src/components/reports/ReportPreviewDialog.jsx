@@ -17,6 +17,15 @@ import { exportReportPptx } from '../../utils/pptx/exportReportPptx';
 import { htmlToExcelText } from '../../utils/exporters/htmlToExcelText';
 import { DOCUMENT_TYPOGRAPHY } from '../../config/reportFormatting.config';
 import { exportDatasetToExcel } from '../../utils/excel/exportDatasetToExcel';
+import {
+  DEFAULT_PPT_THEME,
+} from "../../config/pptThemes.config";
+
+const TEMPLATE_PPT_THEME_MAP = {
+  presentation: "adaptiveSynopsis", // ✅ FIX
+  synopsis: "adaptiveSynopsis",
+  rol: "minimal",
+};
 
 
 function extractTitlePage(html) {
@@ -389,6 +398,10 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
     exportSynopsisDocx({ ...merged, headerFooter: safeHeaderFooter }, `${safe}.docx`);
   };
 
+const resolvedPptTheme = TEMPLATE_PPT_THEME_MAP[tpl?.toLowerCase()] ?? DEFAULT_PPT_THEME;
+
+  console.log('Resolved PPT theme:', resolvedPptTheme);
+
   // ---- Decide which download buttons to show based on format ----
   const renderDownloadButtons = () => {
     const btns = [];
@@ -436,9 +449,11 @@ export default function ReportPreviewDialog({ open, loading, onClose, data, erro
                 variant="contained"
                 startIcon={<DownloadIcon />}
                 onClick={() => exportReportPptx({
-                  name, meta, columns, rows,
-                  synopsis: { kpis, chapters, literature }
-                })}
+  name,
+  synopsis: { chapters },
+  themeKey: resolvedPptTheme,
+})}
+
               >
                 Download PPTX
               </Button>
