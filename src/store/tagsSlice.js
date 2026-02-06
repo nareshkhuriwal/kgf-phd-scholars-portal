@@ -11,16 +11,21 @@ export const loadTags = createAsyncThunk(
     }
 )
 
+
 export const addTag = createAsyncThunk(
-    'tags/add',
-    async (name) => {
-        const res = await apiFetch('/tags', {
-            method: 'POST',
-            body: { name }
-        })
-        return res.data
-    }
+  'tags/add',
+  async ({ name, type }) => {
+    const res = await apiFetch('/tags', {
+      method: 'POST',
+      body: {
+        name,
+        type
+      }
+    })
+    return res.data
+  }
 )
+
 
 export const deleteTag = createAsyncThunk(
     'tags/delete',

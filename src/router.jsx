@@ -39,6 +39,7 @@ import Payments from './pages/monitoring/Payments';
 import Analytics from './pages/monitoring/Analytics';
 import MyPapers from './pages/library/MyPapers';
 import MyPaperEditor from './pages/library/MyPaperEditor';
+import AnalyticsDashboard from './pages/analytics/AnalyticsDashboard';
 
 export default function Router() {
   return (
@@ -64,6 +65,7 @@ export default function Router() {
         <Route path="/dashboard/admins" element={<Overview />} />         {/* self */}
         <Route path="/dashboard/admins/:userId" element={<Overview />} /> {/* view an admin */}
 
+        <Route path="/reports/analytics" element={<AnalyticsDashboard />} />
 
         <Route path="/pricing" element={<PricePage />} />
         <Route path="/price" element={<Navigate to="/pricing" replace />} />

@@ -25,6 +25,7 @@ import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { Snackbar, Alert } from '@mui/material';
 import { useTheme, useMediaQuery } from '@mui/material';
 import { initialsOf } from '../../utils/text/cleanRich';
+import { CHAPTER_SECTIONS } from '../../config/chapterSections';
 
 // Helper to copy text to clipboard
 
@@ -40,19 +41,7 @@ const CHAPTER_TYPES = [
   { value: 'appendix', label: 'Appendix', desc: 'Supplementary material' },
 ];
 
-const CHAPTER_SECTIONS = [
-  { value: 'overview', label: 'Overview' },
-  { value: 'rol', label: 'Review of Literature (ROL)' },
-  { value: 'problem_statement', label: 'Problem Statement' },
-  { value: 'scope', label: 'Scope of Research' },
-  { value: 'findings', label: 'Findings' },
-  { value: 'gaps', label: 'Research Gaps' },
-  { value: 'objectives', label: 'Objectives' },
-  { value: 'methodology', label: 'Framework / Methodology' },
-  { value: 'timeline', label: 'Timeline / Plan of Work' },
-  { value: 'conclusion', label: 'Conclusion' },
-  { value: 'appendix', label: 'Appendix / Supplementary' },
-];
+
 
 
 const chapterTypeLabel = (value) =>

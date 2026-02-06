@@ -1,4 +1,5 @@
 export const CHAPTER_SECTIONS = [
+  { value: 'title', label: 'Title' },
   { value: 'overview', label: 'Overview' },
   { value: 'rol', label: 'Review of Literature (ROL)' },
   { value: 'problem_statement', label: 'Problem Statement' },

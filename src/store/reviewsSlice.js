@@ -32,15 +32,31 @@ export const saveReview = createAsyncThunk(
   }
 );
 
+// export const saveReviewSection = createAsyncThunk(
+//   'reviews/saveReviewSection',
+//   async ({ paperId, section_key, html }) => {
+//     return await apiFetch(`/reviews/${paperId}/sections`, {
+//       method: 'PUT',
+//       body: { section_key, html }
+//     });
+//   }
+// );
+
 export const saveReviewSection = createAsyncThunk(
   'reviews/saveReviewSection',
-  async ({ paperId, section_key, html }) => {
+  async ({ paperId, section_key, html, problem_tags, solution_tags }) => {
     return await apiFetch(`/reviews/${paperId}/sections`, {
       method: 'PUT',
-      body: { section_key, html }
+      body: {
+        section_key,
+        ...(html !== undefined ? { html } : {}),
+        ...(problem_tags ? { problem_tags } : {}),
+        ...(solution_tags ? { solution_tags } : {}),
+      }
     });
   }
 );
+
 
 export const setReviewStatus = createAsyncThunk(
   'reviews/setReviewStatus',

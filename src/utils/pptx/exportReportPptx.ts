@@ -109,33 +109,125 @@ export async function exportReportPptx({
     const slide = pptx.addSlide();
     slide.background = { fill: "#FFFFFF" };
 
-    applyHeader(slide, theme, {
-      title: name,
-      section: ch.chapter_section?.toUpperCase() || "",
-    });
+
+    console.log("Processing chapter:", ch.chapter_section);
+
+    const isTitleSection =
+      String(ch.chapter_section).toLowerCase() === "title" ||
+      String(ch.chapter_type).toLowerCase() === "title";
+
+
+
+    if (!isTitleSection) {
+      applyHeader(slide, theme, {
+        title: name,
+        section: ch.chapter_section?.toUpperCase() || "",
+      });
+    }
+
+
 
     /* ---------- Title ---------- */
-    const titleY =
-      theme.variant === "titleBar"
-        ? 1.05
-        : theme.header.barHeight + 0.45;
+    let underlineY = theme.header.barHeight + 0.45;
 
-    slide.addText(ch.title || "Section", {
-      x: theme.slide.margin,
-      y: titleY,
-      fontSize: 30,
-      bold: true,
-      color: theme.colors.primary,
-    });
+    if (!isTitleSection) {
+      const titleY =
+        theme.variant === "titleBar"
+          ? 1.05
+          : theme.header.barHeight + 0.45;
 
-    const underlineY = titleY + 0.38;
-    slide.addShape("rect", {
-      x: theme.slide.margin,
-      y: underlineY,
-      w: theme.slide.width - theme.slide.margin * 2,
-      h: 0.04,
-      fill: { color: "#D6DEE9" },
-    });
+      slide.addText(ch.title || "Section", {
+        x: theme.slide.margin,
+        y: titleY,
+        fontSize: 30,
+        bold: true,
+        color: theme.colors.primary,
+      });
+
+      underlineY = titleY + 0.38;
+
+      slide.addShape("rect", {
+        x: theme.slide.margin,
+        y: underlineY,
+        w: theme.slide.width - theme.slide.margin * 2,
+        h: 0.04,
+        fill: { color: "#D6DEE9" },
+      });
+    }
+
+
+    if (isTitleSection) {
+      const imageUrls = extractImageUrls(ch.body_html || "");
+
+      const headerTopMargin = 0.35;          // ↓ decrease space before header
+const headerHeight = theme.header.barHeight;
+const headerGap = 0.20;                // ↑ space after header
+const headerEndY = headerTopMargin + headerHeight;
+
+
+      /* ===========================
+     * STRIP VARIANT
+     * =========================== */
+      let x = 0;
+      const slideWidth = theme.slide.width;
+
+      
+      for (const seg of theme.header.segments) {
+        slide.addShape("rect", {
+          x,
+          y: headerTopMargin,
+          w: slideWidth * seg.width,
+          h: theme.header.barHeight,
+          fill: { color: seg.color },
+          line: { type: "none" },
+        });
+        x += slideWidth * seg.width;
+      }
+
+      /* ==================================================
+       * TITLE PAGE WITH IMAGE → FULL SLIDE ONLY
+       * ================================================== */
+      if (imageUrls.length) {
+        const buffer = await fetchImageBuffer(imageUrls[0]);
+
+        if (buffer) {
+
+         slide.addImage({
+  data: `data:image/png;base64,${arrayBufferToBase64(buffer)}`,
+  x: 0,
+  y: headerEndY + headerGap,                     // 👈 gap added
+  w: theme.slide.width,
+  h: theme.slide.height - (headerEndY + headerGap),
+  sizing: { type: "contain" },
+});
+
+        }
+
+        // 🚨 STOP EVERYTHING ELSE
+        continue;
+      }
+
+      /* ==================================================
+       * (OPTIONAL) TEXT-ONLY TITLE PAGE — if NO image
+       * ================================================== */
+
+      const titleText =
+        parseHtml(ch.body_html || "").textContent?.trim() || ch.title || "";
+
+      slide.addText(titleText, {
+        x: theme.slide.margin,
+        y: theme.slide.height / 2 - 1,
+        w: theme.slide.width - theme.slide.margin * 2,
+        fontSize: theme.fonts.title,
+        // fontFace: theme.fonts.fontFace,
+        align: "center",
+      });
+
+      continue;
+    }
+
+
+
 
     // const body = parseHtml(ch.body_html || "");
     // const text = body.textContent?.trim() || "";
@@ -263,7 +355,10 @@ export async function exportReportPptx({
 
     });
 
-    applyFooter(slide, theme, pageNum++);
+    if (!isTitleSection) {
+      applyFooter(slide, theme, pageNum++);
+    }
+
   }
 
   /* ================= SAVE ================= */
