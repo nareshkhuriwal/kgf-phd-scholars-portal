@@ -126,6 +126,17 @@ export const generateSavedReport = createAsyncThunk('reports/generateSavedReport
   });
 });
 
+// ───── Analytics Reports (fixed 6 blocks) ─────
+export const loadAnalyticsOverview = createAsyncThunk(
+  'reports/loadAnalyticsOverview',
+  async () => {
+    return await apiFetch('/reports/analytics/overview', {
+      method: 'GET',
+    });
+  }
+);
+
+
 const slice = createSlice({
   name: 'reports',
   initialState: {
@@ -149,6 +160,23 @@ const slice = createSlice({
     currentSaved: null,
     saving: false,
     deleting: false,
+
+    analytics: {
+      loading: false,
+      error: null,
+
+ cooccurrence_matrix: null,
+  aggregated_matrix: null,
+
+      cooccurrence: [],
+      problemCounts: [],
+      solutionCounts: [],
+      rowPercentages: {},
+      dominantSolutions: [],
+      underexploredGaps: [],
+    },
+
+
   },
   reducers: {
     clearReportsState: (s) => {
@@ -193,9 +221,9 @@ const slice = createSlice({
       })
 
       /** ─── Users ─── */
-      .addCase(loadUsers.pending, (s)=>{ s.loading = true; s.error = null; })
-      .addCase(loadUsers.fulfilled, (s,a)=>{ s.loading = false; s.users = a.payload?.data ?? a.payload ?? []; })
-      .addCase(loadUsers.rejected, (s,a)=>{ s.loading = false; s.error = a.error?.message || 'Failed to load users'; })
+      .addCase(loadUsers.pending, (s) => { s.loading = true; s.error = null; })
+      .addCase(loadUsers.fulfilled, (s, a) => { s.loading = false; s.users = a.payload?.data ?? a.payload ?? []; })
+      .addCase(loadUsers.rejected, (s, a) => { s.loading = false; s.error = a.error?.message || 'Failed to load users'; })
 
       /** ─── Ad-hoc Preview ─── */
       .addCase(fetchReportPreview.pending, (s) => { s.loadingPreview = true; s.error = null; s.preview = null; })
@@ -233,39 +261,69 @@ const slice = createSlice({
       })
 
       /** ─── Saved Reports: list & fetch ─── */
-      .addCase(loadSavedReports.pending, (s)=>{ s.savedLoading = true; s.error=null; })
-      .addCase(loadSavedReports.fulfilled, (s,a)=>{ s.savedLoading = false; s.saved = a.payload?.data ?? a.payload ?? []; })
-      .addCase(loadSavedReports.rejected, (s,a)=>{ s.savedLoading = false; s.error = a.error?.message || 'Failed to load saved reports'; })
+      .addCase(loadSavedReports.pending, (s) => { s.savedLoading = true; s.error = null; })
+      .addCase(loadSavedReports.fulfilled, (s, a) => { s.savedLoading = false; s.saved = a.payload?.data ?? a.payload ?? []; })
+      .addCase(loadSavedReports.rejected, (s, a) => { s.savedLoading = false; s.error = a.error?.message || 'Failed to load saved reports'; })
 
-      .addCase(fetchSavedReport.pending, (s)=>{ s.loading = true; s.error=null; s.currentSaved=null; })
-      .addCase(fetchSavedReport.fulfilled, (s,a)=>{ s.loading = false; s.currentSaved = a.payload?.data ?? a.payload ?? null; })
-      .addCase(fetchSavedReport.rejected, (s,a)=>{ s.loading = false; s.error = a.error?.message || 'Failed to load report'; })
+      .addCase(fetchSavedReport.pending, (s) => { s.loading = true; s.error = null; s.currentSaved = null; })
+      .addCase(fetchSavedReport.fulfilled, (s, a) => { s.loading = false; s.currentSaved = a.payload?.data ?? a.payload ?? null; })
+      .addCase(fetchSavedReport.rejected, (s, a) => { s.loading = false; s.error = a.error?.message || 'Failed to load report'; })
 
       /** ─── Saved Reports: create/update/delete ─── */
-      .addCase(createSavedReport.pending, (s)=>{ s.saving = true; s.error=null; })
-      .addCase(createSavedReport.fulfilled, (s,a)=>{ s.saving = false; s.currentSaved = a.payload?.data ?? a.payload ?? null; })
-      .addCase(createSavedReport.rejected, (s,a)=>{ s.saving = false; s.error = a.error?.message || 'Failed to save report'; })
+      .addCase(createSavedReport.pending, (s) => { s.saving = true; s.error = null; })
+      .addCase(createSavedReport.fulfilled, (s, a) => { s.saving = false; s.currentSaved = a.payload?.data ?? a.payload ?? null; })
+      .addCase(createSavedReport.rejected, (s, a) => { s.saving = false; s.error = a.error?.message || 'Failed to save report'; })
 
-      .addCase(updateSavedReport.pending, (s)=>{ s.saving = true; s.error=null; })
-      .addCase(updateSavedReport.fulfilled, (s,a)=>{ s.saving = false; s.currentSaved = a.payload?.data ?? a.payload ?? null; })
-      .addCase(updateSavedReport.rejected, (s,a)=>{ s.saving = false; s.error = a.error?.message || 'Failed to update report'; })
+      .addCase(updateSavedReport.pending, (s) => { s.saving = true; s.error = null; })
+      .addCase(updateSavedReport.fulfilled, (s, a) => { s.saving = false; s.currentSaved = a.payload?.data ?? a.payload ?? null; })
+      .addCase(updateSavedReport.rejected, (s, a) => { s.saving = false; s.error = a.error?.message || 'Failed to update report'; })
 
-      .addCase(deleteSavedReport.pending, (s)=>{ s.deleting = true; s.error=null; })
-      .addCase(deleteSavedReport.fulfilled, (s,a)=>{ s.deleting = false; s.saved = s.saved.filter(r => String(r.id) !== String(a.payload.id)); })
-      .addCase(deleteSavedReport.rejected, (s,a)=>{ s.deleting = false; s.error = a.error?.message || 'Failed to delete report'; })
+      .addCase(deleteSavedReport.pending, (s) => { s.deleting = true; s.error = null; })
+      .addCase(deleteSavedReport.fulfilled, (s, a) => { s.deleting = false; s.saved = s.saved.filter(r => String(r.id) !== String(a.payload.id)); })
+      .addCase(deleteSavedReport.rejected, (s, a) => { s.deleting = false; s.error = a.error?.message || 'Failed to delete report'; })
 
       /** ─── Saved Reports: preview & generate ─── */
-      .addCase(previewSavedReport.pending, (s)=>{ s.loadingPreview = true; s.preview=null; s.error=null; })
-      .addCase(previewSavedReport.fulfilled, (s,a)=>{ s.loadingPreview = false; s.preview = a.payload?.data ?? a.payload ?? null; })
-      .addCase(previewSavedReport.rejected, (s,a)=>{ s.loadingPreview = false; s.error = a.error?.message || 'Failed to preview report'; })
+      .addCase(previewSavedReport.pending, (s) => { s.loadingPreview = true; s.preview = null; s.error = null; })
+      .addCase(previewSavedReport.fulfilled, (s, a) => { s.loadingPreview = false; s.preview = a.payload?.data ?? a.payload ?? null; })
+      .addCase(previewSavedReport.rejected, (s, a) => { s.loadingPreview = false; s.error = a.error?.message || 'Failed to preview report'; })
 
-      .addCase(generateSavedReport.pending, (s)=>{ s.generating = true; s.lastDownloadUrl=null; s.error=null; })
-      .addCase(generateSavedReport.fulfilled, (s,a)=>{
+      .addCase(generateSavedReport.pending, (s) => { s.generating = true; s.lastDownloadUrl = null; s.error = null; })
+      .addCase(generateSavedReport.fulfilled, (s, a) => {
         s.generating = false;
         const res = a.payload?.data ?? a.payload ?? {};
         s.lastDownloadUrl = res.downloadUrl || res.url || null;
       })
-      .addCase(generateSavedReport.rejected, (s,a)=>{ s.generating = false; s.error = a.error?.message || 'Failed to generate report'; });
+      .addCase(generateSavedReport.rejected, (s, a) => { s.generating = false; s.error = a.error?.message || 'Failed to generate report'; })
+
+      /** ─── Analytics Overview ─── */
+      .addCase(loadAnalyticsOverview.pending, (s) => {
+        s.analytics.loading = true;
+        s.analytics.error = null;
+      })
+      .addCase(loadAnalyticsOverview.fulfilled, (s, a) => {
+        const data = a.payload?.data ?? a.payload ?? {};
+
+        s.analytics.loading = false;
+
+        s.analytics.cooccurrence        = data.cooccurrence ?? [];
+  s.analytics.cooccurrence_matrix = data.cooccurrence_matrix ?? null;
+  s.analytics.aggregated_matrix   = data.aggregated_matrix ?? null;
+
+
+
+        s.analytics.problemCounts = data.problem_counts ?? [];
+        s.analytics.solutionCounts = data.solution_counts ?? [];
+        s.analytics.rowPercentages = data.row_percentages ?? {};
+        s.analytics.dominantSolutions = data.dominant_solutions ?? [];
+        s.analytics.underexploredGaps = data.underexplored_gaps ?? [];
+      })
+      .addCase(loadAnalyticsOverview.rejected, (s, a) => {
+        s.analytics.loading = false;
+        s.analytics.error =
+          a.error?.message || 'Failed to load analytics overview';
+      });
+
+
   }
 });
 

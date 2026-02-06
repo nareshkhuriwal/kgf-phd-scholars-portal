@@ -3,10 +3,11 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useParams, useNavigate, useBlocker } from 'react-router-dom';
 
 import {
-  Box, Paper, Grid, Typography, Button, Stack, Chip, Alert,
+  Box, Paper, Grid, Typography, Button, Stack, Chip, Alert, TextField,
   Tabs, Tab, Divider, IconButton, Tooltip, useMediaQuery, useTheme,
-  Dialog, DialogTitle, DialogContent, DialogActions  // <-- ADD THESE 3
+  Dialog, DialogTitle, DialogContent, DialogActions, Autocomplete  // <-- ADD THESE 3
 } from '@mui/material';
+
 
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import MenuIcon from '@mui/icons-material/Menu';
@@ -25,6 +26,7 @@ import { SECTION_LIMITS } from '../../components/reviews/sectionLimits';
 import { extractCitationKeys, renumberCitations, buildCitationMap } from '../../utils/citations';
 import { fetchSettings } from '../../store/settingsSlice';
 import CitationPickerDialog from '../../components/citations/CitationPickerDialog';
+import { loadTags } from '../../store/tagsSlice';
 
 
 import {
@@ -49,6 +51,7 @@ const EDITOR_ORDER = [
   'Key advantages',
   'Limitations',
   'Citations',
+  'Tags',
   'Remarks'
 ];
 
@@ -128,6 +131,14 @@ export default function ReviewEditor() {
   const [lastSavedAt, setLastSavedAt] = React.useState(null);
   // const lastSavedContentRef = React.useRef({});
 
+  const { items: allTags } = useSelector(s => s.tags);
+  const problemTags = allTags.filter(t => t.type === 'problem');
+  const solutionTags = allTags.filter(t => t.type === 'solution');
+
+  const [selectedProblemTags, setSelectedProblemTags] = useState([]);
+  const [selectedSolutionTags, setSelectedSolutionTags] = useState([]);
+  const [tagsDirty, setTagsDirty] = useState(false);
+
   const [citationOpen, setCitationOpen] = React.useState(false);
   const editorRef = React.useRef(null);
   const [citeOpen, setCiteOpen] = React.useState(false);
@@ -187,6 +198,10 @@ export default function ReviewEditor() {
   useEffect(() => {
     console.log('Component mounted - loading settings...');
     dispatch(fetchSettings());
+  }, [dispatch]);
+
+  useEffect(() => {
+    dispatch(loadTags());
   }, [dispatch]);
 
   // ✅ Log when settings change
@@ -329,6 +344,22 @@ export default function ReviewEditor() {
       });
     }
 
+    // -------------------------------
+    // ✅ ADD THIS BLOCK (Tags hydrate)
+    // -------------------------------
+    if (Array.isArray(current.problem_tags)) {
+      setSelectedProblemTags(current.problem_tags);
+    } else {
+      setSelectedProblemTags([]);
+    }
+
+    if (Array.isArray(current.solution_tags)) {
+      setSelectedSolutionTags(current.solution_tags);
+    } else {
+      setSelectedSolutionTags([]);
+    }
+    // -------------------------------
+
     setSections(obj);
     savedContentRef.current = { ...obj }; // ✅ Initialize saved content
     hydratedRef.current = true;
@@ -363,20 +394,48 @@ export default function ReviewEditor() {
 
 
 
-  // ✅ ADD: Save current tab before switching
+  // ✅ Save current tab before switching
   const saveCurrentTab = useCallback(async (label, content) => {
-    if (!pid || !content) return false;
-
-    const savedContent = savedContentRef.current[label] || '';
-    if (content === savedContent) {
-      console.log('No changes to save for:', label);
-      return true;
-    }
+    if (!pid) return false;
 
     console.log('Saving section:', label);
     setSaving(true);
 
     try {
+      // -------------------------------------------------
+      // ✅ SPECIAL CASE: TAGS TAB (NO CKEDITOR CONTENT)
+      // -------------------------------------------------
+      if (label === 'Tags') {
+        console.log('Saving tags:', {
+          selectedProblemTags,
+          selectedSolutionTags
+        });
+        await dispatch(
+          saveReviewSection({
+            paperId: pid,
+            section_key: 'tags',
+            problem_tags: selectedProblemTags,
+            solution_tags: selectedSolutionTags,
+          })
+        ).unwrap();
+
+        setLastSavedAt(new Date());
+        setUnsavedChanges(false);
+        setTagsDirty(false);
+
+        console.log('Tags saved successfully');
+        return true;
+      }
+
+      // -------------------------------------------------
+      // ✅ NORMAL CKEDITOR SECTIONS
+      // -------------------------------------------------
+      const savedContent = savedContentRef.current[label] || '';
+      if (content === savedContent) {
+        console.log('No changes to save for:', label);
+        return true;
+      }
+
       // Extract and sync citations if Literature Review
       let citationKeys = [];
       if (label === 'Literature Review') {
@@ -384,10 +443,12 @@ export default function ReviewEditor() {
 
         if (citationKeys.length > 0) {
           try {
-            const syncResult = await dispatch(syncReviewCitations({
-              reviewId: pid,
-              citation_keys: citationKeys
-            })).unwrap();
+            const syncResult = await dispatch(
+              syncReviewCitations({
+                reviewId: pid,
+                citation_keys: citationKeys,
+              })
+            ).unwrap();
 
             const syncedCitations = syncResult?.citations || [];
             if (syncedCitations.length > 0) {
@@ -400,7 +461,7 @@ export default function ReviewEditor() {
         }
       }
 
-      // Save the section
+      // Save editor section
       await dispatch(
         saveReviewSection({
           paperId: pid,
@@ -422,7 +483,13 @@ export default function ReviewEditor() {
     } finally {
       setSaving(false);
     }
-  }, [pid, dispatch]);
+  }, [
+    pid,
+    dispatch,
+    selectedProblemTags,
+    selectedSolutionTags,
+  ]);
+
 
   // ✅ ADD: Handle tab change with auto-save
   const handleTabChange = useCallback(async (event, newTab) => {
@@ -434,7 +501,11 @@ export default function ReviewEditor() {
 
     // Check if current tab has unsaved changes
     const savedContent = savedContentRef.current[currentLabel] || '';
-    const hasChanges = currentContent !== savedContent;
+    // const hasChanges = currentContent !== savedContent;
+    const hasChanges =
+      currentLabel === 'Tags'
+        ? tagsDirty
+        : currentContent !== savedContent;
 
     if (hasChanges) {
       console.log('Unsaved changes detected, saving before tab switch...');
@@ -475,7 +546,12 @@ export default function ReviewEditor() {
     const currentContent = sections[currentLabel] || '';
     const savedContent = savedContentRef.current[currentLabel] || '';
 
-    if (currentContent !== savedContent) {
+    if (
+      currentLabel === 'Tags'
+        ? tagsDirty
+        : currentContent !== savedContent
+    ) {
+
       await saveCurrentTab(currentLabel, currentContent);
     }
 
@@ -487,7 +563,7 @@ export default function ReviewEditor() {
     }
   };
 
-    const Archived = async () => {
+  const Archived = async () => {
     // Save current tab first if there are unsaved changes
     const currentLabel = EDITOR_ORDER[tab];
     const currentContent = sections[currentLabel] || '';
@@ -515,48 +591,48 @@ export default function ReviewEditor() {
   };
 
 
-function insertCitationAtCursor(citation) {
-  const editor = editorRef.current;
-  if (!editor) return;
+  function insertCitationAtCursor(citation) {
+    const editor = editorRef.current;
+    if (!editor) return;
 
-  editor.model.change((writer) => {
-    const selection = editor.model.document.selection;
-    const position = selection.getFirstPosition();
+    editor.model.change((writer) => {
+      const selection = editor.model.document.selection;
+      const position = selection.getFirstPosition();
 
-    // ✅ Store ID in data-cite, not citation_key
-    const span = writer.createElement('htmlSpan', {
-      dataCite: String(citation.id), // Store ID, not citation_key
-      className: 'citation-token'
+      // ✅ Store ID in data-cite, not citation_key
+      const span = writer.createElement('htmlSpan', {
+        dataCite: String(citation.id), // Store ID, not citation_key
+        className: 'citation-token'
+      });
+
+      console.log("Inserted citation: ", citation);
+
+      // Use citation ID in the display text
+      const citationId = citation.id;
+      const textNode = writer.createText(`[${citationId}]`);
+      writer.append(textNode, span);
+
+      // Insert the span
+      writer.insert(span, position);
+
+      // Insert non-breaking space after
+      const nbsp = writer.createText('\u00A0');
+      const afterSpan = writer.createPositionAfter(span);
+      writer.insert(nbsp, afterSpan);
+
+      // Move selection after the space
+      const finalPosition = writer.createPositionAfter(nbsp);
+      writer.setSelection(finalPosition);
     });
 
-    console.log("Inserted citation: ", citation);
+    console.log("Citation inserted with ID:", citation.id, "Key:", citation.citation_key);
 
-    // Use citation ID in the display text
-    const citationId = citation.id;
-    const textNode = writer.createText(`[${citationId}]`);
-    writer.append(textNode, span);
-
-    // Insert the span
-    writer.insert(span, position);
-
-    // Insert non-breaking space after
-    const nbsp = writer.createText('\u00A0');
-    const afterSpan = writer.createPositionAfter(span);
-    writer.insert(nbsp, afterSpan);
-
-    // Move selection after the space
-    const finalPosition = writer.createPositionAfter(nbsp);
-    writer.setSelection(finalPosition);
-  });
-
-  console.log("Citation inserted with ID:", citation.id, "Key:", citation.citation_key);
-
-  // Update citation map immediately
-  setCitationMap(prev => ({
-    ...prev,
-    [citation.id]: citation
-  }));
-}
+    // Update citation map immediately
+    setCitationMap(prev => ({
+      ...prev,
+      [citation.id]: citation
+    }));
+  }
   const SaveStatus = ({ saving, unsavedChanges, lastSavedAt }) => {
     if (saving) {  // ✅ Just saving, no autoSaving
       return (
@@ -878,7 +954,12 @@ function insertCitationAtCursor(citation) {
 
                 <Box sx={{ flex: 1, minHeight: 0, p: { xs: 1, sm: 1.5 } }}>
                   {EDITOR_ORDER.map((label, i) => (
-                    <Box key={editorKeys[label]} role="tabpanel" hidden={tab !== i} sx={{ height: '100%' }}>
+                    <Box
+                      key={editorKeys[label]}
+                      role="tabpanel"
+                      hidden={tab !== i}
+                      sx={{ height: '100%' }}
+                    >
                       <Box
                         sx={{
                           height: '100%',
@@ -886,68 +967,144 @@ function insertCitationAtCursor(citation) {
                           flexDirection: 'column',
                         }}
                       >
-                        {tab === i && (
-                          <Box
-                            sx={{
-                              flex: 1,
-                              minHeight: 0,
-                              overflow: 'auto',
-                              '& .ck-editor__editable': {
-                                minHeight: { xs: '250px', sm: '300px' },
-                                padding: { xs: '12px', sm: '16px' },
-                                borderRadius: 6,
-                                fontSize: { xs: '0.875rem', sm: '1rem' }
-                              },
-                            }}
-                          >
-                            <CKEditor
-                              key={editorKeys[label]}
-                              editor={DecoupledEditor}
-                              data={sections[label] || ''}
-                              config={editorConfig}
-                              onReady={(editor) => {
-                                editorRef.current = editor;
-                                editor.on('openCitationPicker', () => {
-                                  setCitationOpen(true);
-                                })
-                                if (toolbarRef.current) {
-                                  toolbarRef.current.innerHTML = '';
-                                  toolbarRef.current.appendChild(editor.ui.view.toolbar.element);
-                                }
-                              }}
-                              onChange={(_, editor) => onEditorChange(label, editor)}
-                            />
+                        {/* =================================================
+            ✅ TAGS TAB (NO CKEDITOR, NO COUNTER)
+           ================================================= */}
+                        {label === 'Tags' && tab === i && (
+                          <Box sx={{ p: 2 }}>
+                            <Stack spacing={3}>
+                              {/* Problem Tags */}
+                              <Box>
+                                <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                                  Problem Tags
+                                </Typography>
+
+                                <Autocomplete
+                                  multiple
+                                  options={problemTags}
+                                  getOptionLabel={(o) => o.name}
+                                  value={problemTags.filter(t =>
+                                    selectedProblemTags.includes(t.id)
+                                  )}
+                                  onChange={(_, values) => {
+                                    setSelectedProblemTags(values.map(v => v.id));
+                                    setTagsDirty(true);
+                                    setUnsavedChanges(true);
+                                  }}
+
+                                  renderInput={(params) => (
+                                    <TextField
+                                      {...params}
+                                      placeholder="Select problem tags…"
+                                    />
+                                  )}
+                                />
+                              </Box>
+
+                              {/* Solution Tags */}
+                              <Box>
+                                <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                                  Solution Tags
+                                </Typography>
+
+                                <Autocomplete
+                                  multiple
+                                  options={solutionTags}
+                                  getOptionLabel={(o) => o.name}
+                                  value={solutionTags.filter(t =>
+                                    selectedSolutionTags.includes(t.id)
+                                  )}
+                                  onChange={(_, values) => {
+                                    setSelectedSolutionTags(values.map(v => v.id));
+                                    setTagsDirty(true);
+                                    setUnsavedChanges(true);
+                                  }}
+                                  renderInput={(params) => (
+                                    <TextField
+                                      {...params}
+                                      placeholder="Select solution tags…"
+                                    />
+                                  )}
+                                />
+                              </Box>
+                            </Stack>
                           </Box>
                         )}
 
-                        {(() => {
-                          const activeLabel = EDITOR_ORDER[tab];
-                          const meta = getCountMeta(activeLabel, wordCount, charCount);
-
-                          return (
-                            <Typography
-                              variant="caption"
+                        {/* =================================================
+            ✅ ALL OTHER TABS (CKEDITOR + COUNTER)
+           ================================================= */}
+                        {label !== 'Tags' && tab === i && (
+                          <>
+                            <Box
                               sx={{
-                                mt: 0.5,
-                                px: 1,
-                                py: 0.25,
-                                textAlign: 'right',
-                                color: meta.color,
-                                backgroundColor: '#fafafa',
-                                borderTop: '1px solid #eee',
-                                fontWeight: (meta.color === '#2e7d32') ? 600 : 400,
-                                display: 'block',
-                                fontSize: { xs: '0.65rem', sm: '0.75rem' }
+                                flex: 1,
+                                minHeight: 0,
+                                overflow: 'auto',
+                                '& .ck-editor__editable': {
+                                  minHeight: { xs: '250px', sm: '300px' },
+                                  padding: { xs: '12px', sm: '16px' },
+                                  borderRadius: 6,
+                                  fontSize: { xs: '0.875rem', sm: '1rem' }
+                                },
                               }}
                             >
-                              {meta.label}
-                            </Typography>
-                          );
-                        })()}
+                              <CKEditor
+                                key={editorKeys[label]}
+                                editor={DecoupledEditor}
+                                data={sections[label] || ''}
+                                config={editorConfig}
+                                onReady={(editor) => {
+                                  editorRef.current = editor;
+                                  editor.on('openCitationPicker', () => {
+                                    setCitationOpen(true);
+                                  });
+                                  if (toolbarRef.current) {
+                                    toolbarRef.current.innerHTML = '';
+                                    toolbarRef.current.appendChild(
+                                      editor.ui.view.toolbar.element
+                                    );
+                                  }
+                                }}
+                                onChange={(_, editor) =>
+                                  onEditorChange(label, editor)
+                                }
+                              />
+                            </Box>
+
+                            {/* Word / Character Counter (editor tabs only) */}
+                            {(() => {
+                              const activeLabel = EDITOR_ORDER[tab];
+                              const meta = getCountMeta(activeLabel, wordCount, charCount);
+
+                              return (
+                                <Typography
+                                  variant="caption"
+                                  sx={{
+                                    mt: 0.5,
+                                    px: 1,
+                                    py: 0.25,
+                                    textAlign: 'right',
+                                    color: meta.color,
+                                    backgroundColor: '#fafafa',
+                                    borderTop: '1px solid #eee',
+                                    fontWeight:
+                                      meta.color === '#2e7d32' ? 600 : 400,
+                                    display: 'block',
+                                    fontSize: { xs: '0.65rem', sm: '0.75rem' }
+                                  }}
+                                >
+                                  {meta.label}
+                                </Typography>
+                              );
+                            })()}
+                          </>
+                        )}
                       </Box>
                     </Box>
                   ))}
                 </Box>
+
               </Paper>
             </Grid>
           )}

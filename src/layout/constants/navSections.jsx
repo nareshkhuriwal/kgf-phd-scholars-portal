@@ -19,6 +19,7 @@ import PaymentIcon from '@mui/icons-material/Payment'; // new
 import ArticleOutlinedIcon from '@mui/icons-material/ArticleOutlined';
 import AutoStoriesOutlinedIcon from '@mui/icons-material/AutoStoriesOutlined';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
+import AssessmentIcon from '@mui/icons-material/Assessment';
 
 export const SECTIONS = [
   {
@@ -95,14 +96,22 @@ export const SECTIONS = [
     ],
   },
   {
-    key: 'reports',
-    label: 'Reports',
-    base: '/reports',
-    Icon: SummarizeIcon,
-    items: [
-      { to: '/reports', label: 'All Reports', Icon: DescriptionIcon },
-    ],
-  },
+  key: 'reports',
+  label: 'Reports',
+  base: '/reports',
+  Icon: SummarizeIcon,
+  items: [
+    { to: '/reports', label: 'All Reports', Icon: DescriptionIcon },
+
+    // ✅ NEW: Analytics Dashboard
+    {
+      to: '/reports/analytics',
+      label: 'Analytics',
+      Icon: AssessmentIcon,
+    },
+  ],
+},
+
   {
     key: 'researchers',
     label: 'Researchers',
