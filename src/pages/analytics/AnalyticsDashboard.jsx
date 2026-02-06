@@ -7,15 +7,15 @@ import AnalyticsCard from '../../components/analytics/AnalyticsCard';
 import { loadAnalyticsOverview } from '../../store/reportsSlice';
 
 const REPORT_CARDS = [
-    { key: 'cooccurrence_matrix', title: 'Problem × Solution Matrix', type: 'matrix' },
+  { key: 'cooccurrence_matrix', title: 'Problem × Solution Matrix', type: 'matrix' },
   { key: 'aggregated_matrix', title: 'Aggregated ROL Matrix', type: 'matrix' },
 
-  { key: 'cooccurrence',        title: 'Problem × Solution Co-occurrence', type: 'matrix' },
-  { key: 'problemCounts',       title: 'Problem Counts',                  type: 'bar' },
-  { key: 'solutionCounts',      title: 'Solution Counts',                 type: 'bar' },
-  { key: 'rowPercentages',      title: 'Row-wise Percentages',             type: 'stacked' },
-  { key: 'dominantSolutions',   title: 'Dominant Solutions',               type: 'bar' },
-  { key: 'underexploredGaps',   title: 'Underexplored Gaps',               type: 'scatter' },
+  { key: 'cooccurrence', title: 'Problem × Solution Co-occurrence', type: 'scatter' },
+  { key: 'problemCounts', title: 'Problem Counts', type: 'bar' },
+  { key: 'solutionCounts', title: 'Solution Counts', type: 'bar' },
+  { key: 'rowPercentages', title: 'Row-wise Percentages', type: 'stacked' },
+  { key: 'dominantSolutions', title: 'Dominant Solutions', type: 'bar' },
+  { key: 'underexploredGaps', title: 'Underexplored Gaps', type: 'scatter' },
 ];
 
 export default function AnalyticsDashboard() {
@@ -24,11 +24,11 @@ export default function AnalyticsDashboard() {
   const {
     loading,
     error,
-  cooccurrence,
-  cooccurrence_matrix,
-  aggregated_matrix,
+    cooccurrence,
+    cooccurrence_matrix,
+    aggregated_matrix,
 
-  problemCounts,
+    problemCounts,
     solutionCounts,
     rowPercentages,
     dominantSolutions,
@@ -56,11 +56,11 @@ export default function AnalyticsDashboard() {
   }
 
   const dataMap = {
-  cooccurrence,
-  cooccurrence_matrix,
-  aggregated_matrix,
+    cooccurrence,
+    cooccurrence_matrix,
+    aggregated_matrix,
 
-  problemCounts,
+    problemCounts,
     solutionCounts,
     rowPercentages,
     dominantSolutions,

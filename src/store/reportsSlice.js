@@ -165,8 +165,8 @@ const slice = createSlice({
       loading: false,
       error: null,
 
- cooccurrence_matrix: null,
-  aggregated_matrix: null,
+      cooccurrence_matrix: null,
+      aggregated_matrix: null,
 
       cooccurrence: [],
       problemCounts: [],
@@ -305,9 +305,9 @@ const slice = createSlice({
 
         s.analytics.loading = false;
 
-        s.analytics.cooccurrence        = data.cooccurrence ?? [];
-  s.analytics.cooccurrence_matrix = data.cooccurrence_matrix ?? null;
-  s.analytics.aggregated_matrix   = data.aggregated_matrix ?? null;
+        s.analytics.cooccurrence = data.cooccurrence ?? [];
+        s.analytics.cooccurrence_matrix = data.cooccurrence_matrix ?? null;
+        s.analytics.aggregated_matrix = data.aggregated_matrix ?? null;
 
 
 
