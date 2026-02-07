@@ -45,6 +45,12 @@ import {
   ReferenceLine,
 } from 'recharts';
 import { hasRoleAccess } from '../../utils/rbac';
+import DownloadIcon from '@mui/icons-material/Download';
+import ZoomOutMapIcon from '@mui/icons-material/ZoomOutMap';
+import IconButton from '@mui/material/IconButton';
+import TooltipMui from '@mui/material/Tooltip';
+import { Brush } from 'recharts';
+import { downloadChartAsPng } from '../../utils/charts';
 
 const StatCard = ({ label, value }) => (
   <Paper sx={{ p: 2, border: '1px solid #eee', borderRadius: 2 }}>
@@ -99,6 +105,7 @@ export default function Overview() {
   const [primaryKey, setPrimaryKey] = React.useState('');
   // Secondary dropdown: specific user id
   const [selectedUserId, setSelectedUserId] = React.useState('');
+  const [yearZoomKey, setYearZoomKey] = React.useState(0);
 
 
   const weeklyEfficiencyRows = React.useMemo(() => {
@@ -921,8 +928,20 @@ export default function Overview() {
                     <CartesianGrid strokeDasharray="3 3" />
 
                     <XAxis dataKey="label" />
-                    <YAxis yAxisId="left" allowDecimals={false} />
-                    <YAxis yAxisId="right" orientation="right" allowDecimals={false} />
+                    <YAxis
+                      yAxisId="left"
+                      allowDecimals={false}
+                      tick={{ fill: '#374151', fontSize: 12 }}
+                      label={{ value: 'Daily Count', angle: -90, position: 'insideLeft' }}
+                    />
+
+                    <YAxis
+                      yAxisId="right"
+                      orientation="right"
+                      allowDecimals={false}
+                      tick={{ fill: '#6366F1', fontSize: 12 }}
+                      label={{ value: 'Cumulative', angle: 90, position: 'insideRight' }}
+                    />
 
                     <Tooltip />
                     <Legend
@@ -931,49 +950,46 @@ export default function Overview() {
                     />
 
                     <Line
+                      yAxisId="left"
                       type="monotone"
                       dataKey="added"
                       name="Added"
                       stroke="#0EA5E9"
-                      strokeWidth={visibleLines.added ? 2 : 1}
-                      strokeOpacity={visibleLines.added ? 1 : 0.15}
-                      dot={visibleLines.added}
+                      dot
                       isAnimationActive={false}
                     />
 
                     <Line
+                      yAxisId="left"
                       type="monotone"
                       dataKey="reviewed"
                       name="Reviewed"
                       stroke="#22C55E"
-                      strokeWidth={visibleLines.reviewed ? 2 : 1}
-                      strokeOpacity={visibleLines.reviewed ? 1 : 0.15}
-                      dot={visibleLines.reviewed}
+                      dot
                       isAnimationActive={false}
                     />
 
                     <Line
+                      yAxisId="left"
                       type="monotone"
                       dataKey="started"
                       name="In Review"
                       stroke="#F59E0B"
-                      strokeWidth={visibleLines.started ? 2 : 1}
-                      strokeOpacity={visibleLines.started ? 1 : 0.15}
-                      dot={visibleLines.started}
+                      dot
                       isAnimationActive={false}
                     />
 
                     <Line
+                      yAxisId="right"
                       type="monotone"
                       dataKey="cumulativeReviewed"
                       name="Cumulative Reviewed"
                       stroke="#6366F1"
                       strokeDasharray="5 5"
-                      strokeWidth={visibleLines.cumulativeReviewed ? 2 : 1}
-                      strokeOpacity={visibleLines.cumulativeReviewed ? 1 : 0.15}
                       dot={false}
                       isAnimationActive={false}
                     />
+
 
                   </LineChart>
 
@@ -1237,40 +1253,80 @@ export default function Overview() {
                   <Typography variant="subtitle1">
                     Papers by Publication Year
                   </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Year-wise count
-                  </Typography>
+
+                  <Stack direction="row" spacing={0.5}>
+                    <TooltipMui title="Reset Zoom">
+                      <IconButton
+                        size="small"
+                        onClick={() => setYearZoomKey((k) => k + 1)}
+                      >
+                        <ZoomOutMapIcon fontSize="small" />
+                      </IconButton>
+                    </TooltipMui>
+
+                    <TooltipMui title="Download chart">
+                      <IconButton
+                        size="small"
+                        onClick={() =>
+                          downloadChartAsPng(
+                            'papers-by-year-chart',
+                            'papers_by_publication_year.png'
+                          )
+                        }
+                      >
+                        <DownloadIcon fontSize="small" />
+                      </IconButton>
+                    </TooltipMui>
+                  </Stack>
                 </Stack>
+
 
                 <Divider sx={{ mb: 1 }} />
 
                 <Box sx={{ flex: 1 }}>
                   {yearlyRows.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={yearlyRows}
-                        margin={{ left: 16, right: 16, top: 12, bottom: 48 }}
-                        barCategoryGap={12}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="year" />
-                        <YAxis allowDecimals={false} />
-                        <Tooltip />
-                        <Bar
-                          dataKey="papers"
-                          name="Total Papers"
-                          fill="#6366F1"
-                          radius={[4, 4, 0, 0]}
-                        >
-                          <LabelList
-                            dataKey="papers"
-                            position="top"
-                            style={{ fill: '#1F2937', fontSize: 12, fontWeight: 600 }}
-                          />
-                        </Bar>
 
-                      </BarChart>
-                    </ResponsiveContainer>
+                    <Box
+                      id="papers-by-year-chart"
+                      sx={{ width: '100%', height: '100%' }}
+                    >
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          key={yearZoomKey}
+                          id="papers-by-year-chart"
+                          data={yearlyRows}
+                          margin={{ left: 16, right: 16, top: 12, bottom: 48 }}
+                          barCategoryGap={12}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="year" />
+                          <YAxis allowDecimals={false} />
+                          <Tooltip />
+
+                          {/* 🔍 ZOOM CONTROL */}
+                          {/* <Brush
+      dataKey="year"
+      height={22}
+      travellerWidth={10}
+      stroke="#6366F1"
+    /> */}
+
+                          <Bar
+                            dataKey="papers"
+                            name="Total Papers"
+                            fill="#6366F1"
+                            radius={[4, 4, 0, 0]}
+                          >
+                            <LabelList
+                              dataKey="papers"
+                              position="top"
+                              style={{ fill: '#1F2937', fontSize: 12, fontWeight: 600 }}
+                            />
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </Box>
+
                   ) : (
                     <Typography variant="body2" color="text.secondary">
                       No year-wise data available.
