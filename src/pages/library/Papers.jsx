@@ -38,6 +38,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import RateReviewIcon from '@mui/icons-material/RateReview';
 import { useTheme, useMediaQuery } from '@mui/material';
 import { initialsOf } from '../../utils/text/cleanRich';
+import useDebounce from '../../hooks/useDebounce';
 
 // --- helpers to read fields regardless of API casing ---
 const val = (row, keys) => {
@@ -123,6 +124,7 @@ export default function Papers() {
 
   const userRole = useSelector(s => s.auth?.user?.role);
   const isResearcher = userRole === 'researcher';
+const debouncedQuery = useDebounce(query, 400);
 
   // Review status helpers
 const isAddedForReview = (row) => {
@@ -192,37 +194,13 @@ const isAddedForReview = (row) => {
   }, [list]);
 
   // ----- search (client-side over current page's rows) -----
-  const filtered = React.useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return all;
-    return all.filter(r => {
-      const s = [
-        val(r, ['title', 'Title']),
-        val(r, ['authors', 'Author(s)']),
-        val(r, ['year', 'Year']),
-        val(r, ['doi', 'DOI']),
-        val(r, ['journal', 'Name of Journal/Conference']),
-        val(r, ['category', 'Category of Paper'])
-      ].join(' ').toLowerCase();
-      return s.includes(q);
-    });
-  }, [all, query]);
+
 
   // ----- sorting + pagination for display -----
   // If a search query is present we sort client-side (over `filtered`) then paginate locally.
   // If no query, rely on server-side sort (we asked server with sort_by/sort_dir) and display `all`.
-  const rows = React.useMemo(() => {
-    if (query) {
-      // client side sort then paginate
-      const fld = sortBy || 'id';
-      const dir = sortDir || 'asc';
-      const sorted = [...filtered].sort((a, b) => compare(a, b, fld, dir));
-      const start = page * rowsPerPage;
-      return sorted.slice(start, start + rowsPerPage);
-    }
-    // server pagination + sorting: `all` is already the page we received
-    return all;
-  }, [query, filtered, all, page, rowsPerPage, sortBy, sortDir]);
+  const rows = all;
+
 
   // ----- selection helpers -----
   const pageIds = React.useMemo(() => rows.map(idOf).filter(Boolean), [rows]);
@@ -303,41 +281,37 @@ const isAddedForReview = (row) => {
   };
 
   // ----- sorting: handler that requests server when no query, or only changes local sort if query active -----
-  const handleSort = (colKey) => {
-    const field = COLUMN_TO_FIELD[colKey] ?? colKey;
-    const isSame = sortBy === field;
-    const nextDir = isSame ? (sortDir === 'asc' ? 'desc' : 'asc') : 'asc';
+ const handleSort = (colKey) => {
+  const field = COLUMN_TO_FIELD[colKey] ?? colKey;
+  const nextDir =
+    sortBy === field && sortDir === 'asc' ? 'desc' : 'asc';
 
-    setSortBy(field);
-    setSortDir(nextDir);
+  setSortBy(field);
+  setSortDir(nextDir);
+  setPage(0);
 
-    // reset to first page
-    // setPage(0);
-    // 
-    // If there's an active search (client-side), we don't call server; sorting is applied client-side.
-    if (query) {
-      // rows will recompute because sortBy/sortDir changed (useMemo)
-      return;
-    }
+  dispatch(loadPapers({
+    page: 1,
+    perPage: rowsPerPage,
+    search: query || undefined,
+    sort_by: field,
+    sort_dir: nextDir,
+  }));
+};
 
-    // otherwise call backend to request fresh sorted page
-    // dispatch(loadPapers({
-    //   page: 1,
-    //   perPage: rowsPerPage,
-    //   query: undefined,
-    //   sort_by: field,
-    //   sort_dir: nextDir
-    // }));
+React.useEffect(() => {
+  // Reset to first page when search changes
+  setPage(0);
 
-    dispatch(loadPapers({
-      page: page + 1, // 👈 KEEP CURRENT PAGE
-      perPage: rowsPerPage,
-      sort_by: field,
-      sort_dir: nextDir
-    }));
+  dispatch(loadPapers({
+    page: 1,
+    perPage: rowsPerPage,
+    search: debouncedQuery || undefined,
+    sort_by: sortBy,
+    sort_dir: sortDir,
+  }));
+}, [debouncedQuery, rowsPerPage, sortBy, sortDir, dispatch]);
 
-
-  };
 
 
   return (
@@ -389,11 +363,13 @@ const isAddedForReview = (row) => {
 
       <Paper sx={{ p: 1.5, border: '1px solid #eee', borderRadius: 2, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
         <Box sx={{ mb: 1.5 }}>
+         
           <SearchBar
-            value={query}
-            onChange={(v) => { setQuery(v); setPage(0); }}
-            placeholder="Search title, authors, year, DOI…"
-          />
+  value={query}
+  onChange={(v) => setQuery(v)}
+  placeholder="Search title, authors, year, DOI…"
+/>
+
         </Box>
 
         {loading ? (
@@ -648,37 +624,39 @@ const isAddedForReview = (row) => {
             </TableContainer>
 
             <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <TablePagination
-                component="div"
-                count={meta?.total ?? filtered.length}
-                page={meta?.current_page ? meta.current_page - 1 : page}
-                onPageChange={(_e, newPage) => {
-                  setPage(newPage);
-                  dispatch(loadPapers({
-                    page: newPage + 1,
-                    perPage: rowsPerPage,
-                    query: query || undefined,
-                    sort_by: !query ? sortBy : undefined,
-                    sort_dir: !query ? sortDir : undefined
-                  }));
-                }}
-                rowsPerPage={rowsPerPage}
-                onRowsPerPageChange={e => {
-                  const next = parseInt(e.target.value, 10);
-                  setRpp(next);
-                  setPage(0);
-                  dispatch(loadPapers({
-                    page: 1,
-                    perPage: next,
-                    query: query || undefined,
-                    sort_by: !query ? sortBy : undefined,
-                    sort_dir: !query ? sortDir : undefined
-                  }));
-                }}
-                rowsPerPageOptions={[10, 25, 50, 100]}
-                showFirstButton
-                showLastButton
-              />
+             <TablePagination
+  component="div"
+  count={meta?.total ?? 0}
+  page={meta?.current_page ? meta.current_page - 1 : 0}
+  rowsPerPage={rowsPerPage}
+  onPageChange={(_, newPage) => {
+    setPage(newPage);
+    dispatch(loadPapers({
+      page: newPage + 1,
+      perPage: rowsPerPage,
+      search: query || undefined,
+      sort_by: sortBy,
+      sort_dir: sortDir,
+    }));
+  }}
+  onRowsPerPageChange={(e) => {
+    const next = parseInt(e.target.value, 10);
+    setRpp(next);
+    setPage(0);
+
+    dispatch(loadPapers({
+      page: 1,
+      perPage: next,
+      search: query || undefined,
+      sort_by: sortBy,
+      sort_dir: sortDir,
+    }));
+  }}
+  rowsPerPageOptions={[10, 25, 50, 100]}
+  showFirstButton
+  showLastButton
+/>
+
             </Box>
           </>
         )}
