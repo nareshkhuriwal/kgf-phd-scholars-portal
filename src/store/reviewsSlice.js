@@ -3,13 +3,33 @@ import { apiFetch } from '../services/api';
 
 /* ---------- Queue APIs ---------- */
 
-export const loadReviewQueue = createAsyncThunk('reviews/loadQueue', async () => {
-  return await apiFetch('/reviews/queue', { method: 'GET' });
-});
+export const loadReviewQueue = createAsyncThunk(
+  'reviews/loadQueue',
+  async (params = {}, { rejectWithValue }) => {
+    try {
+      const res = await apiFetch('/reviews/queue', {
+        params: {
+          page: params.page,
+          per_page: params.perPage,
+          search: params.search,
+          status: params.status,
+          sort_by: params.sort_by,
+          sort_dir: params.sort_dir,
+        },
+      });
+
+      return res;
+    } catch (e) {
+      return rejectWithValue(e.response?.data || e.message);
+    }
+  }
+);
+
 
 export const addToQueue = createAsyncThunk('reviews/addToQueue', async (paperId) => {
   return await apiFetch('/reviews/queue', { method: 'POST', body: { paperId } });
 });
+
 
 export const removeFromQueue = createAsyncThunk('reviews/removeFromQueue', async (paperId) => {
   await apiFetch(`/reviews/queue/${paperId}`, { method: 'DELETE' });
@@ -116,7 +136,7 @@ const slice = createSlice({
   initialState: {
     queue: [],
     current: null,
-    
+
     // Citations state
     citations: [],
     citationRefs: [],
@@ -124,13 +144,13 @@ const slice = createSlice({
     citationsCount: 0,
     citationsLoading: false,
     citationsError: null,
-    
+
     loading: false,
     error: null
   },
   reducers: {
     clearCurrentReview: (s) => { s.current = null; },
-    clearCitations: (s) => { 
+    clearCitations: (s) => {
       s.citations = [];
       s.citationsCount = 0;
       s.currentStyle = 'mla';
@@ -139,14 +159,17 @@ const slice = createSlice({
   extraReducers: (b) => {
     b
       /* Queue */
-      .addCase(loadReviewQueue.pending, (s) => { 
-        s.loading = true; 
-        s.error = null; 
+      .addCase(loadReviewQueue.pending, (s) => {
+        s.loading = true;
+        s.error = null;
       })
+
       .addCase(loadReviewQueue.fulfilled, (s, a) => {
         s.loading = false;
-        s.queue = a.payload?.data ?? a.payload ?? [];
+        s.queue = a.payload?.data ?? [];
+        s.meta = a.payload?.meta ?? null;   // ✅ REQUIRED
       })
+
       .addCase(loadReviewQueue.rejected, (s, a) => {
         s.loading = false;
         s.error = a.error?.message || 'Failed to load queue';
@@ -160,9 +183,9 @@ const slice = createSlice({
       })
 
       /* Load review */
-      .addCase(loadReview.pending, (s) => { 
-        s.loading = true; 
-        s.error = null; 
+      .addCase(loadReview.pending, (s) => {
+        s.loading = true;
+        s.error = null;
       })
       .addCase(loadReview.fulfilled, (s, a) => {
         s.loading = false;
@@ -181,9 +204,9 @@ const slice = createSlice({
         } else if (s.current) {
           const { review_sections } = a.meta.arg || {};
           if (review_sections) {
-            s.current.review_sections = { 
-              ...(s.current.review_sections || {}), 
-              ...review_sections 
+            s.current.review_sections = {
+              ...(s.current.review_sections || {}),
+              ...review_sections
             };
           }
         }
@@ -221,7 +244,7 @@ const slice = createSlice({
       })
 
       /* ---------- Citations ---------- */
-      
+
       // Sync citations
       .addCase(syncReviewCitations.pending, (s) => {
         s.error = null;

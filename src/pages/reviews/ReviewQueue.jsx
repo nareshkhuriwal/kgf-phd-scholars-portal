@@ -3,7 +3,7 @@ import React from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   Box, Paper, Stack, Button, Table, TableHead, TableRow, TableCell, TableBody,
-  TableContainer, TablePagination, Chip, Typography
+  TableContainer, TablePagination, Chip, Typography, Select, MenuItem, FormControl, InputLabel,
 } from '@mui/material';
 import PageHeader from '../../components/PageHeader';
 import SearchBar from '../../components/SearchBar';
@@ -19,17 +19,14 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { useTheme, useMediaQuery } from '@mui/material';
 import { initialsOf } from '../../utils/text/cleanRich';
+import useDebounce from '../../hooks/useDebounce';
 
 const PAGINATION_KEY = 'reviewQueue.pagination';
+
 
 export default function ReviewQueue() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { queue, loading, error } = useSelector(s => s.reviews || { queue: [] });
-
-  const [query, setQuery] = React.useState('');
-  // const [page, setPage] = React.useState(0);
-  // const [rpp, setRpp] = React.useState(10);
 
   const persisted = React.useMemo(() => {
     try {
@@ -38,16 +35,9 @@ export default function ReviewQueue() {
       return {};
     }
   }, []);
-
-  const [page, setPage] = React.useState(persisted.page ?? 0);
-  const [rpp, setRpp] = React.useState(persisted.rpp ?? 10);
-
-
   const [confirm, setConfirm] = React.useState(null);
 
   // 🔽 SORT STATE
-  const [sortBy, setSortBy] = React.useState(null);   // column key
-  const [sortDir, setSortDir] = React.useState('asc'); // asc | desc
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
@@ -55,10 +45,39 @@ export default function ReviewQueue() {
   const userRole = useSelector(s => s.auth?.user?.role);
   const isResearcher = userRole === 'researcher';
 
+  const { queue, meta, loading, error } = useSelector(s => s.reviews);
+
+  const [page, setPage] = React.useState(persisted.page ?? 0);
+  const [rpp, setRpp] = React.useState(persisted.rpp ?? 10);
+  const [query, setQuery] = React.useState('');
+  const [status, setStatus] = React.useState('');
+  const [sortBy, setSortBy] = React.useState('updated_at');
+  const [sortDir, setSortDir] = React.useState('desc');
+  const debouncedQuery = useDebounce(query, 400);
+
+
+  const STATUS_OPTIONS = React.useMemo(() => ([
+    { value: '', label: 'All Status' },
+    { value: 'draft', label: 'Draft' },
+    { value: 'in_progress', label: 'In Progress' },
+    { value: 'done', label: 'Reviewed' },
+    { value: 'archived', label: 'Archived' },
+  ]), []);
+
+  const rows = queue || [];
+
 
   React.useEffect(() => {
-    dispatch(loadReviewQueue());
-  }, [dispatch]);
+    dispatch(loadReviewQueue({
+      page: page + 1,
+      perPage: rpp,
+      search: debouncedQuery || undefined,
+      status: status || undefined,
+      sort_by: sortBy,
+      sort_dir: sortDir,
+    }));
+  }, [dispatch, page, rpp, debouncedQuery, status, sortBy, sortDir]);
+
 
   React.useEffect(() => {
     localStorage.setItem(
@@ -82,56 +101,7 @@ export default function ReviewQueue() {
     setPage(0);
   };
 
-  // 🔽 SORT FUNCTION
-  const sortRows = React.useCallback((rows) => {
-    if (!sortBy) return rows;
 
-    const dir = sortDir === 'asc' ? 1 : -1;
-
-    return [...rows].sort((a, b) => {
-      let av = a?.[sortBy];
-      let bv = b?.[sortBy];
-
-      // handle dates (updated_at)
-      if (sortBy === 'updated_at') {
-        av = av ? new Date(av).getTime() : 0;
-        bv = bv ? new Date(bv).getTime() : 0;
-        return (av - bv) * dir;
-      }
-
-      // numbers
-      if (typeof av === 'number' && typeof bv === 'number') {
-        return (av - bv) * dir;
-      }
-
-      // strings
-      return String(av ?? '').localeCompare(String(bv ?? '')) * dir;
-    });
-
-
-  }, [sortBy, sortDir]);
-
-  // 🔽 SEARCH + SORT (existing behavior preserved)
-  const filtered = React.useMemo(() => {
-    const q = query.trim().toLowerCase();
-    let rows = queue || [];
-
-    if (q) {
-      rows = rows.filter(p =>
-        [p?.title, p?.authors, p?.doi, p?.year]
-          .join(' ')
-          .toLowerCase()
-          .includes(q)
-      );
-      if (page !== 0) setPage(0);
-    }
-
-
-    return sortRows(rows);
-  }, [queue, query, sortRows]);
-
-  const start = page * rpp;
-  const rows = filtered.slice(start, start + rpp);
 
   const sortIcon = (col) =>
     sortBy === col ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
@@ -170,11 +140,36 @@ export default function ReviewQueue() {
         }}
       >
         <Box sx={{ mb: 1.5 }}>
-          <SearchBar
-            value={query}
-            onChange={setQuery}
-            placeholder="Search title, authors, DOI…"
-          />
+
+          <Stack direction="row" spacing={2}>
+            <SearchBar
+              value={query}
+              onChange={setQuery}
+              placeholder="Search title, authors, DOI…"
+            />
+
+            <FormControl size="small" sx={{ minWidth: 160 }}>
+              <Select
+                value={status}
+                displayEmpty
+                onChange={(e) => {
+                  setStatus(e.target.value);
+                  setPage(0);
+                }}
+              >
+                <MenuItem value="">
+                  <em>All Status</em>
+                </MenuItem>
+
+                <MenuItem value="draft">Draft</MenuItem>
+                <MenuItem value="in_progress">In Progress</MenuItem>
+                <MenuItem value="done">Reviewed</MenuItem>
+                <MenuItem value="archived">Archived</MenuItem>
+              </Select>
+            </FormControl>
+
+          </Stack>
+
         </Box>
 
         {loading ? (
@@ -262,8 +257,8 @@ export default function ReviewQueue() {
                   </TableRow>
                 ) : (
                   rows.map(r => (
-                    <TableRow hover key={r.id}> 
-                    <TableCell>
+                    <TableRow hover key={r.id}>
+                      <TableCell>
                         {r.id}
                       </TableCell>
                       <TableCell>
@@ -366,11 +361,13 @@ export default function ReviewQueue() {
         <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
           <TablePagination
             component="div"
-            count={filtered.length}
-            page={page}
-            onPageChange={(_, p) => setPage(p)}
+            count={meta?.total ?? 0}
+            page={meta?.current_page ? meta.current_page - 1 : 0}
             rowsPerPage={rpp}
-            onRowsPerPageChange={e => {
+            onPageChange={(_, newPage) => {
+              setPage(newPage);
+            }}
+            onRowsPerPageChange={(e) => {
               setRpp(parseInt(e.target.value, 10));
               setPage(0);
             }}
@@ -378,6 +375,8 @@ export default function ReviewQueue() {
             showFirstButton
             showLastButton
           />
+
+
         </Box>
       </Paper>
 
