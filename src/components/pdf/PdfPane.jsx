@@ -613,7 +613,14 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
     <div
       ref={containerRef}
       className={`pdf-wrapper ${isFullscreen ? 'fullscreen' : ''}`}
+      style={{
+        position: 'relative',   // ✅ REQUIRED
+        width: '100%',
+        height: '100%',
+        overflow: 'hidden',
+      }}
     >
+
 
       <HighlightToolbar
         enabled={enabled} setEnabled={setEnabled}
@@ -662,7 +669,16 @@ function PdfPaneInner({ fileUrl, paperId, initialScale = 1.1, onHighlightsChange
       )}
 
 
-      <div className="pdf-pane" ref={paneRef}>
+      <div
+        className="pdf-pane"
+        ref={paneRef}
+        style={{
+          height: '100%',
+          overflow: 'auto',
+          position: 'relative',
+        }}
+      >
+
         {pages.map((p, i) => (
           <PdfPage
             key={p.index}
