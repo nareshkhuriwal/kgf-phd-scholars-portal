@@ -21,6 +21,8 @@ import { CHAPTER_SECTIONS } from '../../config/chapterSections';
 import { CKEditor } from '@ckeditor/ckeditor5-react';
 // import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
 import DecoupledEditor from '@ckeditor/ckeditor5-build-decoupled-document';
+import ZoomOutMapIcon from '@mui/icons-material/ZoomOutMap';
+import CloseFullscreenIcon from '@mui/icons-material/CloseFullscreen';
 
 
 const TARGETS = {
@@ -137,6 +139,7 @@ export default function ChapterEditor() {
   const [typeChanged, setTypeChanged] = React.useState(false);
   const [chapterSection, setChapterSection] = React.useState('overview');
 
+  const [isFullscreen, setIsFullscreen] = React.useState(false);
 
   const { words: WORD_TARGET, chars: CHAR_GOOD } =
     TARGETS[chapterType] || TARGETS.thesis_chapter;
@@ -168,6 +171,16 @@ export default function ChapterEditor() {
   }, [chapter?.id]);
 
 
+  React.useEffect(() => {
+    if (isFullscreen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isFullscreen]);
 
   // Ctrl/Cmd+S to save (unconditional hook)
   React.useEffect(() => {
@@ -555,49 +568,57 @@ export default function ChapterEditor() {
             p: 2,
             display: 'flex',
             flexDirection: 'column',
-            height: 520,
-            maxWidth: '100%',           // 🔒 CRITICAL
-            overflow: 'hidden',         // 🔒 stop page overflow
-            borderRadius: 2,
 
-            /* CKEditor root */
+            /* 🔥 FULLSCREEN MODE */
+            ...(isFullscreen && {
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              width: '100vw',
+              height: '100vh',
+              zIndex: (t) => t.zIndex.modal + 1,
+              borderRadius: 0,
+              p: 2,
+              bgcolor: 'background.paper',
+            }),
+
+            /* NORMAL MODE */
+            ...(!isFullscreen && {
+              height: 520,
+              borderRadius: 2,
+            }),
+
+            maxWidth: '100%',
+            overflow: 'hidden',
+
             '& .ck-editor': {
               flex: 1,
               display: 'flex',
               flexDirection: 'column',
               maxWidth: '100%',
-              overflow: 'hidden',       // 🔒 contain overflow
+              overflow: 'hidden',
               border: '1px solid #e0e0e0',
               borderRadius: 1,
             },
 
-            /* Editable area */
             '& .ck-editor__editable': {
               flex: 1,
               minHeight: 0,
               padding: '16px',
-              maxWidth: '100%',         // 🔒 HARD STOP WIDTH
+              maxWidth: '100%',
               overflowY: 'auto',
-              overflowX: 'auto',        // ✅ horizontal scrollbar
+              overflowX: 'auto',
               whiteSpace: 'normal',
-              wordBreak: 'break-word',  // 🔥 handles long strings
+              wordBreak: 'break-word',
               boxSizing: 'border-box',
             },
 
-            /* Ensure CK content respects width */
-            '& .ck-content': {
-              maxWidth: '100%',
-              overflowX: 'auto',
-            },
-
-            /* Tables must scroll, not expand */
             '& .ck-content table': {
               display: 'block',
               maxWidth: '100%',
               overflowX: 'auto',
             },
 
-            /* Images never expand container */
             '& .ck-content img': {
               maxWidth: '100%',
               height: 'auto',
@@ -607,7 +628,39 @@ export default function ChapterEditor() {
 
 
 
-          <Typography variant="subtitle1" sx={{ mb: 1.5 }}>Body</Typography>
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+            sx={{
+              mb: 1.5,
+              minHeight: 40,
+              px: 1,
+            }}
+          >
+            <Typography variant="subtitle1">Body</Typography>
+
+            <Tooltip title={isFullscreen ? 'Exit focus mode' : 'Focus writing mode'}>
+              <IconButton
+                onClick={() => setIsFullscreen(v => !v)}
+                size="small"
+                sx={{
+                  width: 32,
+                  height: 32,
+                  p: 0.5,
+                  pr: 1,
+                }}
+              >
+                {isFullscreen ? (
+                  <CloseFullscreenIcon fontSize="small" />
+                ) : (
+                  <ZoomOutMapIcon fontSize="small" />
+                )}
+              </IconButton>
+            </Tooltip>
+          </Stack>
+
+
           <Divider sx={{ mb: 2 }} />
           {isLoaded ? (
             <>
