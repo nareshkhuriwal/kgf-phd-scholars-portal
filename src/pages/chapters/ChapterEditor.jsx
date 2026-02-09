@@ -132,8 +132,6 @@ export default function ChapterEditor() {
   const [charCount, setCharCount] = React.useState(0);
   const [wordCount, setWordCount] = React.useState(0);
 
-  const [autoSaving, setAutoSaving] = React.useState(false);
-  const [lastSavedAt, setLastSavedAt] = React.useState(null);
 
   const [chapterType, setChapterType] = React.useState('thesis_chapter');
   const [typeChanged, setTypeChanged] = React.useState(false);
@@ -292,94 +290,40 @@ export default function ChapterEditor() {
     }
   };
 
-  // ---------------- AUTOSAVE CHAPTER ----------------
-  React.useEffect(() => {
-    if (!isLoaded) return;
-    if (!isDirty) return;
-    if (!body) return;
 
-    setAutoSaving(true);
+const SaveStatus = ({ saving, isDirty }) => {
+  if (saving) {
+    return (
+      <Stack direction="row" spacing={0.75} alignItems="center">
+        <LinearProgress sx={{ width: 60, height: 3, borderRadius: 1 }} />
+        <Typography variant="caption" color="text.secondary">
+          Saving…
+        </Typography>
+      </Stack>
+    );
+  }
 
-    const t = setTimeout(async () => {
-      try {
-        await dispatch(
-          updateChapter({
-            id: cid,
-            changes: {
-              title,
-              chapter_type: chapterType,
-              chapter_section: chapterSection,
-              body_html: btoa(unescape(encodeURIComponent(body))),
-            },
-            autosave: true, // optional backend hint
-          })
-        ).unwrap();
+  if (isDirty) {
+    return (
+      <Stack direction="row" spacing={0.75} alignItems="center">
+        <Box
+          sx={{
+            width: 8,
+            height: 8,
+            borderRadius: '50%',
+            bgcolor: '#ed6c02',
+          }}
+        />
+        <Typography variant="caption" color="text.secondary">
+          Unsaved changes
+        </Typography>
+      </Stack>
+    );
+  }
 
-        setLastSavedAt(new Date());
-      } finally {
-        setAutoSaving(false);
-      }
-    }, 1500); // ⏱ debounce window
+  return null;
+};
 
-    return () => clearTimeout(t);
-  }, [cid, title, body, chapterType, isLoaded, isDirty, dispatch]);
-
-  const SaveStatus = ({ saving, autoSaving, isDirty, lastSavedAt }) => {
-    if (saving || autoSaving) {
-      return (
-        <Stack direction="row" spacing={0.75} alignItems="center">
-          <LinearProgress
-            sx={{
-              width: 60,
-              height: 3,
-              borderRadius: 1,
-            }}
-          />
-          <Typography variant="caption" color="text.secondary">
-            Saving…
-          </Typography>
-        </Stack>
-      );
-    }
-
-    if (isDirty) {
-      return (
-        <Stack direction="row" spacing={0.75} alignItems="center">
-          <Box
-            sx={{
-              width: 8,
-              height: 8,
-              borderRadius: '50%',
-              bgcolor: '#ed6c02', // warning
-            }}
-          />
-          <Typography variant="caption" color="text.secondary">
-            Unsaved changes
-          </Typography>
-        </Stack>
-      );
-    }
-
-    if (lastSavedAt) {
-      return (
-        <Stack direction="row" spacing={0.75} alignItems="center">
-          <Box
-            sx={{
-              width: 8,
-              height: 8,
-              borderRadius: '50%',
-              bgcolor: '#2e7d32', // success
-            }}
-          />
-          <Typography variant="caption" color="text.secondary">
-            Saved {lastSavedAt.toLocaleTimeString()}
-          </Typography>
-        </Stack>
-      );
-    }
-
-    return null;
-  };
 
 
   // ------------- render (no early return) -------------
@@ -428,12 +372,8 @@ export default function ChapterEditor() {
             <Stack direction="row" spacing={1}>
 
 
-              <SaveStatus
-                saving={saving}
-                autoSaving={autoSaving}
-                isDirty={isDirty}
-                lastSavedAt={lastSavedAt}
-              />
+              <SaveStatus saving={saving} isDirty={isDirty} />
+
 
               <Button onClick={handleCancel} disabled={!isLoaded}>Cancel</Button>
               <Button
