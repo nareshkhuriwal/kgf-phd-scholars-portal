@@ -22,7 +22,7 @@ import { initialsOf } from '../../utils/text/cleanRich';
 import useDebounce from '../../hooks/useDebounce';
 
 const PAGINATION_KEY = 'reviewQueue.pagination';
-
+const FILTERS_KEY = 'reviewQueue.filters';
 
 export default function ReviewQueue() {
   const dispatch = useDispatch();
@@ -35,6 +35,15 @@ export default function ReviewQueue() {
       return {};
     }
   }, []);
+
+  const persistedFilters = React.useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem(FILTERS_KEY)) || {};
+    } catch {
+      return {};
+    }
+  }, []);
+
   const [confirm, setConfirm] = React.useState(null);
 
   // 🔽 SORT STATE
@@ -49,10 +58,18 @@ export default function ReviewQueue() {
 
   const [page, setPage] = React.useState(persisted.page ?? 0);
   const [rpp, setRpp] = React.useState(persisted.rpp ?? 10);
-  const [query, setQuery] = React.useState('');
-  const [status, setStatus] = React.useState('');
-  const [sortBy, setSortBy] = React.useState('updated_at');
-  const [sortDir, setSortDir] = React.useState('desc');
+
+  // const [query, setQuery] = React.useState('');
+  // const [status, setStatus] = React.useState('');
+  // const [sortBy, setSortBy] = React.useState('updated_at');
+  // const [sortDir, setSortDir] = React.useState('desc');
+
+  const [query, setQuery] = React.useState(persistedFilters.query ?? '');
+  const [status, setStatus] = React.useState(persistedFilters.status ?? '');
+  const [paperId, setPaperId] = React.useState(persistedFilters.paperId ?? '');
+  const [sortBy, setSortBy] = React.useState(persistedFilters.sortBy ?? 'updated_at');
+  const [sortDir, setSortDir] = React.useState(persistedFilters.sortDir ?? 'desc');
+
   const debouncedQuery = useDebounce(query, 400);
 
 
@@ -85,6 +102,19 @@ export default function ReviewQueue() {
       JSON.stringify({ page, rpp })
     );
   }, [page, rpp]);
+
+  React.useEffect(() => {
+    localStorage.setItem(
+      FILTERS_KEY,
+      JSON.stringify({
+        query,
+        status,
+        paperId,
+        sortBy,
+        sortDir,
+      })
+    );
+  }, [query, status, paperId, sortBy, sortDir]);
 
 
   // 🔽 SORT HANDLER
