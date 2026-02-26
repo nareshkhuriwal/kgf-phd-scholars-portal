@@ -609,7 +609,9 @@ export default function ReviewEditor() {
 
       // Use citation ID in the display text
       const citationId = citation.id;
+      console.log("Using citation ID for display:", citation);
       const textNode = writer.createText(`[${citationId}]`);
+
       writer.append(textNode, span);
 
       // Insert the span

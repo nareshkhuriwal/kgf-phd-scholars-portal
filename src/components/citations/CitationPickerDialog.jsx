@@ -148,7 +148,8 @@ export default function CitationPickerDialog({ open, onClose, onSelect }) {
                   primary={
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                       <Chip 
-                        label={`#${citation.id}`} 
+                        // label={`#${citation.id}`} 
+                        label={`ID ${citation.id}`}
                         size="small" 
                         color="primary" 
                         variant="outlined"
